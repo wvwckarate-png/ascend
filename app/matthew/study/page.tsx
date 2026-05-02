@@ -1,13 +1,15 @@
 'use client';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { useReactToPrint } from 'react-to-print';
 
 export default function MatthewStudy() {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [studyGuide, setStudyGuide] = useState('');
   const [error, setError] = useState('');
+  const printRef = useRef<HTMLDivElement>(null);
 
   const handleGenerate = async () => {
     if (!file) return;
@@ -33,6 +35,11 @@ export default function MatthewStudy() {
       setLoading(false);
     }
   };
+
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: 'Ascend Study Guide',
+  });
 
   return (
     <main className="min-h-screen px-6 py-12 max-w-2xl mx-auto">
@@ -93,7 +100,7 @@ export default function MatthewStudy() {
           className="rounded-2xl p-6"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
         >
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl" style={{ color: 'var(--text-primary)' }}>
               Your Study Guide
             </h2>
@@ -106,47 +113,37 @@ export default function MatthewStudy() {
             </button>
           </div>
 
-          <div className="study-guide-content">
+          <div className="flex gap-2 mb-6">
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-90"
+              style={{ background: 'var(--purple-light)', color: 'var(--purple-dark)' }}
+            >
+              🖨️ Print
+            </button>
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-90"
+              style={{ background: 'var(--purple-light)', color: 'var(--purple-dark)' }}
+            >
+              💾 Save as PDF
+            </button>
+          </div>
+
+          <div ref={printRef} className="study-guide-content p-4">
             <ReactMarkdown
               components={{
                 h1: ({children}) => (
-                  <h1 style={{
-                    fontFamily: 'Lora, serif',
-                    fontSize: '1.5rem',
-                    fontWeight: '600',
-                    color: 'var(--purple-dark)',
-                    marginTop: '1.5rem',
-                    marginBottom: '0.75rem',
-                    paddingBottom: '0.5rem',
-                    borderBottom: '2px solid var(--purple-light)',
-                  }}>{children}</h1>
+                  <h1 style={{ fontFamily: 'Lora, serif', fontSize: '1.5rem', fontWeight: '600', color: 'var(--purple-dark)', marginTop: '1.5rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: '2px solid var(--purple-light)' }}>{children}</h1>
                 ),
                 h2: ({children}) => (
-                  <h2 style={{
-                    fontFamily: 'Lora, serif',
-                    fontSize: '1.25rem',
-                    fontWeight: '600',
-                    color: 'var(--purple-dark)',
-                    marginTop: '1.25rem',
-                    marginBottom: '0.5rem',
-                  }}>{children}</h2>
+                  <h2 style={{ fontFamily: 'Lora, serif', fontSize: '1.25rem', fontWeight: '600', color: 'var(--purple-dark)', marginTop: '1.25rem', marginBottom: '0.5rem' }}>{children}</h2>
                 ),
                 h3: ({children}) => (
-                  <h3 style={{
-                    fontSize: '1rem',
-                    fontWeight: '600',
-                    color: 'var(--text-primary)',
-                    marginTop: '1rem',
-                    marginBottom: '0.25rem',
-                  }}>{children}</h3>
+                  <h3 style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-primary)', marginTop: '1rem', marginBottom: '0.25rem' }}>{children}</h3>
                 ),
                 p: ({children}) => (
-                  <p style={{
-                    fontSize: '0.9rem',
-                    lineHeight: '1.75',
-                    color: 'var(--text-primary)',
-                    marginBottom: '0.75rem',
-                  }}>{children}</p>
+                  <p style={{ fontSize: '0.9rem', lineHeight: '1.75', color: 'var(--text-primary)', marginBottom: '0.75rem' }}>{children}</p>
                 ),
                 strong: ({children}) => (
                   <strong style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{children}</strong>
@@ -155,33 +152,16 @@ export default function MatthewStudy() {
                   <em style={{ color: 'var(--text-secondary)' }}>{children}</em>
                 ),
                 ul: ({children}) => (
-                  <ul style={{
-                    paddingLeft: '1.25rem',
-                    marginBottom: '0.75rem',
-                    listStyleType: 'disc',
-                  }}>{children}</ul>
+                  <ul style={{ paddingLeft: '1.25rem', marginBottom: '0.75rem', listStyleType: 'disc' }}>{children}</ul>
                 ),
                 ol: ({children}) => (
-                  <ol style={{
-                    paddingLeft: '1.25rem',
-                    marginBottom: '0.75rem',
-                    listStyleType: 'decimal',
-                  }}>{children}</ol>
+                  <ol style={{ paddingLeft: '1.25rem', marginBottom: '0.75rem', listStyleType: 'decimal' }}>{children}</ol>
                 ),
                 li: ({children}) => (
-                  <li style={{
-                    fontSize: '0.9rem',
-                    lineHeight: '1.75',
-                    color: 'var(--text-primary)',
-                    marginBottom: '0.25rem',
-                  }}>{children}</li>
+                  <li style={{ fontSize: '0.9rem', lineHeight: '1.75', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>{children}</li>
                 ),
                 hr: () => (
-                  <hr style={{
-                    border: 'none',
-                    borderTop: '1px solid var(--border)',
-                    margin: '1.5rem 0',
-                  }} />
+                  <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '1.5rem 0' }} />
                 ),
               }}
             >
