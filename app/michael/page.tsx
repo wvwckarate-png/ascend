@@ -26,8 +26,26 @@ export default function MichaelDashboard() {
         Ready to learn something new?
       </p>
 
+      <Link href="/michael/study">
+        <div
+          className="flex items-center gap-4 p-5 rounded-2xl mb-4 cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-lg"
+          style={{
+            background: 'var(--purple)',
+            boxShadow: '0 2px 8px rgba(123,111,160,0.3)',
+          }}
+        >
+          <div className="text-2xl">📄</div>
+          <div>
+            <div className="font-semibold text-white">Generate a Study Guide</div>
+            <div className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>
+              Upload a PDF and get an instant study guide
+            </div>
+          </div>
+        </div>
+      </Link>
+
       <div
-        className="rounded-2xl p-6 mb-6"
+        className="rounded-2xl p-6 mb-4"
         style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
       >
         <h2 className="text-xl mb-4" style={{ color: 'var(--text-primary)' }}>
@@ -41,7 +59,7 @@ export default function MichaelDashboard() {
         <Link href="/michael/add-class">
           <button
             className="w-full py-3 rounded-xl font-medium text-sm transition-all duration-200 hover:opacity-90"
-            style={{ background: 'var(--purple)', color: 'white' }}
+            style={{ background: 'var(--purple-light)', color: 'var(--purple-dark)' }}
           >
             + Add a Class
           </button>

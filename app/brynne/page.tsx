@@ -26,8 +26,26 @@ export default function BrynneDashboard() {
         Let's learn something amazing today!
       </p>
 
+      <Link href="/brynne/study">
+        <div
+          className="flex items-center gap-4 p-5 rounded-2xl mb-4 cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-lg"
+          style={{
+            background: 'var(--accent)',
+            boxShadow: '0 2px 8px rgba(196,168,130,0.3)',
+          }}
+        >
+          <div className="text-2xl">📄</div>
+          <div>
+            <div className="font-semibold text-white">Make a Study Guide! ✨</div>
+            <div className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>
+              Upload a PDF and Ascend will make it awesome
+            </div>
+          </div>
+        </div>
+      </Link>
+
       <div
-        className="rounded-2xl p-6 mb-6"
+        className="rounded-2xl p-6 mb-4"
         style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
       >
         <h2 className="text-xl mb-4" style={{ color: 'var(--text-primary)' }}>
@@ -41,7 +59,7 @@ export default function BrynneDashboard() {
         <Link href="/brynne/add-class">
           <button
             className="w-full py-3 rounded-xl font-medium text-sm transition-all duration-200 hover:opacity-90"
-            style={{ background: 'var(--accent)', color: 'white' }}
+            style={{ background: '#FFF3E8', color: '#C4A882' }}
           >
             + Add a Class
           </button>
