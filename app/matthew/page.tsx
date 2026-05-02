@@ -1,9 +1,36 @@
 'use client';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
+
+type Class = {
+  id: string;
+  name: string;
+  semester: string;
+  professor: string | null;
+  class_time: string | null;
+  class_format: string | null;
+};
 
 export default function MatthewDashboard() {
-  const [classes] = useState([]);
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchClasses = async () => {
+      const { data, error } = await supabase
+        .from('classes')
+        .select('*')
+        .eq('student_id', 'matthew')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (!error && data) setClasses(data);
+      setLoading(false);
+    };
+
+    fetchClasses();
+  }, []);
 
   return (
     <main className="min-h-screen px-6 py-12 max-w-2xl mx-auto">
@@ -51,11 +78,34 @@ export default function MatthewDashboard() {
         <h2 className="text-xl mb-4" style={{ color: 'var(--text-primary)' }}>
           My Classes
         </h2>
-        {classes.length === 0 ? (
+
+        {loading ? (
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading...</p>
+        ) : classes.length === 0 ? (
           <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
             No classes added yet. Add your first class to get started.
           </p>
-        ) : null}
+        ) : (
+          <div className="flex flex-col gap-3 mb-4">
+            {classes.map((cls) => (
+              <div
+                key={cls.id}
+                className="p-4 rounded-xl"
+                style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}
+              >
+                <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {cls.name}
+                </div>
+                <div className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                  {cls.semester}
+                  {cls.professor ? ` · ${cls.professor}` : ''}
+                  {cls.class_format ? ` · ${cls.class_format}` : ''}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         <Link href="/matthew/add-class">
           <button
             className="w-full py-3 rounded-xl font-medium text-sm transition-all duration-200 hover:opacity-90"
