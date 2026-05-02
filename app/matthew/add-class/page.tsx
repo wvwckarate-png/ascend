@@ -11,13 +11,10 @@ const SEMESTERS = [
 
 const CLASS_FORMATS = ['In Person', 'Online', 'Hybrid'];
 
-const CLASS_TIMES = [
-  'Mon/Wed/Fri Morning',
-  'Mon/Wed/Fri Afternoon',
-  'Tue/Thu Morning',
-  'Tue/Thu Afternoon',
-  'Mon/Wed Morning',
-  'Mon/Wed Afternoon',
+const CLASS_DAYS = [
+  'Mon/Wed/Fri',
+  'Tue/Thu',
+  'Mon/Wed',
   'Once a Week',
   'Asynchronous',
   'Other',
@@ -28,7 +25,7 @@ export default function AddClass() {
   const [className, setClassName] = useState('');
   const [semester, setSemester] = useState('');
   const [professor, setProfessor] = useState('');
-  const [classTime, setClassTime] = useState('');
+  const [classDays, setClassDays] = useState('');
   const [classFormat, setClassFormat] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,7 +44,7 @@ export default function AddClass() {
           name: className,
           semester: semester,
           professor: professor || null,
-          class_time: classTime || null,
+          class_time: classDays || null,
           class_format: classFormat || null,
         });
 
@@ -133,16 +130,16 @@ export default function AddClass() {
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
         >
           <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-            Class Time <span style={{ color: 'var(--text-secondary)' }}>(optional)</span>
+            Class Days <span style={{ color: 'var(--text-secondary)' }}>(optional)</span>
           </label>
           <select
-            value={classTime}
-            onChange={(e) => setClassTime(e.target.value)}
+            value={classDays}
+            onChange={(e) => setClassDays(e.target.value)}
             className="w-full px-4 py-3 rounded-xl text-sm outline-none"
             style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
           >
-            <option value="">Select class time</option>
-            {CLASS_TIMES.map(t => <option key={t} value={t}>{t}</option>)}
+            <option value="">Select class days</option>
+            {CLASS_DAYS.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
         </div>
 
