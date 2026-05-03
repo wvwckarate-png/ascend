@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import TabBar from '../../components/TabBar';
 
 function Mountain() {
   return (
@@ -12,209 +13,165 @@ function Mountain() {
   );
 }
 
-type Card = { front: string; back: string; };
+type Question = { front: string; back: string; };
 
-function requeue(q: Card[], idx: number, conf: number): Card[] {
-  const card = q[idx];
-  const rest = q.filter((_, i) => i !== idx);
-  if (conf === 3) return rest;
-  const positions = [3, 8, 18, 999];
-  const pos = Math.min(positions[conf], rest.length);
-  rest.splice(pos, 0, card);
-  return rest;
-}
-
-export default function BrynneFlashcards() {
+export default function MatthewPracticeExam() {
   const [topic, setTopic] = useState('');
-  const [count, setCount] = useState(10);
-  const [mode, setMode] = useState<'basic' | 'smart'>('smart');
+  const [count, setCount] = useState(20);
+  const [examMode, setExamMode] = useState<'lecture' | 'folder' | 'cumulative'>('folder');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [cards, setCards] = useState<Card[]>([]);
-  const [queue, setQueue] = useState<Card[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [qi, setQi] = useState(0);
-  const [flipped, setFlipped] = useState(false);
-  const [ratings, setRatings] = useState<Record<number, number>>({});
-  const [screen, setScreen] = useState<'generate' | 'study' | 'done'>('generate');
+  const [revealed, setRevealed] = useState(false);
+  const [scores, setScores] = useState<Record<number, boolean>>({});
+  const [screen, setScreen] = useState<'setup' | 'exam' | 'done'>('setup');
 
-  const curCard = mode === 'smart' ? queue[qi] : cards[qi];
-  const total = mode === 'smart' ? queue.length : cards.length;
+  const curQ = questions[qi];
+  const total = questions.length;
   const progress = total > 0 ? ((qi / total) * 100) : 0;
-  const knewWell = Object.values(ratings).filter(r => r >= 2).length;
-  const needWork = Object.values(ratings).filter(r => r < 2).length;
+  const correct = Object.values(scores).filter(Boolean).length;
+  const incorrect = Object.values(scores).filter(v => !v).length;
+  const score = total > 0 ? Math.round((correct / total) * 100) : 0;
 
   const generate = async () => {
     if (!topic.trim()) return;
     setLoading(true);
     setError('');
     try {
-      const prompt = `Generate ${count} flashcards for a 5th grade student about: ${topic}. Use simple, clear language. Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}].`;
+      const modeLabel = examMode === 'lecture' ? 'single lecture' : examMode === 'cumulative' ? 'cumulative final exam' : 'exam unit';
+      const prompt = `Generate ${count} practice exam questions for: ${topic} (${modeLabel}). Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"detailed answer"}]. Pre-med/dental college level. Make questions challenging and specific.`;
       const res = await fetch('/api/generate-study-guide', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, student: 'brynne', type: 'flashcards' }),
+        body: JSON.stringify({ prompt, student: 'matthew', type: 'exam' }),
       });
       const data = await res.json();
       const raw = (data.studyGuide || data.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsed: Card[] = JSON.parse(raw);
-      setCards(parsed);
-      setQueue([...parsed]);
+      const parsed: Question[] = JSON.parse(raw);
+      setQuestions(parsed);
       setQi(0);
-      setFlipped(false);
-      setRatings({});
-      setScreen('study');
+      setRevealed(false);
+      setScores({});
+      setScreen('exam');
     } catch (err) {
-      setError('Could not generate flashcards. Please try again.');
+      setError('Could not generate exam. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const next = () => {
-    setFlipped(false);
-    const isLast = mode === 'smart' ? qi + 1 >= queue.length : qi + 1 >= cards.length;
-    if (isLast) { setScreen('done'); return; }
-    setQi(i => i + 1);
+  const mark = (isCorrect: boolean) => {
+    setScores(s => ({ ...s, [qi]: isCorrect }));
+    setRevealed(false);
+    if (qi + 1 >= total) { setScreen('done'); } else { setQi(i => i + 1); }
   };
 
-  const prev = () => {
-    if (qi > 0) { setQi(i => i - 1); setFlipped(false); }
-  };
-
-  const rate = (conf: number) => {
-    setRatings(r => ({ ...r, [qi]: conf }));
-    if (mode === 'smart') {
-      const nq = requeue(queue, qi, conf);
-      if (nq.length === 0) { setScreen('done'); return; }
-      setQueue(nq);
-      setFlipped(false);
-    } else {
-      next();
-    }
-  };
-
-  const restart = () => {
-    setQueue([...cards]);
-    setQi(0);
-    setFlipped(false);
-    setRatings({});
-    setScreen('study');
-  };
+  const restart = () => { setQi(0); setRevealed(false); setScores({}); setScreen('exam'); };
 
   useEffect(() => {
-    if (screen !== 'study') return;
+    if (screen !== 'exam') return;
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setFlipped(f => !f); }
-      if (e.key === 'ArrowUp') { e.preventDefault(); next(); }
-      if (e.key === 'ArrowDown') { e.preventDefault(); prev(); }
-      if (e.key === '1') rate(0);
-      if (e.key === '2') rate(1);
-      if (e.key === '3') rate(2);
-      if (e.key === '4') rate(3);
+      if (e.key === ' ') { e.preventDefault(); setRevealed(r => !r); }
+      if (revealed) {
+        if (e.key === 'ArrowRight' || e.key === 'y') mark(true);
+        if (e.key === 'ArrowLeft' || e.key === 'n') mark(false);
+      }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [screen, qi, flipped, queue, cards]);
+  }, [screen, qi, revealed]);
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAF8' }}>
       <nav style={{ height: 58, display: 'flex', alignItems: 'center', padding: '0 20px', gap: 10, background: 'rgba(250,250,248,0.95)', backdropFilter: 'blur(16px)', borderBottom: '1px solid #E8E5F0', position: 'sticky', top: 0, zIndex: 90 }}>
-        <Link href="/brynne" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Link href="/matthew" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
           <Mountain />
           <span style={{ fontSize: 18, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.5px' }}>Ascend</span>
           <span style={{ fontSize: 9, fontWeight: 700, color: '#C4C1D4', letterSpacing: 1.5, textTransform: 'uppercase', fontStyle: 'italic', marginLeft: 4 }}>Forged in Focus</span>
         </Link>
       </nav>
 
-      {screen === 'generate' && (
-        <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 60px' }}>
+      {screen === 'setup' && (
+        <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
           <div style={{ marginBottom: 28 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Brynne</div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Flashcards! ✨</div>
-            <div style={{ fontSize: 13, color: '#9E9BB0' }}>Pick a topic and let's make a deck!</div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Matthew</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Practice Exam</div>
+            <div style={{ fontSize: 13, color: '#9E9BB0' }}>Choose your scope and generate a practice exam.</div>
           </div>
-
-          <div style={{ background: '#F3F1EC', borderRadius: 12, padding: 3, display: 'flex', gap: 2, marginBottom: 8 }}>
-            {(['smart', 'basic'] as const).map(m => (
-              <button key={m} onClick={() => setMode(m)} style={{ flex: 1, padding: '9px', borderRadius: 9, border: 'none', fontFamily: 'var(--font-jakarta)', fontSize: 12, fontWeight: 700, cursor: 'pointer', background: mode === m ? '#FFFFFF' : 'transparent', color: mode === m ? '#E8956D' : '#9E9BB0', boxShadow: mode === m ? '0 1px 4px rgba(29,27,38,0.08)' : 'none' }}>
-                {m === 'smart' ? 'Smart Deck' : 'Basic Deck'}
-              </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+            {([['lecture', 'Single Lecture', 'One lecture. Best for Day 0 review.'], ['folder', 'Exam Folder', 'Full unit prep. Covers all material for one exam.'], ['cumulative', 'Cumulative Final', 'Full course, weighted to weak areas.']] as const).map(([k, lbl, desc]) => (
+              <div key={k} onClick={() => setExamMode(k)} style={{ border: `2px solid ${examMode === k ? '#7B6FA0' : '#E8E5F0'}`, borderRadius: 14, padding: '14px 16px', cursor: 'pointer', background: examMode === k ? '#EDE9F7' : '#FFFFFF', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                <div style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${examMode === k ? '#7B6FA0' : '#C4C1D4'}`, background: examMode === k ? '#7B6FA0' : 'transparent', flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: examMode === k ? '#5A5078' : '#1D1B26', marginBottom: 2 }}>{lbl}</div>
+                  <div style={{ fontSize: 11, color: '#9E9BB0', lineHeight: 1.4 }}>{desc}</div>
+                </div>
+              </div>
             ))}
           </div>
-          <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 20, textAlign: 'center' }}>
-            {mode === 'smart' ? 'Adaptive — cards repeat until mastered' : 'Linear — card 1 to end, no algorithm'}
-          </div>
-
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>What do you want to study?</label>
-            <input value={topic} onChange={e => setTopic(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !loading && topic.trim()) generate(); }} placeholder="e.g. Algebra - Solving Equations" style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', marginBottom: 16 }} />
-            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 8, display: 'block' }}>Number of Cards</label>
+            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Subject / Topic</label>
+            <input value={topic} onChange={e => setTopic(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !loading && topic.trim()) generate(); }} placeholder="e.g. AP Biology - Cellular Respiration" style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', marginBottom: 16 }} />
+            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 8, display: 'block' }}>Questions</label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {[10, 15, 20].map(n => (
-                <button key={n} onClick={() => setCount(n)} style={{ padding: '6px 16px', borderRadius: 999, border: `1.5px solid ${count === n ? '#E8956D' : '#E8E5F0'}`, background: count === n ? '#E8956D' : '#FAFAF8', color: count === n ? 'white' : '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{n}</button>
+              {[10, 15, 20, 30, 40].map(n => (
+                <button key={n} onClick={() => setCount(n)} style={{ padding: '6px 16px', borderRadius: 999, border: `1.5px solid ${count === n ? '#C8965A' : '#E8E5F0'}`, background: count === n ? '#C8965A' : '#FAFAF8', color: count === n ? 'white' : '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{n}</button>
               ))}
             </div>
           </div>
-
           {error && <p style={{ fontSize: 13, color: '#C47878', marginBottom: 12 }}>{error}</p>}
-
           {loading ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
-              <div style={{ width: 32, height: 32, border: '2.5px solid #E8E5F0', borderTopColor: '#E8956D', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.75s linear infinite' }} />
-              <div style={{ fontSize: 13, color: '#9E9BB0' }}>Making your cards... ✨</div>
+              <div style={{ width: 32, height: 32, border: '2.5px solid #E8E5F0', borderTopColor: '#C8965A', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.75s linear infinite' }} />
+              <div style={{ fontSize: 13, color: '#9E9BB0' }}>Generating your exam...</div>
               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
           ) : (
-            <button onClick={generate} disabled={!topic.trim()} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #E8956D, #C4A882)', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: topic.trim() ? 1 : 0.4 }}>
-              {topic.trim() ? 'Make My Cards! ✨' : 'Enter a topic first'}
+            <button onClick={generate} disabled={!topic.trim()} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #C8965A, #A87840)', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: topic.trim() ? 1 : 0.4 }}>
+              {topic.trim() ? 'Generate Practice Exam' : 'Enter a topic first'}
             </button>
           )}
         </main>
       )}
 
-      {screen === 'study' && curCard && (
+      {screen === 'exam' && curQ && (
         <main style={{ maxWidth: 600, margin: '0 auto', padding: '20px 20px 80px' }}>
-          {mode === 'basic' && (
-            <div style={{ height: 3, background: '#E8E5F0', borderRadius: 99, overflow: 'hidden', marginBottom: 16 }}>
-              <div style={{ height: '100%', background: '#E8956D', width: `${progress}%`, transition: 'width 0.4s' }} />
-            </div>
-          )}
-          {mode === 'smart' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <span style={{ fontSize: 9, fontWeight: 700, color: '#E8956D', letterSpacing: 1, textTransform: 'uppercase' }}>Smart</span>
-              <div style={{ flex: 1, display: 'flex', gap: 2 }}>
-                {Array.from({ length: Math.min(total, 20) }).map((_, i) => (
-                  <div key={i} style={{ flex: 1, height: 4, borderRadius: 99, background: i < qi ? '#5FAD8E' : i === qi ? '#E8956D' : '#E8E5F0' }} />
-                ))}
-              </div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#9E9BB0' }}>{qi + 1}/{total}</span>
-            </div>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <button onClick={prev} style={{ width: 38, height: 38, borderRadius: '50%', border: '1.5px solid #E8E5F0', background: '#FFFFFF', cursor: 'pointer', fontSize: 16, color: '#9E9BB0' }}>{'<'}</button>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#9E9BB0' }}>{qi + 1} of {total}</span>
-            <button onClick={next} style={{ width: 38, height: 38, borderRadius: '50%', border: '1.5px solid #E8E5F0', background: '#FFFFFF', cursor: 'pointer', fontSize: 16, color: '#9E9BB0' }}>{'>'}</button>
+          <div style={{ height: 3, background: '#E8E5F0', borderRadius: 99, overflow: 'hidden', marginBottom: 16 }}>
+            <div style={{ height: '100%', background: '#C8965A', width: `${progress}%`, transition: 'width 0.4s' }} />
           </div>
-          <div onClick={() => setFlipped(f => !f)} style={{ width: '100%', perspective: 1400, cursor: 'pointer', marginBottom: 20 }}>
-            <div style={{ position: 'relative', width: '100%', minHeight: 240, transformStyle: 'preserve-3d', transition: 'transform 0.35s', transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
-              <div style={{ position: 'absolute', width: '100%', minHeight: 240, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', borderRadius: 20, padding: '36px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: '#FFFFFF', border: '1.5px solid #E8E5F0', boxShadow: '0 6px 28px rgba(29,27,38,0.08)' }}>
-                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 16 }}>Question</div>
-                <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.5, color: '#1D1B26' }}>{curCard.front}</div>
-                <div style={{ marginTop: 20, fontSize: 11, color: '#C4C1D4' }}>tap to flip ✨</div>
-              </div>
-              <div style={{ position: 'absolute', width: '100%', minHeight: 240, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', borderRadius: 20, padding: '36px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: '#FFF3E8', border: '1.5px solid rgba(232,149,109,0.2)', transform: 'rotateY(180deg)' }}>
-                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#E8956D', opacity: 0.7, marginBottom: 16 }}>Answer</div>
-                <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.5, color: '#C4A882' }}>{curCard.back}</div>
-              </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#9E9BB0' }}>Question {qi + 1} of {total}</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#5FAD8E', background: '#EDF7F2', padding: '3px 10px', borderRadius: 999 }}>✓ {correct}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', padding: '3px 10px', borderRadius: 999 }}>✗ {incorrect}</span>
             </div>
           </div>
-          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#C4C1D4', textAlign: 'center', marginBottom: 10 }}>How well did you know this?</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-            {([["Didn't Know", '#C47878'], ['Almost', '#C8965A'], ['Got It', '#5FAD8E'], ['Cold!', '#E8956D']] as const).map(([label, color], i) => (
-              <button key={i} onClick={() => rate(i)} style={{ padding: '12px 4px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: '#FFFFFF', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', textAlign: 'center' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color, marginBottom: 2 }}>{label}</div>
-                <div style={{ fontSize: 9, color: '#C4C1D4' }}>press {i + 1}</div>
-              </button>
+          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 20, padding: '32px', marginBottom: 14, boxShadow: '0 4px 20px rgba(29,27,38,0.07)' }}>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 14 }}>Question</div>
+            <div style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.6, color: '#1D1B26' }}>{curQ.front}</div>
+          </div>
+          {!revealed ? (
+            <button onClick={() => setRevealed(true)} style={{ width: '100%', padding: '14px', borderRadius: 14, border: '2px dashed #E8E5F0', background: 'transparent', color: '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Show Answer · press Space</button>
+          ) : (
+            <>
+              <div style={{ background: '#EDE9F7', border: '1.5px solid rgba(123,111,160,0.2)', borderRadius: 20, padding: '24px 28px', marginBottom: 14 }}>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#7B6FA0', opacity: 0.7, marginBottom: 12 }}>Answer</div>
+                <div style={{ fontSize: 15, fontWeight: 500, lineHeight: 1.65, color: '#5A5078' }}>{curQ.back}</div>
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#9E9BB0', textAlign: 'center', marginBottom: 10 }}>Did you get it right?</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <button onClick={() => mark(false)} style={{ padding: '14px', borderRadius: 14, border: '2px solid #C47878', background: '#FDF2F2', color: '#C47878', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>✗ Incorrect · N</button>
+                <button onClick={() => mark(true)} style={{ padding: '14px', borderRadius: 14, border: 'none', background: '#5FAD8E', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>✓ Correct · Y</button>
+              </div>
+            </>
+          )}
+          <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 16 }}>
+            {[['Space', 'reveal'], ['Y / →', 'correct'], ['N / ←', 'incorrect']].map(([key, label]) => (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: '#C4C1D4' }}>
+                <span style={{ background: '#F3F1EC', border: '1px solid #E8E5F0', borderRadius: 4, padding: '1px 5px', fontFamily: 'monospace', fontSize: 9 }}>{key}</span>
+                {label}
+              </div>
             ))}
           </div>
         </main>
@@ -222,25 +179,30 @@ export default function BrynneFlashcards() {
 
       {screen === 'done' && (
         <main style={{ maxWidth: 500, margin: '0 auto', padding: '40px 20px 80px', textAlign: 'center' }}>
-          <div style={{ fontSize: 52, marginBottom: 14 }}>🎉</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.5px', marginBottom: 8 }}>Amazing work, Brynne!</div>
-          <div style={{ fontSize: 14, color: '#9E9BB0', lineHeight: 1.6, marginBottom: 28 }}>You reviewed <strong>{Object.keys(ratings).length} cards</strong>. You're doing great! 🌟</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, maxWidth: 340, margin: '0 auto 28px' }}>
-            {[{ n: Object.keys(ratings).length, l: 'Reviewed', c: '#E8956D' }, { n: knewWell, l: 'Knew Well', c: '#5FAD8E' }, { n: needWork, l: 'Needs Work', c: '#C47878' }, { n: cards.length, l: 'Total Cards', c: '#C8965A' }].map((s, i) => (
+          <div style={{ fontSize: 52, marginBottom: 14 }}>{score >= 80 ? '🎯' : score >= 60 ? '📈' : '💪'}</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.5px', marginBottom: 8 }}>Exam Complete!</div>
+          <div style={{ fontSize: 48, fontWeight: 800, color: score >= 80 ? '#5FAD8E' : score >= 60 ? '#C8965A' : '#C47878', marginBottom: 4 }}>{score}%</div>
+          <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 28 }}>{correct} correct · {incorrect} incorrect · {total} questions</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, maxWidth: 380, margin: '0 auto 28px' }}>
+            {[{ n: correct, l: 'Correct', c: '#5FAD8E' }, { n: incorrect, l: 'Incorrect', c: '#C47878' }, { n: total, l: 'Total', c: '#C8965A' }].map((s, i) => (
               <div key={i} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '16px', textAlign: 'center', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
                 <div style={{ fontSize: 26, fontWeight: 800, color: s.c, marginBottom: 4 }}>{s.n}</div>
                 <div style={{ fontSize: 11, color: '#9E9BB0', fontWeight: 600 }}>{s.l}</div>
               </div>
             ))}
           </div>
+          <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 24, padding: '0 20px', lineHeight: 1.6 }}>
+            {score >= 80 ? "Excellent work. You're ready for this material." : score >= 60 ? 'Good foundation. Review the questions you missed.' : 'Keep studying. Run the Smart Deck on the weak areas first.'}
+          </div>
           <div style={{ display: 'flex', gap: 10, maxWidth: 340, margin: '0 auto' }}>
-            <button onClick={restart} style={{ flex: 1, padding: '13px', borderRadius: 14, border: '1.5px solid #E8E5F0', background: '#F3F1EC', color: '#6B6880', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Study Again</button>
-            <Link href="/brynne" style={{ flex: 1, textDecoration: 'none' }}>
-              <button style={{ width: '100%', padding: '13px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #E8956D, #C4A882)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Dashboard</button>
+            <button onClick={restart} style={{ flex: 1, padding: '13px', borderRadius: 14, border: '1.5px solid #E8E5F0', background: '#F3F1EC', color: '#6B6880', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Retake</button>
+            <Link href="/matthew" style={{ flex: 1, textDecoration: 'none' }}>
+              <button style={{ width: '100%', padding: '13px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Dashboard</button>
             </Link>
           </div>
         </main>
       )}
+      <TabBar student="matthew" />
     </div>
   );
 }

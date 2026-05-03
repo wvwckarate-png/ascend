@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import TabBar from '../components/TabBar';
 
 type Class = {
   id: string;
@@ -104,7 +105,7 @@ export default function BrynneDashboard() {
         </div>
       </nav>
 
-      <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 60px' }}>
+      <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Welcome back</div>
           <div style={{ fontSize: 32, fontWeight: 800, color: '#1D1B26', letterSpacing: '-1px', marginBottom: 4 }}>Hey, Brynne! 🌟</div>
@@ -187,6 +188,7 @@ export default function BrynneDashboard() {
           )}
         </div>
       </main>
+      <TabBar student="brynne" />
     </div>
   );
 }

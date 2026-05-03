@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import TabBar from '../../components/TabBar';
 
 function Mountain() {
   return (
@@ -63,19 +64,10 @@ export default function MichaelPracticeExam() {
   const mark = (isCorrect: boolean) => {
     setScores(s => ({ ...s, [qi]: isCorrect }));
     setRevealed(false);
-    if (qi + 1 >= total) {
-      setScreen('done');
-    } else {
-      setQi(i => i + 1);
-    }
+    if (qi + 1 >= total) { setScreen('done'); } else { setQi(i => i + 1); }
   };
 
-  const restart = () => {
-    setQi(0);
-    setRevealed(false);
-    setScores({});
-    setScreen('exam');
-  };
+  const restart = () => { setQi(0); setRevealed(false); setScores({}); setScreen('exam'); };
 
   useEffect(() => {
     if (screen !== 'exam') return;
@@ -101,19 +93,14 @@ export default function MichaelPracticeExam() {
       </nav>
 
       {screen === 'setup' && (
-        <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 60px' }}>
+        <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
           <div style={{ marginBottom: 28 }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Michael</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Practice Exam</div>
             <div style={{ fontSize: 13, color: '#9E9BB0' }}>Choose your scope and generate a practice exam.</div>
           </div>
-
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-            {([
-              ['lecture', 'Single Lecture', 'One lecture. Best for Day 0 review.'],
-              ['folder', 'Exam Folder', 'Full unit prep. Covers all material for one exam.'],
-              ['cumulative', 'Cumulative Final', 'Full course, weighted to weak areas.'],
-            ] as const).map(([k, lbl, desc]) => (
+            {([['lecture', 'Single Lecture', 'One lecture. Best for Day 0 review.'], ['folder', 'Exam Folder', 'Full unit prep. Covers all material for one exam.'], ['cumulative', 'Cumulative Final', 'Full course, weighted to weak areas.']] as const).map(([k, lbl, desc]) => (
               <div key={k} onClick={() => setExamMode(k)} style={{ border: `2px solid ${examMode === k ? '#7B6FA0' : '#E8E5F0'}`, borderRadius: 14, padding: '14px 16px', cursor: 'pointer', background: examMode === k ? '#EDE9F7' : '#FFFFFF', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                 <div style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${examMode === k ? '#7B6FA0' : '#C4C1D4'}`, background: examMode === k ? '#7B6FA0' : 'transparent', flexShrink: 0, marginTop: 2 }} />
                 <div>
@@ -123,7 +110,6 @@ export default function MichaelPracticeExam() {
               </div>
             ))}
           </div>
-
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
             <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Subject / Topic</label>
             <input value={topic} onChange={e => setTopic(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !loading && topic.trim()) generate(); }} placeholder="e.g. Biology - Ecosystems" style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', marginBottom: 16 }} />
@@ -134,9 +120,7 @@ export default function MichaelPracticeExam() {
               ))}
             </div>
           </div>
-
           {error && <p style={{ fontSize: 13, color: '#C47878', marginBottom: 12 }}>{error}</p>}
-
           {loading ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
               <div style={{ width: 32, height: 32, border: '2.5px solid #E8E5F0', borderTopColor: '#C8965A', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.75s linear infinite' }} />
@@ -168,9 +152,7 @@ export default function MichaelPracticeExam() {
             <div style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.6, color: '#1D1B26' }}>{curQ.front}</div>
           </div>
           {!revealed ? (
-            <button onClick={() => setRevealed(true)} style={{ width: '100%', padding: '14px', borderRadius: 14, border: '2px dashed #E8E5F0', background: 'transparent', color: '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-              Show Answer · press Space
-            </button>
+            <button onClick={() => setRevealed(true)} style={{ width: '100%', padding: '14px', borderRadius: 14, border: '2px dashed #E8E5F0', background: 'transparent', color: '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Show Answer · press Space</button>
           ) : (
             <>
               <div style={{ background: '#EDE9F7', border: '1.5px solid rgba(123,111,160,0.2)', borderRadius: 20, padding: '24px 28px', marginBottom: 14 }}>
@@ -210,7 +192,7 @@ export default function MichaelPracticeExam() {
             ))}
           </div>
           <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 24, padding: '0 20px', lineHeight: 1.6 }}>
-            {score >= 80 ? 'Excellent work. You\'re ready for this material.' : score >= 60 ? 'Good foundation. Review the questions you missed.' : 'Keep studying. Run the Smart Deck on the weak areas first.'}
+            {score >= 80 ? "Excellent work. You're ready for this material." : score >= 60 ? 'Good foundation. Review the questions you missed.' : 'Keep studying. Run the Smart Deck on the weak areas first.'}
           </div>
           <div style={{ display: 'flex', gap: 10, maxWidth: 340, margin: '0 auto' }}>
             <button onClick={restart} style={{ flex: 1, padding: '13px', borderRadius: 14, border: '1.5px solid #E8E5F0', background: '#F3F1EC', color: '#6B6880', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Retake</button>
@@ -220,6 +202,7 @@ export default function MichaelPracticeExam() {
           </div>
         </main>
       )}
+      <TabBar student="michael" />
     </div>
   );
 }

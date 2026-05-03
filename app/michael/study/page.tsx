@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { useReactToPrint } from 'react-to-print';
 import { supabase } from '../../../lib/supabase';
+import TabBar from '../../components/TabBar';
 
 function Mountain() {
   return (
@@ -83,7 +84,7 @@ export default function MichaelStudy() {
         </Link>
       </nav>
 
-      <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 60px' }}>
+      <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
         <div style={{ marginBottom: 28 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Michael</div>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Generate Study Guide</div>
@@ -93,24 +94,15 @@ export default function MichaelStudy() {
         {!studyGuide ? (
           <>
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-              <div
-                onClick={() => document.getElementById('pdf-upload-michael')?.click()}
-                style={{ padding: '40px 20px', borderRadius: 12, border: '2px dashed #E8E5F0', background: '#FAFAF8', textAlign: 'center', cursor: 'pointer' }}
-              >
+              <div onClick={() => document.getElementById('pdf-upload-michael')?.click()} style={{ padding: '40px 20px', borderRadius: 12, border: '2px dashed #E8E5F0', background: '#FAFAF8', textAlign: 'center', cursor: 'pointer' }}>
                 <div style={{ fontSize: 36, marginBottom: 10 }}>📄</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>{file ? file.name : 'Upload a PDF'}</div>
                 <div style={{ fontSize: 12, color: '#9E9BB0' }}>{file ? 'Click to change file' : 'Click to browse your files'}</div>
                 <input id="pdf-upload-michael" type="file" accept=".pdf" style={{ display: 'none' }} onChange={e => setFile(e.target.files?.[0] || null)} />
               </div>
             </div>
-
             {error && <p style={{ fontSize: 13, color: '#C47878', marginBottom: 12 }}>{error}</p>}
-
-            <button
-              onClick={handleGenerate}
-              disabled={!file || loading}
-              style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !file || loading ? 0.4 : 1 }}
-            >
+            <button onClick={handleGenerate} disabled={!file || loading} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !file || loading ? 0.4 : 1 }}>
               {loading ? 'Generating your study guide...' : 'Generate Study Guide'}
             </button>
           </>
@@ -154,6 +146,7 @@ export default function MichaelStudy() {
           </div>
         )}
       </main>
+      <TabBar student="michael" />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import TabBar from '../../components/TabBar';
 
 function Mountain() {
   return (
@@ -63,19 +64,10 @@ export default function BrynnePracticeExam() {
   const mark = (isCorrect: boolean) => {
     setScores(s => ({ ...s, [qi]: isCorrect }));
     setRevealed(false);
-    if (qi + 1 >= total) {
-      setScreen('done');
-    } else {
-      setQi(i => i + 1);
-    }
+    if (qi + 1 >= total) { setScreen('done'); } else { setQi(i => i + 1); }
   };
 
-  const restart = () => {
-    setQi(0);
-    setRevealed(false);
-    setScores({});
-    setScreen('exam');
-  };
+  const restart = () => { setQi(0); setRevealed(false); setScores({}); setScreen('exam'); };
 
   useEffect(() => {
     if (screen !== 'exam') return;
@@ -101,19 +93,14 @@ export default function BrynnePracticeExam() {
       </nav>
 
       {screen === 'setup' && (
-        <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 60px' }}>
+        <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
           <div style={{ marginBottom: 28 }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Brynne</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Practice Quiz! 📝</div>
             <div style={{ fontSize: 13, color: '#9E9BB0' }}>Let's see what you know! Pick a topic and go!</div>
           </div>
-
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-            {([
-              ['lecture', 'One Lesson', 'Just one lesson. Great for quick review!'],
-              ['folder', 'Unit Test', 'Everything from this unit.'],
-              ['cumulative', 'Full Review', 'Everything you have learned so far!'],
-            ] as const).map(([k, lbl, desc]) => (
+            {([['lecture', 'One Lesson', 'Just one lesson. Great for quick review!'], ['folder', 'Unit Test', 'Everything from this unit.'], ['cumulative', 'Full Review', 'Everything you have learned so far!']] as const).map(([k, lbl, desc]) => (
               <div key={k} onClick={() => setExamMode(k)} style={{ border: `2px solid ${examMode === k ? '#E8956D' : '#E8E5F0'}`, borderRadius: 14, padding: '14px 16px', cursor: 'pointer', background: examMode === k ? '#FFF3E8' : '#FFFFFF', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                 <div style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${examMode === k ? '#E8956D' : '#C4C1D4'}`, background: examMode === k ? '#E8956D' : 'transparent', flexShrink: 0, marginTop: 2 }} />
                 <div>
@@ -123,7 +110,6 @@ export default function BrynnePracticeExam() {
               </div>
             ))}
           </div>
-
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
             <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>What do you want to be quizzed on?</label>
             <input value={topic} onChange={e => setTopic(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !loading && topic.trim()) generate(); }} placeholder="e.g. Algebra - Solving Equations" style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', marginBottom: 16 }} />
@@ -134,9 +120,7 @@ export default function BrynnePracticeExam() {
               ))}
             </div>
           </div>
-
           {error && <p style={{ fontSize: 13, color: '#C47878', marginBottom: 12 }}>{error}</p>}
-
           {loading ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
               <div style={{ width: 32, height: 32, border: '2.5px solid #E8E5F0', borderTopColor: '#E8956D', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.75s linear infinite' }} />
@@ -168,9 +152,7 @@ export default function BrynnePracticeExam() {
             <div style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.6, color: '#1D1B26' }}>{curQ.front}</div>
           </div>
           {!revealed ? (
-            <button onClick={() => setRevealed(true)} style={{ width: '100%', padding: '14px', borderRadius: 14, border: '2px dashed #E8E5F0', background: 'transparent', color: '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-              Show Answer ✨
-            </button>
+            <button onClick={() => setRevealed(true)} style={{ width: '100%', padding: '14px', borderRadius: 14, border: '2px dashed #E8E5F0', background: 'transparent', color: '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Show Answer ✨</button>
           ) : (
             <>
               <div style={{ background: '#FFF3E8', border: '1.5px solid rgba(232,149,109,0.2)', borderRadius: 20, padding: '24px 28px', marginBottom: 14 }}>
@@ -212,6 +194,7 @@ export default function BrynnePracticeExam() {
           </div>
         </main>
       )}
+      <TabBar student="brynne" />
     </div>
   );
 }
