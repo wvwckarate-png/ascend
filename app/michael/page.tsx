@@ -12,25 +12,39 @@ type Class = {
   class_format: string | null;
 };
 
+type StudyGuide = {
+  id: string;
+  title: string;
+  source_filename: string;
+  created_at: string;
+};
+
 export default function MichaelDashboard() {
   const [classes, setClasses] = useState<Class[]>([]);
+  const [guides, setGuides] = useState<StudyGuide[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchClasses = async () => {
-      const { data, error } = await supabase
-        .from('classes')
-        .select('*')
-        .eq('student_id', 'michael')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-
-      if (!error && data) setClasses(data);
+    const fetchData = async () => {
+      const [{ data: classData }, { data: guideData }] = await Promise.all([
+        supabase.from('classes').select('*').eq('student_id', 'michael').eq('is_active', true).order('created_at', { ascending: false }),
+        supabase.from('study_guides').select('*').eq('student_id', 'michael').order('created_at', { ascending: false }).limit(5),
+      ]);
+      if (classData) setClasses(classData);
+      if (guideData) setGuides(guideData);
       setLoading(false);
     };
-
-    fetchClasses();
+    fetchData();
   }, []);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this study guide?')) return;
+    setDeletingId(id);
+    await supabase.from('study_guides').delete().eq('id', id);
+    setGuides(guides.filter(g => g.id !== id));
+    setDeletingId(null);
+  };
 
   return (
     <main className="min-h-screen px-6 py-12 max-w-2xl mx-auto">
@@ -38,94 +52,70 @@ export default function MichaelDashboard() {
         <Link href="/" className="text-sm" style={{ color: 'var(--text-secondary)' }}>
           ← Back
         </Link>
-        <div
-          className="text-xs font-medium px-3 py-1 rounded-full"
-          style={{ background: 'var(--purple-light)', color: 'var(--purple-dark)' }}
-        >
+        <div className="text-xs font-medium px-3 py-1 rounded-full" style={{ background: 'var(--purple-light)', color: 'var(--purple-dark)' }}>
           Pre-Med · Foundation
         </div>
       </div>
 
-      <h1 className="text-4xl mb-1" style={{ color: 'var(--purple-dark)' }}>
-        Hey, Michael.
-      </h1>
-      <p className="mb-10" style={{ color: 'var(--text-secondary)' }}>
-        Ready to learn something new?
-      </p>
+      <h1 className="text-4xl mb-1" style={{ color: 'var(--purple-dark)' }}>Hey, Michael.</h1>
+      <p className="mb-10" style={{ color: 'var(--text-secondary)' }}>Ready to learn something new?</p>
 
       <Link href="/michael/study">
-        <div
-          className="flex items-center gap-4 p-5 rounded-2xl mb-4 cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-lg"
-          style={{
-            background: 'var(--purple)',
-            boxShadow: '0 2px 8px rgba(123,111,160,0.3)',
-          }}
-        >
+        <div className="flex items-center gap-4 p-5 rounded-2xl mb-4 cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-lg" style={{ background: 'var(--purple)', boxShadow: '0 2px 8px rgba(123,111,160,0.3)' }}>
           <div className="text-2xl">📄</div>
           <div>
             <div className="font-semibold text-white">Generate a Study Guide</div>
-            <div className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>
-              Upload a PDF and get an instant study guide
-            </div>
+            <div className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>Upload a PDF and get an instant study guide</div>
           </div>
         </div>
       </Link>
 
-      <div
-        className="rounded-2xl p-6 mb-4"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-      >
-        <h2 className="text-xl mb-4" style={{ color: 'var(--text-primary)' }}>
-          My Classes
-        </h2>
-
+      <div className="rounded-2xl p-6 mb-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+        <h2 className="text-xl mb-4" style={{ color: 'var(--text-primary)' }}>My Classes</h2>
         {loading ? (
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading...</p>
         ) : classes.length === 0 ? (
-          <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
-            No classes added yet. Add your first class to get started.
-          </p>
+          <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>No classes added yet. Add your first class to get started.</p>
         ) : (
           <div className="flex flex-col gap-3 mb-4">
             {classes.map((cls) => (
-              <div
-                key={cls.id}
-                className="p-4 rounded-xl"
-                style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}
-              >
-                <div className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                  {cls.name}
-                </div>
+              <div key={cls.id} className="p-4 rounded-xl" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                <div className="font-medium" style={{ color: 'var(--text-primary)' }}>{cls.name}</div>
                 <div className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                  {cls.semester}
-                  {cls.professor ? ` · ${cls.professor}` : ''}
-                  {cls.class_format ? ` · ${cls.class_format}` : ''}
+                  {cls.semester}{cls.professor ? ` · ${cls.professor}` : ''}{cls.class_format ? ` · ${cls.class_format}` : ''}
                 </div>
               </div>
             ))}
           </div>
         )}
-
         <Link href="/michael/add-class">
-          <button
-            className="w-full py-3 rounded-xl font-medium text-sm transition-all duration-200 hover:opacity-90"
-            style={{ background: 'var(--purple-light)', color: 'var(--purple-dark)' }}
-          >
+          <button className="w-full py-3 rounded-xl font-medium text-sm transition-all duration-200 hover:opacity-90" style={{ background: 'var(--purple-light)', color: 'var(--purple-dark)' }}>
             + Add a Class
           </button>
         </Link>
       </div>
 
-      <div
-        className="rounded-2xl p-6"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-      >
-        <h2 className="text-xl mb-4" style={{ color: 'var(--text-primary)' }}>
-          Recent Study Guides
-        </h2>
-        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-          Your study guides will appear here once you generate them.
-        </p>
+      <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+        <h2 className="text-xl mb-4" style={{ color: 'var(--text-primary)' }}>Recent Study Guides</h2>
+        {loading ? (
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading...</p>
+        ) : guides.length === 0 ? (
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Your study guides will appear here once you generate them.</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {guides.map((guide) => (
+              <div key={guide.id} className="flex items-center justify-between p-4 rounded-xl" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm truncate" style={{ color: 'var(--text-primary)' }}>{guide.title}</div>
+                  <div className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>{new Date(guide.created_at).toLocaleDateString()}</div>
+                </div>
+                <button onClick={() => handleDelete(guide.id)} disabled={deletingId === guide.id} className="ml-3 text-xs px-3 py-1 rounded-lg transition-all hover:opacity-70 disabled:opacity-30" style={{ color: 'var(--text-secondary)', background: 'var(--border)' }}>
+                  {deletingId === guide.id ? '...' : 'Delete'}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </main>
   );

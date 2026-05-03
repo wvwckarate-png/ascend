@@ -3,12 +3,17 @@ import Link from 'next/link';
 import { useState, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { useReactToPrint } from 'react-to-print';
+import { supabase } from '../../../lib/supabase';
 
 export default function MatthewStudy() {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [studyGuide, setStudyGuide] = useState('');
   const [error, setError] = useState('');
+  const [guideName, setGuideName] = useState('');
+  const [showNamePrompt, setShowNamePrompt] = useState(false);
+  const [saved, setSaved] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
   const handleGenerate = async () => {
@@ -29,6 +34,9 @@ export default function MatthewStudy() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setStudyGuide(data.studyGuide);
+      setGuideName(file.name.replace('.pdf', ''));
+      setShowNamePrompt(true);
+      setSaved(false);
     } catch (err) {
       setError('Something went wrong. Please try again.');
     } finally {
@@ -36,9 +44,31 @@ export default function MatthewStudy() {
     }
   };
 
+  const handleSave = async () => {
+    if (!guideName.trim()) return;
+    setSaving(true);
+    try {
+      const { error: saveError } = await supabase
+        .from('study_guides')
+        .insert({
+          student_id: 'matthew',
+          title: guideName.trim(),
+          content: studyGuide,
+          source_filename: file?.name || '',
+        });
+      if (saveError) throw saveError;
+      setSaved(true);
+      setShowNamePrompt(false);
+    } catch (err) {
+      setError('Could not save. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handlePrint = useReactToPrint({
     contentRef: printRef,
-    documentTitle: 'Ascend Study Guide',
+    documentTitle: guideName || 'Ascend Study Guide',
   });
 
   return (
@@ -100,12 +130,50 @@ export default function MatthewStudy() {
           className="rounded-2xl p-6"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
         >
+          {showNamePrompt && (
+            <div
+              className="rounded-xl p-4 mb-6"
+              style={{ background: 'var(--purple-light)', border: '1px solid var(--border)' }}
+            >
+              <p className="text-sm font-semibold mb-3" style={{ color: 'var(--purple-dark)' }}>
+                What should we call this study guide?
+              </p>
+              <input
+                type="text"
+                value={guideName}
+                onChange={(e) => setGuideName(e.target.value)}
+                className="w-full px-4 py-2 rounded-xl text-sm outline-none mb-3"
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-primary)',
+                }}
+                placeholder="e.g. AP Bio Chapter 8 - Cell Respiration"
+              />
+              <button
+                onClick={handleSave}
+                disabled={!guideName.trim() || saving}
+                className="w-full py-2 rounded-xl font-medium text-sm transition-all hover:opacity-90 disabled:opacity-40"
+                style={{ background: 'var(--purple)', color: 'white' }}
+              >
+                {saving ? 'Saving...' : 'Save to Ascend'}
+              </button>
+            </div>
+          )}
+
+          {saved && (
+            <div className="rounded-xl p-3 mb-6 flex items-center gap-2" style={{ background: '#EDF7F2', border: '1px solid var(--border)' }}>
+              <span>✅</span>
+              <span className="text-sm font-medium" style={{ color: 'var(--green)' }}>Saved to your Ascend dashboard</span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl" style={{ color: 'var(--text-primary)' }}>
-              Your Study Guide
+              {guideName || 'Your Study Guide'}
             </h2>
             <button
-              onClick={() => { setStudyGuide(''); setFile(null); }}
+              onClick={() => { setStudyGuide(''); setFile(null); setSaved(false); setShowNamePrompt(false); }}
               className="text-sm"
               style={{ color: 'var(--purple)' }}
             >
@@ -147,9 +215,6 @@ export default function MatthewStudy() {
                 ),
                 strong: ({children}) => (
                   <strong style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{children}</strong>
-                ),
-                em: ({children}) => (
-                  <em style={{ color: 'var(--text-secondary)' }}>{children}</em>
                 ),
                 ul: ({children}) => (
                   <ul style={{ paddingLeft: '1.25rem', marginBottom: '0.75rem', listStyleType: 'disc' }}>{children}</ul>
