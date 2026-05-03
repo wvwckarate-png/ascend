@@ -11,6 +11,9 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "Ascend — Forged in Focus",
   description: "Your personal study ecosystem",
+  icons: {
+    icon: '/favicon.svg',
+  },
 };
 
 export default function RootLayout({
