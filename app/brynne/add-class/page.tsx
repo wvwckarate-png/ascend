@@ -4,21 +4,23 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
 
-const SEMESTERS = [
-  'Fall 2025', 'Spring 2026', 'Summer 2026',
-  'Fall 2026', 'Spring 2027', 'Summer 2027',
-];
+function Mountain() {
+  return (
+    <svg width="22" height="20" viewBox="0 0 60 56" fill="none">
+      <path d="M4 52L22 10L40 52" stroke="#7B6FA0" strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round"/>
+      <path d="M31 52L42 28L53 52" stroke="#7B6FA0" strokeWidth="2.8" strokeLinejoin="round" strokeLinecap="round"/>
+      <line x1="2" y1="52" x2="56" y2="52" stroke="#7B6FA0" strokeWidth="2.5" strokeLinecap="round"/>
+    </svg>
+  );
+}
 
-const CLASS_FORMATS = ['In Person', 'Online', 'Hybrid'];
+const SEMESTERS = ['Fall 2025','Spring 2026','Summer 2026','Fall 2026','Spring 2027','Summer 2027'];
+const CLASS_FORMATS = ['In Person','Online','Hybrid'];
+const CLASS_DAYS = ['Mon/Wed/Fri','Tue/Thu','Mon/Wed','Once a Week','Asynchronous','Other'];
 
-const CLASS_DAYS = [
-  'Mon/Wed/Fri',
-  'Tue/Thu',
-  'Mon/Wed',
-  'Once a Week',
-  'Asynchronous',
-  'Other',
-];
+const labelStyle = { fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' };
+const inputStyle = { width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none' };
+const cardStyle = { background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' };
 
 export default function BrynneAddClass() {
   const router = useRouter();
@@ -35,19 +37,15 @@ export default function BrynneAddClass() {
     if (!className || !semester) return;
     setLoading(true);
     setError('');
-
     try {
-      const { error: insertError } = await supabase
-        .from('classes')
-        .insert({
-          student_id: 'brynne',
-          name: className,
-          semester: semester,
-          professor: professor || null,
-          class_time: classDays || null,
-          class_format: classFormat || null,
-        });
-
+      const { error: insertError } = await supabase.from('classes').insert({
+        student_id: 'brynne',
+        name: className,
+        semester,
+        professor: professor || null,
+        class_time: classDays || null,
+        class_format: classFormat || null,
+      });
       if (insertError) throw insertError;
       router.push('/brynne');
     } catch (err) {
@@ -58,135 +56,83 @@ export default function BrynneAddClass() {
   };
 
   return (
-    <main className="min-h-screen px-6 py-12 max-w-2xl mx-auto">
-      <div className="flex items-center justify-between mb-10">
-        <Link href="/brynne" className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-          ← Back
+    <div style={{ minHeight: '100vh', background: '#FAFAF8' }}>
+      <nav style={{ height: 58, display: 'flex', alignItems: 'center', padding: '0 20px', gap: 10, background: 'rgba(250,250,248,0.95)', backdropFilter: 'blur(16px)', borderBottom: '1px solid #E8E5F0', position: 'sticky', top: 0, zIndex: 90 }}>
+        <Link href="/brynne" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Mountain />
+          <span style={{ fontSize: 18, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.5px' }}>Ascend</span>
+          <span style={{ fontSize: 9, fontWeight: 700, color: '#C4C1D4', letterSpacing: 1.5, textTransform: 'uppercase', fontStyle: 'italic', marginLeft: 4 }}>Forged in Focus</span>
         </Link>
-      </div>
+      </nav>
 
-      <h1 className="text-4xl mb-1" style={{ color: 'var(--purple-dark)' }}>
-        Add a Class! 🌟
-      </h1>
-      <p className="mb-10" style={{ color: 'var(--text-secondary)' }}>
-        Tell Ascend about your class. You can add your syllabus later!
-      </p>
-
-      <div className="flex flex-col gap-4">
-        <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-            Class Name <span style={{ color: 'var(--accent)' }}>*</span>
-          </label>
-          <input
-            type="text"
-            placeholder="e.g. Science Class"
-            value={className}
-            onChange={(e) => setClassName(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-            style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-          />
+      <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 60px' }}>
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Brynne</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Add a Class! 🌟</div>
+          <div style={{ fontSize: 13, color: '#9E9BB0' }}>Tell Ascend about your class. You can add your syllabus later!</div>
         </div>
 
-        <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-            Semester <span style={{ color: 'var(--accent)' }}>*</span>
-          </label>
-          <select
-            value={semester}
-            onChange={(e) => setSemester(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-            style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-          >
-            <option value="">Select a semester</option>
-            {SEMESTERS.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-
-        <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-            Teacher <span style={{ color: 'var(--text-secondary)' }}>(optional)</span>
-          </label>
-          <input
-            type="text"
-            placeholder="e.g. Mrs. Johnson"
-            value={professor}
-            onChange={(e) => setProfessor(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-            style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-          />
-        </div>
-
-        <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-            Class Days <span style={{ color: 'var(--text-secondary)' }}>(optional)</span>
-          </label>
-          <select
-            value={classDays}
-            onChange={(e) => setClassDays(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-            style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-          >
-            <option value="">Select class days</option>
-            {CLASS_DAYS.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-        </div>
-
-        <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-            Class Format <span style={{ color: 'var(--text-secondary)' }}>(optional)</span>
-          </label>
-          <div className="flex gap-3">
-            {CLASS_FORMATS.map(f => (
-              <button
-                key={f}
-                onClick={() => setClassFormat(f)}
-                className="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
-                style={{
-                  background: classFormat === f ? 'var(--accent)' : 'var(--bg)',
-                  color: classFormat === f ? 'white' : 'var(--text-secondary)',
-                  border: '1px solid var(--border)',
-                }}
-              >
-                {f}
-              </button>
-            ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={cardStyle}>
+            <label style={labelStyle}>Class Name <span style={{ color: '#E8956D' }}>*</span></label>
+            <input value={className} onChange={e => setClassName(e.target.value)} placeholder="e.g. Science Class" style={inputStyle} />
           </div>
-        </div>
 
-        <div className="rounded-2xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-            Syllabus <span style={{ color: 'var(--text-secondary)' }}>(optional — can be added later)</span>
-          </label>
-          <div
-            className="w-full py-8 rounded-xl flex flex-col items-center justify-center cursor-pointer"
-            style={{ background: 'var(--bg)', border: '2px dashed var(--border)' }}
-            onClick={() => document.getElementById('syllabus-upload-brynne')?.click()}
-          >
-            <div className="text-2xl mb-2">📄</div>
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              {file ? file.name : 'Tap to upload your syllabus PDF'}
-            </p>
-            <input
-              id="syllabus-upload-brynne"
-              type="file"
-              accept=".pdf"
-              className="hidden"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-            />
+          <div style={cardStyle}>
+            <label style={labelStyle}>Semester <span style={{ color: '#E8956D' }}>*</span></label>
+            <select value={semester} onChange={e => setSemester(e.target.value)} style={inputStyle}>
+              <option value="">Select a semester</option>
+              {SEMESTERS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
           </div>
+
+          <div style={cardStyle}>
+            <label style={labelStyle}>Teacher <span style={{ color: '#9E9BB0', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
+            <input value={professor} onChange={e => setProfessor(e.target.value)} placeholder="e.g. Mrs. Johnson" style={inputStyle} />
+          </div>
+
+          <div style={cardStyle}>
+            <label style={labelStyle}>Class Days <span style={{ color: '#9E9BB0', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
+            <select value={classDays} onChange={e => setClassDays(e.target.value)} style={inputStyle}>
+              <option value="">Select class days</option>
+              {CLASS_DAYS.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
+
+          <div style={cardStyle}>
+            <label style={labelStyle}>Class Format <span style={{ color: '#9E9BB0', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {CLASS_FORMATS.map(f => (
+                <button key={f} onClick={() => setClassFormat(f)} style={{ flex: 1, padding: '10px', borderRadius: 10, border: `1.5px solid ${classFormat === f ? '#E8956D' : '#E8E5F0'}`, background: classFormat === f ? '#E8956D' : '#FAFAF8', color: classFormat === f ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                  {f}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={cardStyle}>
+            <label style={labelStyle}>Syllabus <span style={{ color: '#9E9BB0', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional — can be added later)</span></label>
+            <div
+              onClick={() => document.getElementById('syllabus-brynne')?.click()}
+              style={{ padding: '24px', borderRadius: 12, border: '2px dashed #E8E5F0', background: '#FAFAF8', textAlign: 'center', cursor: 'pointer' }}
+            >
+              <div style={{ fontSize: 24, marginBottom: 8 }}>📄</div>
+              <div style={{ fontSize: 13, color: '#9E9BB0' }}>{file ? file.name : 'Tap to upload your syllabus PDF'}</div>
+              <input id="syllabus-brynne" type="file" accept=".pdf" style={{ display: 'none' }} onChange={e => setFile(e.target.files?.[0] || null)} />
+            </div>
+          </div>
+
+          {error && <p style={{ fontSize: 13, color: '#C47878' }}>{error}</p>}
+
+          <button
+            onClick={handleSubmit}
+            disabled={!className || !semester || loading}
+            style={{ padding: '14px', borderRadius: 14, border: 'none', background: '#E8956D', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !className || !semester || loading ? 0.4 : 1 }}
+          >
+            {loading ? 'Adding Class... ✨' : 'Add My Class! ✨'}
+          </button>
         </div>
-
-        {error && <p className="text-sm text-red-500">{error}</p>}
-
-        <button
-          onClick={handleSubmit}
-          disabled={!className || !semester || loading}
-          className="w-full py-3 rounded-xl font-medium text-sm transition-all duration-200 hover:opacity-90 disabled:opacity-40"
-          style={{ background: 'var(--accent)', color: 'white' }}
-        >
-          {loading ? 'Adding Class...' : 'Add My Class! ✨'}
-        </button>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }
