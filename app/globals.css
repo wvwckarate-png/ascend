@@ -1,17 +1,26 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap');
-
 @import "tailwindcss";
 
 :root {
   --bg: #FAFAF8;
   --surface: #FFFFFF;
-  --border: #EBEBEA;
-  --text-primary: #1A1A18;
-  --text-secondary: #6B6B68;
+  --soft: #F3F1EC;
   --purple: #7B6FA0;
-  --purple-light: #F0EEF7;
-  --purple-dark: #5C5278;
-  --accent: #C4A882;
+  --purple-light: #EDE9F7;
+  --purple-dark: #5A5078;
+  --charcoal: #1D1B26;
+  --mid: #6B6880;
+  --muted: #9E9BB0;
+  --light: #C4C1D4;
+  --border: #E8E5F0;
+  --accent: #E8956D;
+  --green: #5FAD8E;
+  --red: #C47878;
+  --amber: #C8965A;
+  --shadow: rgba(29,27,38,0.06);
+
+  /* legacy aliases for existing pages */
+  --text-primary: #1D1B26;
+  --text-secondary: #6B6880;
 }
 
 * {
@@ -22,11 +31,12 @@
 
 body {
   background-color: var(--bg);
-  color: var(--text-primary);
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  color: var(--charcoal);
+  font-family: var(--font-jakarta), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3 {
-  font-family: 'Lora', serif;
+input, select, textarea, button {
+  font-family: var(--font-jakarta), system-ui, sans-serif;
 }
