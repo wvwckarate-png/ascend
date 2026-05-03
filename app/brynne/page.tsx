@@ -127,11 +127,13 @@ export default function BrynneDashboard() {
               <div style={{ fontSize: 11, color: '#9E9BB0' }}>Make or study a deck</div>
             </div>
           </Link>
-          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', opacity: 0.6 }}>
-            <div style={{ marginBottom: 10 }}><IconExam /></div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Practice Exam</div>
-            <div style={{ fontSize: 11, color: '#9E9BB0' }}>Coming soon</div>
-          </div>
+          <Link href="/brynne/practice-exam" style={{ textDecoration: 'none' }}>
+            <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', cursor: 'pointer' }}>
+              <div style={{ marginBottom: 10 }}><IconExam /></div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Practice Quiz! 📝</div>
+              <div style={{ fontSize: 11, color: '#9E9BB0' }}>Test your knowledge</div>
+            </div>
+          </Link>
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', opacity: 0.6 }}>
             <div style={{ marginBottom: 10 }}><IconUpload /></div>
             <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Upload Resources</div>
