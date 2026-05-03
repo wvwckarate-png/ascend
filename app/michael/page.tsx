@@ -120,11 +120,13 @@ export default function MichaelDashboard() {
               <div style={{ fontSize: 11, color: '#9E9BB0' }}>Upload a PDF to generate</div>
             </div>
           </Link>
-          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', opacity: 0.6 }}>
-            <div style={{ marginBottom: 10 }}><IconCards /></div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Flashcards</div>
-            <div style={{ fontSize: 11, color: '#9E9BB0' }}>Coming soon</div>
-          </div>
+          <Link href="/michael/flashcards" style={{ textDecoration: 'none' }}>
+            <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', cursor: 'pointer' }}>
+              <div style={{ marginBottom: 10 }}><IconCards /></div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Flashcards</div>
+              <div style={{ fontSize: 11, color: '#9E9BB0' }}>Generate or study a deck</div>
+            </div>
+          </Link>
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', opacity: 0.6 }}>
             <div style={{ marginBottom: 10 }}><IconExam /></div>
             <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Practice Exam</div>
