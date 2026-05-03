@@ -52,15 +52,6 @@ function IconExam() {
   );
 }
 
-function IconBrain() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-      <path d="M4 6c5 0 8 2 10 4C16 8 19 6 24 6v16c-5 0-8 2-10 4C12 24 9 22 4 22V6z" stroke="#5FAD8E" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-      <line x1="14" y1="10" x2="14" y2="24" stroke="#5FAD8E" strokeWidth="1.4" strokeLinecap="round"/>
-    </svg>
-  );
-}
-
 function IconUpload() {
   return (
     <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
@@ -101,7 +92,6 @@ export default function MatthewDashboard() {
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAF8' }}>
 
-      {/* Navbar */}
       <nav style={{ height: 58, display: 'flex', alignItems: 'center', padding: '0 20px', gap: 10, background: 'rgba(250,250,248,0.95)', backdropFilter: 'blur(16px)', borderBottom: '1px solid #E8E5F0', position: 'sticky', top: 0, zIndex: 90 }}>
         <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
           <Mountain />
@@ -117,16 +107,15 @@ export default function MatthewDashboard() {
 
       <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 60px' }}>
 
-        {/* Header */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Welcome back</div>
           <div style={{ fontSize: 32, fontWeight: 800, color: '#1D1B26', letterSpacing: '-1px', marginBottom: 4 }}>Hey, Matthew.</div>
           <div style={{ fontSize: 13, color: '#9E9BB0' }}>Pre-Dental · WVU School of Dentistry</div>
         </div>
 
-        {/* Study Tools Grid */}
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 12 }}>Study Tools</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+
           <Link href="/matthew/study" style={{ textDecoration: 'none' }}>
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', cursor: 'pointer' }}>
               <div style={{ marginBottom: 10 }}><IconCards /></div>
@@ -135,26 +124,27 @@ export default function MatthewDashboard() {
             </div>
           </Link>
 
-          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', cursor: 'not-allowed', opacity: 0.6 }}>
-            <div style={{ marginBottom: 10 }}><IconCards /></div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Flashcards</div>
-            <div style={{ fontSize: 11, color: '#9E9BB0' }}>Coming soon</div>
-          </div>
+          <Link href="/matthew/flashcards" style={{ textDecoration: 'none' }}>
+            <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', cursor: 'pointer' }}>
+              <div style={{ marginBottom: 10 }}><IconCards /></div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Flashcards</div>
+              <div style={{ fontSize: 11, color: '#9E9BB0' }}>Generate or study a deck</div>
+            </div>
+          </Link>
 
-          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', cursor: 'not-allowed', opacity: 0.6 }}>
+          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', opacity: 0.6 }}>
             <div style={{ marginBottom: 10 }}><IconExam /></div>
             <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Practice Exam</div>
             <div style={{ fontSize: 11, color: '#9E9BB0' }}>Coming soon</div>
           </div>
 
-          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', cursor: 'not-allowed', opacity: 0.6 }}>
+          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', opacity: 0.6 }}>
             <div style={{ marginBottom: 10 }}><IconUpload /></div>
             <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Upload Resources</div>
             <div style={{ fontSize: 11, color: '#9E9BB0' }}>Coming soon</div>
           </div>
         </div>
 
-        {/* Classes */}
         <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 16, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <h2 style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26' }}>My Classes</h2>
@@ -180,7 +170,6 @@ export default function MatthewDashboard() {
           )}
         </div>
 
-        {/* Recent Study Guides */}
         <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
           <h2 style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26', marginBottom: 16 }}>Recent Study Guides</h2>
           {loading ? (
