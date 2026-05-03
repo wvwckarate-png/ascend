@@ -30,6 +30,38 @@ function Mountain() {
   );
 }
 
+function IconCards() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <rect x="5" y="8" width="16" height="12" rx="2" stroke="#7B6FA0" strokeWidth="1.6" fill="none"/>
+      <rect x="8" y="5" width="16" height="12" rx="2" stroke="#7B6FA0" strokeWidth="1.6" fill="#F3F1EC" strokeOpacity="0.7"/>
+      <line x1="11" y1="11" x2="21" y2="11" stroke="#7B6FA0" strokeWidth="1.2" strokeOpacity="0.5"/>
+    </svg>
+  );
+}
+
+function IconExam() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <rect x="7" y="3" width="14" height="22" rx="2" stroke="#C8965A" strokeWidth="1.6" fill="none"/>
+      <line x1="10" y1="9"  x2="18" y2="9"  stroke="#C8965A" strokeWidth="1.2"/>
+      <line x1="10" y1="13" x2="18" y2="13" stroke="#C8965A" strokeWidth="1.2"/>
+      <line x1="10" y1="17" x2="15" y2="17" stroke="#C8965A" strokeWidth="1.2"/>
+      <path d="M16 19l1.5 1.5 3-3" stroke="#C8965A" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function IconUpload() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <path d="M14 5v14" stroke="#E8956D" strokeWidth="1.8" strokeLinecap="round"/>
+      <path d="M9 10l5-5 5 5" stroke="#E8956D" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M5 20h18" stroke="#E8956D" strokeWidth="1.8" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
 export default function MichaelDashboard() {
   const [classes, setClasses] = useState<Class[]>([]);
   const [guides, setGuides] = useState<StudyGuide[]>([]);
@@ -58,88 +90,91 @@ export default function MichaelDashboard() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-
-      <nav style={{ height: 58, display: 'flex', alignItems: 'center', padding: '0 20px', gap: 10, background: 'rgba(250,250,248,0.95)', backdropFilter: 'blur(16px)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 90 }}>
+    <div style={{ minHeight: '100vh', background: '#FAFAF8' }}>
+      <nav style={{ height: 58, display: 'flex', alignItems: 'center', padding: '0 20px', gap: 10, background: 'rgba(250,250,248,0.95)', backdropFilter: 'blur(16px)', borderBottom: '1px solid #E8E5F0', position: 'sticky', top: 0, zIndex: 90 }}>
         <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
           <Mountain />
-          <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--charcoal)', letterSpacing: '-0.5px' }}>Ascend</span>
-          <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--light)', letterSpacing: 1.5, textTransform: 'uppercase', fontStyle: 'italic', marginLeft: 4 }}>Forged in Focus</span>
+          <span style={{ fontSize: 18, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.5px' }}>Ascend</span>
+          <span style={{ fontSize: 9, fontWeight: 700, color: '#C4C1D4', letterSpacing: 1.5, textTransform: 'uppercase', fontStyle: 'italic', marginLeft: 4 }}>Forged in Focus</span>
         </Link>
         <div style={{ flex: 1 }} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px 4px 6px', borderRadius: 999, background: 'var(--purple-light)', cursor: 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px 4px 6px', borderRadius: 999, background: '#EDE9F7' }}>
           <Image src="/lion.png" alt="Michael" width={24} height={24} style={{ objectFit: 'contain', transform: 'scaleX(-1)' }} />
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--purple)' }}>Michael</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#7B6FA0' }}>Michael</span>
         </div>
       </nav>
 
       <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 60px' }}>
-
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: 'var(--light)', marginBottom: 4 }}>Welcome back</div>
-          <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--charcoal)', letterSpacing: '-1px', marginBottom: 4 }}>Hey, Michael.</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)' }}>Pre-Med · WVU School of Medicine</div>
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Welcome back</div>
+          <div style={{ fontSize: 32, fontWeight: 800, color: '#1D1B26', letterSpacing: '-1px', marginBottom: 4 }}>Hey, Michael.</div>
+          <div style={{ fontSize: 13, color: '#9E9BB0' }}>Pre-Med · WVU School of Medicine</div>
         </div>
 
-        <Link href="/michael/study" style={{ textDecoration: 'none' }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 16, padding: '18px 22px',
-            borderRadius: 18, marginBottom: 16, cursor: 'pointer',
-            background: 'linear-gradient(135deg, var(--purple), var(--purple-dark))',
-            boxShadow: '0 4px 20px rgba(123,111,160,0.35)',
-          }}>
-            <div style={{ fontSize: 28 }}>📄</div>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: 'white', marginBottom: 2 }}>Generate a Study Guide</div>
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>Upload a PDF and get an instant study guide</div>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 12 }}>Study Tools</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+          <Link href="/michael/study" style={{ textDecoration: 'none' }}>
+            <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', cursor: 'pointer' }}>
+              <div style={{ marginBottom: 10 }}><IconCards /></div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Study Guide</div>
+              <div style={{ fontSize: 11, color: '#9E9BB0' }}>Upload a PDF to generate</div>
             </div>
+          </Link>
+          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', opacity: 0.6 }}>
+            <div style={{ marginBottom: 10 }}><IconCards /></div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Flashcards</div>
+            <div style={{ fontSize: 11, color: '#9E9BB0' }}>Coming soon</div>
           </div>
-        </Link>
+          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', opacity: 0.6 }}>
+            <div style={{ marginBottom: 10 }}><IconExam /></div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Practice Exam</div>
+            <div style={{ fontSize: 11, color: '#9E9BB0' }}>Coming soon</div>
+          </div>
+          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', opacity: 0.6 }}>
+            <div style={{ marginBottom: 10 }}><IconUpload /></div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Upload Resources</div>
+            <div style={{ fontSize: 11, color: '#9E9BB0' }}>Coming soon</div>
+          </div>
+        </div>
 
-        <div style={{ background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 18, padding: '20px', marginBottom: 16, boxShadow: '0 1px 6px var(--shadow)' }}>
+        <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 16, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 800, color: 'var(--charcoal)' }}>My Classes</h2>
+            <h2 style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26' }}>My Classes</h2>
             <Link href="/michael/add-class" style={{ textDecoration: 'none' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--purple)', background: 'var(--purple-light)', padding: '4px 12px', borderRadius: 999 }}>+ Add Class</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#7B6FA0', background: '#EDE9F7', padding: '4px 12px', borderRadius: 999 }}>+ Add Class</span>
             </Link>
           </div>
           {loading ? (
-            <p style={{ fontSize: 13, color: 'var(--muted)' }}>Loading...</p>
+            <p style={{ fontSize: 13, color: '#9E9BB0' }}>Loading...</p>
           ) : classes.length === 0 ? (
-            <p style={{ fontSize: 13, color: 'var(--muted)' }}>No classes added yet. Add your first class to get started.</p>
+            <p style={{ fontSize: 13, color: '#9E9BB0' }}>No classes added yet. Add your first class to get started.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {classes.map((cls) => (
-                <div key={cls.id} style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--bg)', border: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--charcoal)', marginBottom: 2 }}>{cls.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                    {cls.semester}{cls.professor ? ` · ${cls.professor}` : ''}{cls.class_format ? ` · ${cls.class_format}` : ''}
-                  </div>
+                <div key={cls.id} style={{ padding: '12px 14px', borderRadius: 12, background: '#FAFAF8', border: '1px solid #E8E5F0' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 2 }}>{cls.name}</div>
+                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>{cls.semester}{cls.professor ? ` · ${cls.professor}` : ''}{cls.class_format ? ` · ${cls.class_format}` : ''}</div>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        <div style={{ background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px var(--shadow)' }}>
-          <h2 style={{ fontSize: 16, fontWeight: 800, color: 'var(--charcoal)', marginBottom: 16 }}>Recent Study Guides</h2>
+        <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+          <h2 style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26', marginBottom: 16 }}>Recent Study Guides</h2>
           {loading ? (
-            <p style={{ fontSize: 13, color: 'var(--muted)' }}>Loading...</p>
+            <p style={{ fontSize: 13, color: '#9E9BB0' }}>Loading...</p>
           ) : guides.length === 0 ? (
-            <p style={{ fontSize: 13, color: 'var(--muted)' }}>Your study guides will appear here once you generate them.</p>
+            <p style={{ fontSize: 13, color: '#9E9BB0' }}>Your study guides will appear here once you generate them.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {guides.map((guide) => (
-                <div key={guide.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 12, background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                <div key={guide.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 12, background: '#FAFAF8', border: '1px solid #E8E5F0' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--charcoal)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{guide.title}</div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{new Date(guide.created_at).toLocaleDateString()}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{guide.title}</div>
+                    <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 2 }}>{new Date(guide.created_at).toLocaleDateString()}</div>
                   </div>
-                  <button
-                    onClick={() => handleDelete(guide.id)}
-                    disabled={deletingId === guide.id}
-                    style={{ marginLeft: 12, fontSize: 11, fontWeight: 700, color: 'var(--muted)', background: 'var(--border)', border: 'none', padding: '4px 10px', borderRadius: 8, cursor: 'pointer', opacity: deletingId === guide.id ? 0.3 : 1 }}
-                  >
+                  <button onClick={() => handleDelete(guide.id)} disabled={deletingId === guide.id} style={{ marginLeft: 12, fontSize: 11, fontWeight: 700, color: '#9E9BB0', background: '#E8E5F0', border: 'none', padding: '4px 10px', borderRadius: 8, cursor: 'pointer', opacity: deletingId === guide.id ? 0.3 : 1 }}>
                     {deletingId === guide.id ? '...' : 'Delete'}
                   </button>
                 </div>
