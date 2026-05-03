@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import TabBar from '../../components/TabBar';
 
 function Mountain() {
   return (
@@ -60,22 +61,13 @@ export default function MatthewPracticeExam() {
     }
   };
 
-  const mark = (correct: boolean) => {
-    setScores(s => ({ ...s, [qi]: correct }));
+  const mark = (isCorrect: boolean) => {
+    setScores(s => ({ ...s, [qi]: isCorrect }));
     setRevealed(false);
-    if (qi + 1 >= total) {
-      setScreen('done');
-    } else {
-      setQi(i => i + 1);
-    }
+    if (qi + 1 >= total) { setScreen('done'); } else { setQi(i => i + 1); }
   };
 
-  const restart = () => {
-    setQi(0);
-    setRevealed(false);
-    setScores({});
-    setScreen('exam');
-  };
+  const restart = () => { setQi(0); setRevealed(false); setScores({}); setScreen('exam'); };
 
   useEffect(() => {
     if (screen !== 'exam') return;
@@ -100,22 +92,15 @@ export default function MatthewPracticeExam() {
         </Link>
       </nav>
 
-      {/* SETUP SCREEN */}
       {screen === 'setup' && (
-        <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 60px' }}>
+        <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
           <div style={{ marginBottom: 28 }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Matthew</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Practice Exam</div>
             <div style={{ fontSize: 13, color: '#9E9BB0' }}>Choose your scope and generate a practice exam.</div>
           </div>
-
-          {/* Exam mode */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-            {([
-              ['lecture', 'Single Lecture', 'One lecture. Best for Day 0 review.'],
-              ['folder', 'Exam Folder', 'Full unit prep. Covers all material for one exam.'],
-              ['cumulative', 'Cumulative Final', 'Full course, weighted to weak areas.'],
-            ] as const).map(([k, lbl, desc]) => (
+            {([['lecture', 'Single Lecture', 'One lecture. Best for Day 0 review.'], ['folder', 'Exam Folder', 'Full unit prep. Covers all material for one exam.'], ['cumulative', 'Cumulative Final', 'Full course, weighted to weak areas.']] as const).map(([k, lbl, desc]) => (
               <div key={k} onClick={() => setExamMode(k)} style={{ border: `2px solid ${examMode === k ? '#7B6FA0' : '#E8E5F0'}`, borderRadius: 14, padding: '14px 16px', cursor: 'pointer', background: examMode === k ? '#EDE9F7' : '#FFFFFF', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                 <div style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${examMode === k ? '#7B6FA0' : '#C4C1D4'}`, background: examMode === k ? '#7B6FA0' : 'transparent', flexShrink: 0, marginTop: 2 }} />
                 <div>
@@ -125,7 +110,6 @@ export default function MatthewPracticeExam() {
               </div>
             ))}
           </div>
-
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
             <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Subject / Topic</label>
             <input value={topic} onChange={e => setTopic(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !loading && topic.trim()) generate(); }} placeholder="e.g. AP Biology - Cellular Respiration" style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', marginBottom: 16 }} />
@@ -136,9 +120,7 @@ export default function MatthewPracticeExam() {
               ))}
             </div>
           </div>
-
           {error && <p style={{ fontSize: 13, color: '#C47878', marginBottom: 12 }}>{error}</p>}
-
           {loading ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
               <div style={{ width: 32, height: 32, border: '2.5px solid #E8E5F0', borderTopColor: '#C8965A', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.75s linear infinite' }} />
@@ -153,13 +135,11 @@ export default function MatthewPracticeExam() {
         </main>
       )}
 
-      {/* EXAM SCREEN */}
       {screen === 'exam' && curQ && (
         <main style={{ maxWidth: 600, margin: '0 auto', padding: '20px 20px 80px' }}>
           <div style={{ height: 3, background: '#E8E5F0', borderRadius: 99, overflow: 'hidden', marginBottom: 16 }}>
             <div style={{ height: '100%', background: '#C8965A', width: `${progress}%`, transition: 'width 0.4s' }} />
           </div>
-
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: '#9E9BB0' }}>Question {qi + 1} of {total}</span>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -167,18 +147,12 @@ export default function MatthewPracticeExam() {
               <span style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', padding: '3px 10px', borderRadius: 999 }}>✗ {incorrect}</span>
             </div>
           </div>
-
-          {/* Question */}
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 20, padding: '32px', marginBottom: 14, boxShadow: '0 4px 20px rgba(29,27,38,0.07)' }}>
             <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 14 }}>Question</div>
             <div style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.6, color: '#1D1B26' }}>{curQ.front}</div>
           </div>
-
-          {/* Answer */}
           {!revealed ? (
-            <button onClick={() => setRevealed(true)} style={{ width: '100%', padding: '14px', borderRadius: 14, border: '2px dashed #E8E5F0', background: 'transparent', color: '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-              Show Answer · press Space
-            </button>
+            <button onClick={() => setRevealed(true)} style={{ width: '100%', padding: '14px', borderRadius: 14, border: '2px dashed #E8E5F0', background: 'transparent', color: '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Show Answer · press Space</button>
           ) : (
             <>
               <div style={{ background: '#EDE9F7', border: '1.5px solid rgba(123,111,160,0.2)', borderRadius: 20, padding: '24px 28px', marginBottom: 14 }}>
@@ -187,16 +161,11 @@ export default function MatthewPracticeExam() {
               </div>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#9E9BB0', textAlign: 'center', marginBottom: 10 }}>Did you get it right?</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <button onClick={() => mark(false)} style={{ padding: '14px', borderRadius: 14, border: '2px solid #C47878', background: '#FDF2F2', color: '#C47878', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                  ✗ Incorrect · N
-                </button>
-                <button onClick={() => mark(true)} style={{ padding: '14px', borderRadius: 14, border: 'none', background: '#5FAD8E', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                  ✓ Correct · Y
-                </button>
+                <button onClick={() => mark(false)} style={{ padding: '14px', borderRadius: 14, border: '2px solid #C47878', background: '#FDF2F2', color: '#C47878', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>✗ Incorrect · N</button>
+                <button onClick={() => mark(true)} style={{ padding: '14px', borderRadius: 14, border: 'none', background: '#5FAD8E', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>✓ Correct · Y</button>
               </div>
             </>
           )}
-
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 16 }}>
             {[['Space', 'reveal'], ['Y / →', 'correct'], ['N / ←', 'incorrect']].map(([key, label]) => (
               <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: '#C4C1D4' }}>
@@ -208,14 +177,12 @@ export default function MatthewPracticeExam() {
         </main>
       )}
 
-      {/* DONE SCREEN */}
       {screen === 'done' && (
         <main style={{ maxWidth: 500, margin: '0 auto', padding: '40px 20px 80px', textAlign: 'center' }}>
           <div style={{ fontSize: 52, marginBottom: 14 }}>{score >= 80 ? '🎯' : score >= 60 ? '📈' : '💪'}</div>
           <div style={{ fontSize: 26, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.5px', marginBottom: 8 }}>Exam Complete!</div>
           <div style={{ fontSize: 48, fontWeight: 800, color: score >= 80 ? '#5FAD8E' : score >= 60 ? '#C8965A' : '#C47878', marginBottom: 4 }}>{score}%</div>
           <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 28 }}>{correct} correct · {incorrect} incorrect · {total} questions</div>
-
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, maxWidth: 380, margin: '0 auto 28px' }}>
             {[{ n: correct, l: 'Correct', c: '#5FAD8E' }, { n: incorrect, l: 'Incorrect', c: '#C47878' }, { n: total, l: 'Total', c: '#C8965A' }].map((s, i) => (
               <div key={i} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '16px', textAlign: 'center', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
@@ -224,11 +191,9 @@ export default function MatthewPracticeExam() {
               </div>
             ))}
           </div>
-
           <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 24, padding: '0 20px', lineHeight: 1.6 }}>
-            {score >= 80 ? 'Excellent work. You\'re ready for this material.' : score >= 60 ? 'Good foundation. Review the questions you missed.' : 'Keep studying. Run the Smart Deck on the weak areas first.'}
+            {score >= 80 ? "Excellent work. You're ready for this material." : score >= 60 ? 'Good foundation. Review the questions you missed.' : 'Keep studying. Run the Smart Deck on the weak areas first.'}
           </div>
-
           <div style={{ display: 'flex', gap: 10, maxWidth: 340, margin: '0 auto' }}>
             <button onClick={restart} style={{ flex: 1, padding: '13px', borderRadius: 14, border: '1.5px solid #E8E5F0', background: '#F3F1EC', color: '#6B6880', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Retake</button>
             <Link href="/matthew" style={{ flex: 1, textDecoration: 'none' }}>
@@ -237,6 +202,7 @@ export default function MatthewPracticeExam() {
           </div>
         </main>
       )}
+      <TabBar student="matthew" />
     </div>
   );
 }

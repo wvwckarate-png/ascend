@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
+import TabBar from '../../components/TabBar';
 
 function Mountain() {
   return (
@@ -65,7 +66,7 @@ export default function MichaelAddClass() {
         </Link>
       </nav>
 
-      <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 60px' }}>
+      <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
         <div style={{ marginBottom: 28 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Michael</div>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Add a Class</div>
@@ -77,7 +78,6 @@ export default function MichaelAddClass() {
             <label style={labelStyle}>Class Name <span style={{ color: '#7B6FA0' }}>*</span></label>
             <input value={className} onChange={e => setClassName(e.target.value)} placeholder="e.g. Biology 101" style={inputStyle} />
           </div>
-
           <div style={cardStyle}>
             <label style={labelStyle}>Semester <span style={{ color: '#7B6FA0' }}>*</span></label>
             <select value={semester} onChange={e => setSemester(e.target.value)} style={inputStyle}>
@@ -85,12 +85,10 @@ export default function MichaelAddClass() {
               {SEMESTERS.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
-
           <div style={cardStyle}>
             <label style={labelStyle}>Professor <span style={{ color: '#9E9BB0', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
             <input value={professor} onChange={e => setProfessor(e.target.value)} placeholder="e.g. Dr. Smith" style={inputStyle} />
           </div>
-
           <div style={cardStyle}>
             <label style={labelStyle}>Class Days <span style={{ color: '#9E9BB0', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
             <select value={classDays} onChange={e => setClassDays(e.target.value)} style={inputStyle}>
@@ -98,7 +96,6 @@ export default function MichaelAddClass() {
               {CLASS_DAYS.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
-
           <div style={cardStyle}>
             <label style={labelStyle}>Class Format <span style={{ color: '#9E9BB0', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -109,30 +106,21 @@ export default function MichaelAddClass() {
               ))}
             </div>
           </div>
-
           <div style={cardStyle}>
-            <label style={labelStyle}>Syllabus <span style={{ color: '#9E9BB0', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional — can be added later)</span></label>
-            <div
-              onClick={() => document.getElementById('syllabus-michael')?.click()}
-              style={{ padding: '24px', borderRadius: 12, border: '2px dashed #E8E5F0', background: '#FAFAF8', textAlign: 'center', cursor: 'pointer' }}
-            >
+            <label style={labelStyle}>Syllabus <span style={{ color: '#9E9BB0', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
+            <div onClick={() => document.getElementById('syllabus-michael')?.click()} style={{ padding: '24px', borderRadius: 12, border: '2px dashed #E8E5F0', background: '#FAFAF8', textAlign: 'center', cursor: 'pointer' }}>
               <div style={{ fontSize: 24, marginBottom: 8 }}>📄</div>
               <div style={{ fontSize: 13, color: '#9E9BB0' }}>{file ? file.name : 'Tap to upload your syllabus PDF'}</div>
               <input id="syllabus-michael" type="file" accept=".pdf" style={{ display: 'none' }} onChange={e => setFile(e.target.files?.[0] || null)} />
             </div>
           </div>
-
           {error && <p style={{ fontSize: 13, color: '#C47878' }}>{error}</p>}
-
-          <button
-            onClick={handleSubmit}
-            disabled={!className || !semester || loading}
-            style={{ padding: '14px', borderRadius: 14, border: 'none', background: '#7B6FA0', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !className || !semester || loading ? 0.4 : 1 }}
-          >
+          <button onClick={handleSubmit} disabled={!className || !semester || loading} style={{ padding: '14px', borderRadius: 14, border: 'none', background: '#7B6FA0', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !className || !semester || loading ? 0.4 : 1 }}>
             {loading ? 'Adding Class...' : 'Add Class'}
           </button>
         </div>
       </main>
+      <TabBar student="michael" />
     </div>
   );
 }
