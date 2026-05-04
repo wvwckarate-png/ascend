@@ -123,8 +123,8 @@ export default function Home() {
         </Link>
       </div>
 
-      <div style={{ fontSize: 10, color: 'var(--light)', marginTop: 40, letterSpacing: 0.5 }}>
-        Ascend · Built May 2026 · Forged in Focus
+      <div style={{ fontSize: 10, color: 'var(--light)', marginTop: 40, letterSpacing: 0.5, textAlign: 'center' }}>
+        Ascend v1.0 · May 2026 · Forged in Focus
       </div>
     </main>
   );
