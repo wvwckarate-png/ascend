@@ -2,24 +2,13 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import TabBar from '../components/TabBar';
 
-type Class = {
-  id: string;
-  name: string;
-  semester: string;
-  professor: string | null;
-  class_time: string | null;
-  class_format: string | null;
-};
-
-type StudyGuide = {
-  id: string;
-  title: string;
-  source_filename: string;
-  created_at: string;
-};
+type Class = { id: string; name: string; semester: string; professor: string | null; class_time: string | null; class_format: string | null; };
+type StudyGuide = { id: string; title: string; source_filename: string; created_at: string; };
+type Task = { id: string; title: string; due_date: string; completed: boolean; };
 
 function Mountain() {
   return (
@@ -45,7 +34,7 @@ function IconExam() {
   return (
     <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
       <rect x="7" y="3" width="14" height="22" rx="2" stroke="#C8965A" strokeWidth="1.6" fill="none"/>
-      <line x1="10" y1="9"  x2="18" y2="9"  stroke="#C8965A" strokeWidth="1.2"/>
+      <line x1="10" y1="9" x2="18" y2="9" stroke="#C8965A" strokeWidth="1.2"/>
       <line x1="10" y1="13" x2="18" y2="13" stroke="#C8965A" strokeWidth="1.2"/>
       <line x1="10" y1="17" x2="15" y2="17" stroke="#C8965A" strokeWidth="1.2"/>
       <path d="M16 19l1.5 1.5 3-3" stroke="#C8965A" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
@@ -63,20 +52,42 @@ function IconUpload() {
   );
 }
 
+const DAYS_SHORT = ['S','M','T','W','T','F','S'];
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function getDaysInMonth(year: number, month: number) { return new Date(year, month + 1, 0).getDate(); }
+function getFirstDayOfMonth(year: number, month: number) { return new Date(year, month, 1).getDay(); }
+
 export default function BrynneDashboard() {
+  const router = useRouter();
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+
   const [classes, setClasses] = useState<Class[]>([]);
   const [guides, setGuides] = useState<StudyGuide[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [calView, setCalView] = useState<'week' | 'month'>('week');
+  const [calMonth, setCalMonth] = useState(today.getMonth());
+  const [calYear, setCalYear] = useState(today.getFullYear());
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - today.getDay() + i);
+    return d;
+  });
 
   useEffect(() => {
     const fetchData = async () => {
-      const [{ data: classData }, { data: guideData }] = await Promise.all([
+      const [{ data: classData }, { data: guideData }, { data: taskData }] = await Promise.all([
         supabase.from('classes').select('*').eq('student_id', 'brynne').eq('is_active', true).order('created_at', { ascending: false }),
         supabase.from('study_guides').select('*').eq('student_id', 'brynne').order('created_at', { ascending: false }).limit(5),
+        supabase.from('tasks').select('*').eq('student_id', 'brynne'),
       ]);
       if (classData) setClasses(classData);
       if (guideData) setGuides(guideData);
+      if (taskData) setTasks(taskData);
       setLoading(false);
     };
     fetchData();
@@ -88,6 +99,29 @@ export default function BrynneDashboard() {
     await supabase.from('study_guides').delete().eq('id', id);
     setGuides(guides.filter(g => g.id !== id));
     setDeletingId(null);
+  };
+
+  const tasksForDate = (dateStr: string) => tasks.filter(t => t.due_date === dateStr);
+  const daysInMonth = getDaysInMonth(calYear, calMonth);
+  const firstDay = getFirstDayOfMonth(calYear, calMonth);
+  const prevMonth = () => { if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1); } else setCalMonth(m => m - 1); };
+  const nextMonth = () => { if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); } else setCalMonth(m => m + 1); };
+
+  const DayCell = ({ dateStr, label, isToday }: { dateStr: string; label: string | number; isToday: boolean; }) => {
+    const dayTasks = tasksForDate(dateStr);
+    const hasIncomplete = dayTasks.some(t => !t.completed);
+    const hasCompleted = dayTasks.some(t => t.completed);
+    return (
+      <div onClick={() => router.push('/brynne/calendar')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer' }}>
+        <div style={{ width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isToday ? '#E8956D' : 'transparent' }}>
+          <span style={{ fontSize: 12, fontWeight: isToday ? 800 : 400, color: isToday ? 'white' : '#1D1B26' }}>{label}</span>
+        </div>
+        <div style={{ display: 'flex', gap: 2, minHeight: 6 }}>
+          {hasIncomplete && <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#E8956D' }} />}
+          {hasCompleted && <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#5FAD8E' }} />}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -106,12 +140,55 @@ export default function BrynneDashboard() {
       </nav>
 
       <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
-        <div style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Welcome back</div>
           <div style={{ fontSize: 32, fontWeight: 800, color: '#1D1B26', letterSpacing: '-1px', marginBottom: 4 }}>Hey, Brynne! 🌟</div>
           <div style={{ fontSize: 13, color: '#9E9BB0' }}>Future WVU Physician · Keep going!</div>
         </div>
 
+        {/* Mini Calendar */}
+        <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '16px', marginBottom: 16, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {calView === 'month' && (
+                <>
+                  <button onClick={prevMonth} style={{ width: 24, height: 24, borderRadius: '50%', border: '1px solid #E8E5F0', background: '#FAFAF8', cursor: 'pointer', fontSize: 12, color: '#9E9BB0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26' }}>{MONTHS[calMonth]} {calYear}</span>
+                  <button onClick={nextMonth} style={{ width: 24, height: 24, borderRadius: '50%', border: '1px solid #E8E5F0', background: '#FAFAF8', cursor: 'pointer', fontSize: 12, color: '#9E9BB0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
+                </>
+              )}
+              {calView === 'week' && <span style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26' }}>This Week</span>}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', background: '#F3F1EC', borderRadius: 8, padding: 2, gap: 2 }}>
+                {(['week', 'month'] as const).map(v => (
+                  <button key={v} onClick={() => setCalView(v)} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: calView === v ? '#FFFFFF' : 'transparent', color: calView === v ? '#E8956D' : '#9E9BB0', fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', boxShadow: calView === v ? '0 1px 3px rgba(29,27,38,0.08)' : 'none', textTransform: 'capitalize' }}>{v}</button>
+                ))}
+              </div>
+              <Link href="/brynne/calendar" style={{ textDecoration: 'none', fontSize: 11, fontWeight: 700, color: '#E8956D' }}>Open →</Link>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 6 }}>
+            {DAYS_SHORT.map((d, i) => <div key={i} style={{ textAlign: 'center', fontSize: 9, fontWeight: 700, color: '#C4C1D4', letterSpacing: 0.5 }}>{d}</div>)}
+          </div>
+          {calView === 'week' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+              {weekDays.map((d, i) => <DayCell key={i} dateStr={d.toISOString().split('T')[0]} label={d.getDate()} isToday={d.toISOString().split('T')[0] === todayStr} />)}
+            </div>
+          )}
+          {calView === 'month' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+              {Array.from({ length: firstDay }).map((_, i) => <div key={`e-${i}`} />)}
+              {Array.from({ length: daysInMonth }).map((_, i) => {
+                const day = i + 1;
+                const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                return <DayCell key={day} dateStr={dateStr} label={day} isToday={dateStr === todayStr} />;
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Study Tools */}
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 12 }}>Study Tools</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
           <Link href="/brynne/study" style={{ textDecoration: 'none' }}>
@@ -142,6 +219,7 @@ export default function BrynneDashboard() {
           </div>
         </div>
 
+        {/* Classes */}
         <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 16, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <h2 style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26' }}>My Classes</h2>
@@ -149,11 +227,7 @@ export default function BrynneDashboard() {
               <span style={{ fontSize: 11, fontWeight: 700, color: '#C4A882', background: '#FFF3E8', padding: '4px 12px', borderRadius: 999 }}>+ Add Class</span>
             </Link>
           </div>
-          {loading ? (
-            <p style={{ fontSize: 13, color: '#9E9BB0' }}>Loading...</p>
-          ) : classes.length === 0 ? (
-            <p style={{ fontSize: 13, color: '#9E9BB0' }}>No classes yet! Ask Dad to help you add your first one. 😊</p>
-          ) : (
+          {loading ? <p style={{ fontSize: 13, color: '#9E9BB0' }}>Loading...</p> : classes.length === 0 ? <p style={{ fontSize: 13, color: '#9E9BB0' }}>No classes yet! Ask Dad to help you add your first one. 😊</p> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {classes.map((cls) => (
                 <div key={cls.id} style={{ padding: '12px 14px', borderRadius: 12, background: '#FAFAF8', border: '1px solid #E8E5F0' }}>
@@ -165,13 +239,10 @@ export default function BrynneDashboard() {
           )}
         </div>
 
+        {/* Recent Study Guides */}
         <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
           <h2 style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26', marginBottom: 16 }}>My Study Guides 📖</h2>
-          {loading ? (
-            <p style={{ fontSize: 13, color: '#9E9BB0' }}>Loading...</p>
-          ) : guides.length === 0 ? (
-            <p style={{ fontSize: 13, color: '#9E9BB0' }}>Your study guides will show up here! 📖</p>
-          ) : (
+          {loading ? <p style={{ fontSize: 13, color: '#9E9BB0' }}>Loading...</p> : guides.length === 0 ? <p style={{ fontSize: 13, color: '#9E9BB0' }}>Your study guides will show up here! 📖</p> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {guides.map((guide) => (
                 <div key={guide.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 12, background: '#FAFAF8', border: '1px solid #E8E5F0' }}>
