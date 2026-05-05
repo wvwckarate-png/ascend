@@ -25,6 +25,12 @@ const LEVELS = [
 
 const QUESTION_FORMATS = ['Multiple Choice', 'Short Answer', 'Both'];
 
+function addDays(date: Date, days: number): string {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
+}
+
 export default function BrynneStudy() {
   const [files, setFiles] = useState<File[]>([]);
   const [level, setLevel] = useState<string>('detailed');
@@ -106,6 +112,17 @@ export default function BrynneStudy() {
         source_filename: sourceFiles.join(', ') || 'Custom',
       });
       if (saveError) throw saveError;
+
+      const today = new Date();
+      const reviewTasks = [1, 3, 7].map(days => ({
+        student_id: 'brynne',
+        title: `Review: ${guideName.trim()}`,
+        due_date: addDays(today, days),
+        task_type: 'review',
+        completed: false,
+      }));
+      await supabase.from('tasks').insert(reviewTasks);
+
       setSaved(true);
       setShowNamePrompt(false);
     } catch (err) {
@@ -266,9 +283,9 @@ export default function BrynneStudy() {
               </div>
             )}
             {saved && (
-              <div style={{ background: '#EDF7F2', borderRadius: 12, padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span>✅</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#5FAD8E' }}>Saved to your Ascend dashboard! 🎉</span>
+              <div style={{ background: '#EDF7F2', borderRadius: 12, padding: '12px 16px', marginBottom: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#5FAD8E', marginBottom: 4 }}>✅ Saved to your Ascend dashboard! 🎉</div>
+                <div style={{ fontSize: 11, color: '#9E9BB0' }}>📅 Review sessions scheduled for Day 1, Day 3, and Day 7 on your calendar!</div>
               </div>
             )}
             {sourceFiles.length > 0 && (

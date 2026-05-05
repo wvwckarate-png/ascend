@@ -25,6 +25,12 @@ const LEVELS = [
 
 const QUESTION_FORMATS = ['Multiple Choice', 'Short Answer', 'Both'];
 
+function addDays(date: Date, days: number): string {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
+}
+
 export default function MatthewStudy() {
   const [files, setFiles] = useState<File[]>([]);
   const [level, setLevel] = useState<string>('detailed');
@@ -106,6 +112,19 @@ export default function MatthewStudy() {
         source_filename: sourceFiles.join(', ') || 'Custom',
       });
       if (saveError) throw saveError;
+
+      // 0-1-3-7 spaced repetition — schedule review tasks
+      const today = new Date();
+      const reviewDays = [1, 3, 7];
+      const reviewTasks = reviewDays.map(days => ({
+        student_id: 'matthew',
+        title: `Review: ${guideName.trim()}`,
+        due_date: addDays(today, days),
+        task_type: 'review',
+        completed: false,
+      }));
+      await supabase.from('tasks').insert(reviewTasks);
+
       setSaved(true);
       setShowNamePrompt(false);
     } catch (err) {
@@ -169,20 +188,11 @@ export default function MatthewStudy() {
 
         {!studyGuide ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-            {/* Multi-file upload */}
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 12 }}>Upload Materials</div>
-              <div
-                onDrop={handleDrop}
-                onDragOver={e => e.preventDefault()}
-                onClick={() => document.getElementById('pdf-upload-matthew')?.click()}
-                style={{ padding: '32px 20px', borderRadius: 12, border: `2px dashed ${files.length > 0 ? '#7B6FA0' : '#E8E5F0'}`, background: '#FAFAF8', textAlign: 'center', cursor: 'pointer' }}
-              >
+              <div onDrop={handleDrop} onDragOver={e => e.preventDefault()} onClick={() => document.getElementById('pdf-upload-matthew')?.click()} style={{ padding: '32px 20px', borderRadius: 12, border: `2px dashed ${files.length > 0 ? '#7B6FA0' : '#E8E5F0'}`, background: '#FAFAF8', textAlign: 'center', cursor: 'pointer' }}>
                 <div style={{ fontSize: 28, marginBottom: 8 }}>📄</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>
-                  {files.length > 0 ? `${files.length} file${files.length > 1 ? 's' : ''} selected` : 'Upload PDFs'}
-                </div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>{files.length > 0 ? `${files.length} file${files.length > 1 ? 's' : ''} selected` : 'Upload PDFs'}</div>
                 <div style={{ fontSize: 11, color: '#9E9BB0' }}>Click or drag and drop · Multiple files supported</div>
                 <input id="pdf-upload-matthew" type="file" accept=".pdf" multiple style={{ display: 'none' }} onChange={handleFileInput} />
               </div>
@@ -198,7 +208,6 @@ export default function MatthewStudy() {
               )}
             </div>
 
-            {/* Level selector */}
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 12 }}>Level of Detail</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -211,20 +220,12 @@ export default function MatthewStudy() {
               </div>
             </div>
 
-            {/* Custom instructions */}
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 4 }}>Custom Instructions</div>
               <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 10 }}>Supplement or override the level. Tell Ascend exactly what you need.</div>
-              <textarea
-                value={customInstructions}
-                onChange={e => setCustomInstructions(e.target.value)}
-                placeholder='e.g. "Focus on the Krebs cycle" or "Give me a one-page cheat sheet with all key reactions"'
-                rows={3}
-                style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.6 }}
-              />
+              <textarea value={customInstructions} onChange={e => setCustomInstructions(e.target.value)} placeholder='e.g. "Focus on the Krebs cycle" or "Give me a one-page cheat sheet with all key reactions"' rows={3} style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.6 }} />
             </div>
 
-            {/* Sample questions */}
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: addQuestions ? 16 : 0 }}>
                 <div>
@@ -274,8 +275,6 @@ export default function MatthewStudy() {
           </div>
         ) : (
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '24px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-
-            {/* Name prompt */}
             {showNamePrompt && (
               <div style={{ background: '#EDE9F7', borderRadius: 14, padding: '18px', marginBottom: 20 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#5A5078', marginBottom: 10 }}>What should we call this study guide?</div>
@@ -287,13 +286,12 @@ export default function MatthewStudy() {
             )}
 
             {saved && (
-              <div style={{ background: '#EDF7F2', borderRadius: 12, padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span>✅</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#5FAD8E' }}>Saved to your Ascend dashboard</span>
+              <div style={{ background: '#EDF7F2', borderRadius: 12, padding: '12px 16px', marginBottom: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#5FAD8E', marginBottom: 4 }}>✅ Saved to your Ascend dashboard</div>
+                <div style={{ fontSize: 11, color: '#9E9BB0' }}>📅 Review sessions scheduled for Day 1, Day 3, and Day 7 on your calendar.</div>
               </div>
             )}
 
-            {/* Source files badge */}
             {sourceFiles.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: '#9E9BB0', letterSpacing: 1, textTransform: 'uppercase', alignSelf: 'center', marginRight: 2 }}>From</span>
@@ -306,13 +304,11 @@ export default function MatthewStudy() {
               </div>
             )}
 
-            {/* Title + generate another */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26' }}>{guideName || 'Your Study Guide'}</div>
               <button onClick={() => { setStudyGuide(''); setFiles([]); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); }} style={{ fontSize: 12, fontWeight: 700, color: '#7B6FA0', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate Another</button>
             </div>
 
-            {/* Export bar */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
               <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>🖨️ Print</button>
               <button onClick={handleShare} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>📤 Share</button>
@@ -320,7 +316,6 @@ export default function MatthewStudy() {
               <button onClick={handleDownload} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>⬇️ Download PDF</button>
             </div>
 
-            {/* Study guide content */}
             <div ref={printRef} style={{ padding: '4px' }}>
               <ReactMarkdown components={{
                 h1: ({children}) => <h1 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.4rem', fontWeight: 800, color: '#5A5078', marginTop: '1.5rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: '2px solid #EDE9F7' }}>{children}</h1>,
