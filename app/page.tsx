@@ -28,7 +28,6 @@ export default function Home() {
   const [checking, setChecking] = useState(false);
 
   const handleStudentTap = async (s: typeof students[0]) => {
-    // Check if student has a PIN set
     const { data } = await supabase
       .from('students')
       .select('pin')
@@ -40,7 +39,6 @@ export default function Home() {
       setPin('');
       setError('');
     } else {
-      // No PIN set, go straight in
       router.push(`/${s.id}`);
     }
   };
@@ -169,7 +167,7 @@ export default function Home() {
       </div>
 
       <div style={{ fontSize: 10, color: 'var(--light)', marginTop: 40, letterSpacing: 0.5, textAlign: 'center' }}>
-        Ascend v1.0 · May 2026 · Forged in Focus
+        Ascend v1.1 · May 2026 · Forged in Focus
       </div>
     </main>
   );
