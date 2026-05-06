@@ -33,18 +33,18 @@ type Folder   = { id: string; name: string; exam_date: string | null; };
 type Resource = { id: string; file_name: string; file_type: string; storage_url: string | null; created_at: string; };
 
 const TABS = [
-  { key: 'resources', label: 'Resources' },
-  { key: 'guide',     label: 'Study Guide' },
-  { key: 'cards',     label: 'Flashcards' },
-  { key: 'exam',      label: 'Practice Exam' },
+  { key: 'resources', label: 'Resources',     icon: '📂' },
+  { key: 'cards',     label: 'Flashcards',    icon: '🃏' },
+  { key: 'exam',      label: 'Practice Exam', icon: '📝' },
+  { key: 'guide',     label: 'Study Guide',   icon: '📖' },
 ];
 
 const FILE_TYPES = [
-  { key: 'pdf',   label: 'PDF',          icon: '📄' },
-  { key: 'pptx',  label: 'Slides',       icon: '📊' },
-  { key: 'audio', label: 'Audio',        icon: '🎙️' },
-  { key: 'image', label: 'Image',        icon: '🖼️' },
-  { key: 'gdoc',  label: 'Google Doc',   icon: '🔗' },
+  { key: 'pdf',   label: 'PDF',        icon: '📄' },
+  { key: 'pptx',  label: 'Slides',     icon: '📊' },
+  { key: 'audio', label: 'Audio',      icon: '🎙️' },
+  { key: 'image', label: 'Image',      icon: '🖼️' },
+  { key: 'gdoc',  label: 'Google Doc', icon: '🔗' },
 ];
 
 function fileIcon(type: string) {
@@ -110,8 +110,9 @@ export default function MichaelBinder() {
     setShowUpload(false); setSaving(false);
   };
 
-  const countdown = folder ? daysUntil(folder.exam_date) : null;
-  const isUrgent  = countdown && countdown !== 'Today' && parseInt(countdown) <= 7;
+  const countdown    = folder ? daysUntil(folder.exam_date) : null;
+  const isUrgent     = countdown && countdown !== 'Today' && parseInt(countdown) <= 7;
+  const hasResources = resources.length > 0;
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAF8' }}>
@@ -123,70 +124,94 @@ export default function MichaelBinder() {
         </Link>
       </nav>
 
-      <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
-        <button onClick={() => router.push(`/michael/classes/${classId}`)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>
+      <main style={{ maxWidth: 720, margin: '0 auto', padding: '20px 20px 80px' }}>
+        <button
+          onClick={() => router.push(`/michael/classes/${classId}`)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 16, padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
+        >
           ← {cls?.name || 'Back'}
         </button>
 
         {!loading && cls && folder && (
-          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, overflow: 'hidden', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', marginBottom: 20 }}>
-            <div style={{ padding: '20px 20px 0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
-                <div style={{ width: 46, height: 46, borderRadius: 12, background: '#EDE9F7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#7B6FA0', flexShrink: 0 }}>
-                  {classLabel(cls.name)}
+          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 20, overflow: 'hidden', boxShadow: '0 2px 12px rgba(29,27,38,0.07)' }}>
+
+            {/* Binder Header */}
+            <div style={{ padding: '22px 24px 0' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 13, background: '#EDE9F7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#7B6FA0', flexShrink: 0 }}>
+                    {classLabel(cls.name)}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#9E9BB0', marginBottom: 3, letterSpacing: 0.3 }}>{cls.name}</div>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: '#1D1B26', letterSpacing: '-0.5px', lineHeight: 1.2 }}>{folder.name}</div>
+                    {cls.semester && <div style={{ fontSize: 11, color: '#C4C1D4', marginTop: 3 }}>{cls.semester}</div>}
+                  </div>
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 2 }}>{cls.name}</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.4px' }}>{folder.name}</div>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-                  {folder.exam_date && <span style={{ fontSize: 12, fontWeight: 700, color: '#9E9BB0' }}>{formatDate(folder.exam_date)}</span>}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0, paddingTop: 4 }}>
+                  {folder.exam_date && <div style={{ fontSize: 13, fontWeight: 700, color: '#6B6880' }}>{formatDate(folder.exam_date)}</div>}
                   {countdown && (
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: countdown === 'Today' ? '#FDF2F2' : isUrgent ? '#FFF3E8' : '#EDE9F7', color: countdown === 'Today' ? '#C47878' : isUrgent ? '#C8965A' : '#7B6FA0' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: countdown === 'Today' ? '#FDF2F2' : isUrgent ? '#FFF3E8' : '#EDE9F7', color: countdown === 'Today' ? '#C47878' : isUrgent ? '#C8965A' : '#7B6FA0' }}>
                       {countdown}
-                    </span>
+                    </div>
                   )}
                 </div>
               </div>
 
-              <div style={{ display: 'flex', borderBottom: '1.5px solid #E8E5F0' }}>
+              <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
+                <div style={{ fontSize: 11, color: '#9E9BB0' }}>
+                  <span style={{ fontWeight: 700, color: hasResources ? '#7B6FA0' : '#C4C1D4' }}>{resources.length}</span> resource{resources.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', borderBottom: '1.5px solid #E8E5F0', marginLeft: -24, marginRight: -24, paddingLeft: 24 }}>
                 {TABS.map(t => (
-                  <div key={t.key} onClick={() => setTab(t.key)} style={{ padding: '10px 16px', fontSize: 11, fontWeight: 700, cursor: 'pointer', borderBottom: `2.5px solid ${tab === t.key ? '#7B6FA0' : 'transparent'}`, marginBottom: -1.5, color: tab === t.key ? '#7B6FA0' : '#C4C1D4', whiteSpace: 'nowrap' }}>
+                  <button
+                    key={t.key}
+                    onClick={() => setTab(t.key)}
+                    style={{ padding: '10px 18px', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none', background: 'transparent', borderBottom: `2.5px solid ${tab === t.key ? '#7B6FA0' : 'transparent'}`, marginBottom: -1.5, color: tab === t.key ? '#7B6FA0' : '#9E9BB0', whiteSpace: 'nowrap', fontFamily: 'var(--font-jakarta)', transition: 'color 0.15s', display: 'flex', alignItems: 'center', gap: 5 }}
+                  >
+                    <span style={{ fontSize: 13 }}>{t.icon}</span>
                     {t.label}
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
 
-            <div style={{ padding: '20px' }}>
+            <div style={{ padding: '24px' }}>
 
               {tab === 'resources' && (
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                    <div style={{ fontSize: 13, color: '#9E9BB0', lineHeight: 1.5 }}>Lecture notes, PDFs, slides, audio, links.</div>
-                    <button onClick={() => setShowUpload(true)} style={{ padding: '8px 16px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0, marginLeft: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Resources</div>
+                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>Lecture notes, PDFs, slides, audio, links</div>
+                    </div>
+                    <button onClick={() => setShowUpload(true)} style={{ padding: '9px 18px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>
                       + Upload
                     </button>
                   </div>
                   {resources.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '32px 0', border: '2px dashed #E8E5F0', borderRadius: 12 }}>
-                      <div style={{ fontSize: 32, marginBottom: 10 }}>📂</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#1D1B26', marginBottom: 6 }}>No resources yet</div>
-                      <div style={{ fontSize: 12, color: '#9E9BB0', marginBottom: 18 }}>Upload your first file to get started.</div>
-                      <button onClick={() => setShowUpload(true)} style={{ padding: '10px 22px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                        Upload Resource
+                    <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
+                      <div style={{ fontSize: 40, marginBottom: 12 }}>📂</div>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No resources yet</div>
+                      <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>Upload PDFs, slides, audio recordings, old exams, or Google Doc links for this folder.</div>
+                      <button onClick={() => setShowUpload(true)} style={{ padding: '11px 24px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                        Upload First Resource
                       </button>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {resources.map(r => (
-                        <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: '#FAFAF8', borderRadius: 12, border: '1.5px solid #E8E5F0' }}>
-                          <span style={{ fontSize: 20, flexShrink: 0 }}>{fileIcon(r.file_type)}</span>
+                        <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', background: '#FAFAF8', borderRadius: 12, border: '1.5px solid #E8E5F0' }}>
+                          <div style={{ width: 36, height: 36, borderRadius: 10, background: '#EDE9F7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
+                            {fileIcon(r.file_type)}
+                          </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.file_name}</div>
-                            <div style={{ fontSize: 11, color: '#9E9BB0', textTransform: 'capitalize' }}>{r.file_type}</div>
+                            <div style={{ fontSize: 11, color: '#9E9BB0', textTransform: 'capitalize', marginTop: 2 }}>{r.file_type}</div>
                           </div>
-                          {r.storage_url && <a href={r.storage_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, fontWeight: 700, color: '#7B6FA0', textDecoration: 'none' }}>Open</a>}
+                          {r.storage_url && <a href={r.storage_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 700, color: '#7B6FA0', textDecoration: 'none', flexShrink: 0, padding: '5px 12px', background: '#EDE9F7', borderRadius: 999 }}>Open</a>}
                         </div>
                       ))}
                     </div>
@@ -194,77 +219,105 @@ export default function MichaelBinder() {
                 </div>
               )}
 
-              {tab === 'guide' && (
-                <div style={{ textAlign: 'center', padding: '32px 0' }}>
-                  <div style={{ fontSize: 36, marginBottom: 12 }}>📖</div>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>Study guide not generated</div>
-                  <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>Upload resources first — Ascend builds a full study guide from your material.</div>
-                  <button onClick={() => router.push('/michael/study')} style={{ padding: '10px 22px', borderRadius: 999, background: resources.length > 0 ? '#7B6FA0' : '#F3F1EC', border: 'none', color: resources.length > 0 ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                    {resources.length > 0 ? 'Generate Study Guide' : 'Upload Resources First'}
-                  </button>
-                </div>
-              )}
-
               {tab === 'cards' && (
-                <div style={{ textAlign: 'center', padding: '32px 0' }}>
-                  <div style={{ fontSize: 36, marginBottom: 12 }}>🃏</div>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No flashcard deck yet</div>
-                  <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>Generate a deck from this folder's resources.</div>
-                  <button onClick={() => router.push('/michael/flashcards')} style={{ padding: '10px 22px', borderRadius: 999, background: resources.length > 0 ? '#7B6FA0' : '#F3F1EC', border: 'none', color: resources.length > 0 ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                    {resources.length > 0 ? 'Generate Flashcards' : 'Upload Resources First'}
-                  </button>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Flashcards</div>
+                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>Generate a deck from this folder's material</div>
+                    </div>
+                    {hasResources && <button onClick={() => router.push('/michael/flashcards')} style={{ padding: '9px 18px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>Generate</button>}
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
+                    <div style={{ fontSize: 40, marginBottom: 12 }}>🃏</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No flashcard deck yet</div>
+                    <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Generate a Smart or Basic deck from the resources in this folder.' : 'Upload resources to this folder first, then generate a flashcard deck.'}</div>
+                    <button onClick={() => hasResources ? router.push('/michael/flashcards') : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? '#7B6FA0' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                      {hasResources ? 'Generate Flashcards' : 'Upload Resources First'}
+                    </button>
+                  </div>
                 </div>
               )}
 
               {tab === 'exam' && (
-                <div style={{ textAlign: 'center', padding: '32px 0' }}>
-                  <div style={{ fontSize: 36, marginBottom: 12 }}>📝</div>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No practice exam yet</div>
-                  <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>Generate a practice exam from this folder's material.</div>
-                  <button onClick={() => router.push('/michael/practice-exam')} style={{ padding: '10px 22px', borderRadius: 999, background: resources.length > 0 ? '#7B6FA0' : '#F3F1EC', border: 'none', color: resources.length > 0 ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                    {resources.length > 0 ? 'Generate Practice Exam' : 'Upload Resources First'}
-                  </button>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Practice Exam</div>
+                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>Generate a practice exam from this folder</div>
+                    </div>
+                    {hasResources && <button onClick={() => router.push('/michael/practice-exam')} style={{ padding: '9px 18px', borderRadius: 999, background: '#C8965A', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>Generate</button>}
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
+                    <div style={{ fontSize: 40, marginBottom: 12 }}>📝</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No practice exam yet</div>
+                    <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Generate a practice exam from the resources in this folder. Weighted to your weak areas.' : 'Upload resources to this folder first, then generate a practice exam.'}</div>
+                    <button onClick={() => hasResources ? router.push('/michael/practice-exam') : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? '#C8965A' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                      {hasResources ? 'Generate Practice Exam' : 'Upload Resources First'}
+                    </button>
+                  </div>
                 </div>
               )}
+
+              {tab === 'guide' && (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Study Guide</div>
+                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>Generate a full study guide from this folder</div>
+                    </div>
+                    {hasResources && <button onClick={() => router.push('/michael/study')} style={{ padding: '9px 18px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>Generate</button>}
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
+                    <div style={{ fontSize: 40, marginBottom: 12 }}>📖</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No study guide yet</div>
+                    <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Ascend builds a full outline and active recall guide from your uploaded material.' : 'Upload resources to this folder first — Ascend builds the study guide from your material.'}</div>
+                    <button onClick={() => hasResources ? router.push('/michael/study') : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? '#7B6FA0' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                      {hasResources ? 'Generate Study Guide' : 'Upload Resources First'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
         )}
       </main>
 
       {showUpload && (
-        <div onClick={e => { if (e.target === e.currentTarget) { setShowUpload(false); setUpType(''); setUpName(''); setUpLink(''); }}} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.45)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div style={{ background: '#FFFFFF', borderRadius: '22px 22px 0 0', padding: '24px 20px 36px', width: '100%', maxWidth: 580, boxShadow: '0 -8px 40px rgba(29,27,38,0.12)' }}>
+        <div onClick={e => { if (e.target === e.currentTarget) { setShowUpload(false); setUpType(''); setUpName(''); setUpLink(''); }}} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <div style={{ background: '#FFFFFF', borderRadius: '22px 22px 0 0', padding: '24px 20px 40px', width: '100%', maxWidth: 580, boxShadow: '0 -8px 40px rgba(29,27,38,0.15)' }}>
             <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 20px' }} />
             <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>Add Resource</div>
             <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>What type of resource is this?</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 20 }}>
               {FILE_TYPES.map(ft => (
-                <div key={ft.key} onClick={() => setUpType(ft.key)} style={{ padding: '10px 6px', borderRadius: 12, border: `1.5px solid ${upType === ft.key ? '#7B6FA0' : '#E8E5F0'}`, background: upType === ft.key ? '#EDE9F7' : '#FAFAF8', cursor: 'pointer', textAlign: 'center' }}>
-                  <div style={{ fontSize: 20, marginBottom: 4 }}>{ft.icon}</div>
+                <div key={ft.key} onClick={() => setUpType(ft.key)} style={{ padding: '12px 6px', borderRadius: 12, border: `1.5px solid ${upType === ft.key ? '#7B6FA0' : '#E8E5F0'}`, background: upType === ft.key ? '#EDE9F7' : '#FAFAF8', cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s' }}>
+                  <div style={{ fontSize: 22, marginBottom: 5 }}>{ft.icon}</div>
                   <div style={{ fontSize: 10, fontWeight: 700, color: upType === ft.key ? '#7B6FA0' : '#9E9BB0' }}>{ft.label}</div>
                 </div>
               ))}
             </div>
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Name</label>
-              <input autoFocus value={upName} onChange={e => setUpName(e.target.value)} placeholder='e.g. "Lecture 8 - Cellular Respiration"' style={{ width: '100%', padding: '11px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
+              <input autoFocus value={upName} onChange={e => setUpName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && upName.trim() && upType) handleAddResource(); }} placeholder='e.g. "Lecture 8 - Krebs Cycle"' style={{ width: '100%', padding: '12px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
             </div>
             {upType === 'gdoc' && (
               <div style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Google Doc Link</label>
-                <input value={upLink} onChange={e => setUpLink(e.target.value)} placeholder="https://docs.google.com/..." style={{ width: '100%', padding: '11px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
+                <input value={upLink} onChange={e => setUpLink(e.target.value)} placeholder="https://docs.google.com/..." style={{ width: '100%', padding: '12px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
               </div>
             )}
             {upType && upType !== 'gdoc' && (
-              <div style={{ border: '2px dashed #E8E5F0', borderRadius: 12, padding: '24px', textAlign: 'center', marginBottom: 14, background: '#FAFAF8' }}>
-                <div style={{ fontSize: 24, marginBottom: 8 }}>☁️</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#9E9BB0', marginBottom: 4 }}>File upload coming in v1.2</div>
-                <div style={{ fontSize: 11, color: '#C4C1D4' }}>Save the name now — attach the file later</div>
+              <div style={{ border: '2px dashed #E8E5F0', borderRadius: 12, padding: '20px', textAlign: 'center', marginBottom: 14, background: '#FAFAF8' }}>
+                <div style={{ fontSize: 22, marginBottom: 6 }}>☁️</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#9E9BB0', marginBottom: 3 }}>File upload coming in v1.3</div>
+                <div style={{ fontSize: 11, color: '#C4C1D4' }}>Save the name now — attach the file when uploads go live</div>
               </div>
             )}
-            <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-              <button onClick={() => { setShowUpload(false); setUpType(''); setUpName(''); setUpLink(''); }} style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={handleAddResource} disabled={!upName.trim() || !upType || saving} style={{ flex: 2, padding: '12px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !upName.trim() || !upType || saving ? 0.4 : 1 }}>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => { setShowUpload(false); setUpType(''); setUpName(''); setUpLink(''); }} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={handleAddResource} disabled={!upName.trim() || !upType || saving} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: !upName.trim() || !upType ? '#F3F1EC' : 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: !upName.trim() || !upType ? '#C4C1D4' : 'white', fontSize: 13, fontWeight: 800, cursor: !upName.trim() || !upType ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-jakarta)' }}>
                 {saving ? 'Saving...' : 'Add Resource'}
               </button>
             </div>
