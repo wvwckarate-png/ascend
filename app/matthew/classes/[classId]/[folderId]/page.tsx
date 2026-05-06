@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import TabBar from '../../../../components/TabBar';
 import { supabase } from '../../../../../lib/supabase';
@@ -32,20 +32,19 @@ type ClassRow = { id: string; name: string; semester: string; professor: string;
 type Folder   = { id: string; name: string; exam_date: string | null; };
 type Resource = { id: string; file_name: string; file_type: string; storage_url: string | null; created_at: string; };
 
-// Resources tab is FIRST per locked decision
 const TABS = [
-  { key: 'resources', label: 'Resources',      icon: '📂' },
-  { key: 'cards',     label: 'Flashcards',     icon: '🃏' },
-  { key: 'exam',      label: 'Practice Exam',  icon: '📝' },
-  { key: 'guide',     label: 'Study Guide',    icon: '📖' },
+  { key: 'resources', label: 'Resources',     icon: '📂' },
+  { key: 'cards',     label: 'Flashcards',    icon: '🃏' },
+  { key: 'exam',      label: 'Practice Exam', icon: '📝' },
+  { key: 'guide',     label: 'Study Guide',   icon: '📖' },
 ];
 
 const FILE_TYPES = [
-  { key: 'pdf',   label: 'PDF',        icon: '📄' },
-  { key: 'pptx',  label: 'Slides',     icon: '📊' },
-  { key: 'audio', label: 'Audio',      icon: '🎙️' },
-  { key: 'image', label: 'Image',      icon: '🖼️' },
-  { key: 'gdoc',  label: 'Google Doc', icon: '🔗' },
+  { key: 'pdf',      label: 'PDF',        icon: '📄', accept: '.pdf' },
+  { key: 'pptx',     label: 'Slides',     icon: '📊', accept: '.pptx,.ppt' },
+  { key: 'audio',    label: 'Audio',      icon: '🎙️', accept: '.mp3,.m4a,.wav,.ogg' },
+  { key: 'image',    label: 'Image',      icon: '🖼️', accept: '.png,.jpg,.jpeg,.webp' },
+  { key: 'gdoc',     label: 'Google Doc', icon: '🔗', accept: '' },
 ];
 
 function fileIcon(type: string) {
@@ -72,16 +71,21 @@ export default function MatthewBinder() {
   const classId  = params.classId as string;
   const folderId = params.folderId as string;
 
-  const [cls,        setCls]        = useState<ClassRow | null>(null);
-  const [folder,     setFolder]     = useState<Folder | null>(null);
-  const [resources,  setResources]  = useState<Resource[]>([]);
-  const [tab,        setTab]        = useState('resources');
-  const [loading,    setLoading]    = useState(true);
-  const [showUpload, setShowUpload] = useState(false);
-  const [upType,     setUpType]     = useState('');
-  const [upName,     setUpName]     = useState('');
-  const [upLink,     setUpLink]     = useState('');
-  const [saving,     setSaving]     = useState(false);
+  const [cls,            setCls]            = useState<ClassRow | null>(null);
+  const [folder,         setFolder]         = useState<Folder | null>(null);
+  const [resources,      setResources]      = useState<Resource[]>([]);
+  const [tab,            setTab]            = useState('resources');
+  const [loading,        setLoading]        = useState(true);
+  const [showUpload,     setShowUpload]     = useState(false);
+  const [upType,         setUpType]         = useState('');
+  const [upName,         setUpName]         = useState('');
+  const [upLink,         setUpLink]         = useState('');
+  const [upFile,         setUpFile]         = useState<File | null>(null);
+  const [uploading,      setUploading]      = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [upError,        setUpError]        = useState('');
+  const [upSaved,        setUpSaved]        = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -98,22 +102,77 @@ export default function MatthewBinder() {
     load();
   }, [classId, folderId]);
 
-  const handleAddResource = async () => {
-    if (!upName.trim() || !upType) return;
-    setSaving(true);
-    const { data } = await supabase
-      .from('resources')
-      .insert({ folder_id: folderId, file_name: upName.trim(), file_type: upType, storage_url: upLink || null })
-      .select()
-      .single();
-    if (data) setResources(prev => [data, ...prev]);
-    setUpType(''); setUpName(''); setUpLink('');
-    setShowUpload(false); setSaving(false);
+  const resetUpload = () => {
+    setUpType(''); setUpName(''); setUpLink(''); setUpFile(null);
+    setUploading(false); setUploadProgress(0); setUpError(''); setUpSaved(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const countdown = folder ? daysUntil(folder.exam_date) : null;
-  const isUrgent  = countdown && countdown !== 'Today' && parseInt(countdown) <= 7;
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setUpFile(f);
+    if (!upName.trim()) setUpName(f.name.replace(/\.[^/.]+$/, ''));
+  };
+
+  const handleAddResource = async () => {
+    if (!upName.trim() || !upType) return;
+    setUploading(true);
+    setUpError('');
+
+    try {
+      let storageUrl: string | null = null;
+
+      if (upFile && upType !== 'gdoc') {
+        const ext      = upFile.name.split('.').pop();
+        const safeName = upName.trim().replace(/[^a-zA-Z0-9-_]/g, '_');
+        const path     = `matthew/${folderId}/${Date.now()}_${safeName}.${ext}`;
+
+        const progressInterval = setInterval(() => {
+          setUploadProgress(p => Math.min(p + 12, 85));
+        }, 200);
+
+        const { error: uploadError } = await supabase.storage
+          .from('resources')
+          .upload(path, upFile, { upsert: false });
+
+        clearInterval(progressInterval);
+        setUploadProgress(100);
+
+        if (uploadError) throw new Error(uploadError.message);
+
+        const { data: urlData } = supabase.storage
+          .from('resources')
+          .getPublicUrl(path);
+
+        storageUrl = urlData.publicUrl;
+
+      } else if (upType === 'gdoc' && upLink.trim()) {
+        storageUrl = upLink.trim();
+      }
+
+      const { data } = await supabase
+        .from('resources')
+        .insert({ folder_id: folderId, file_name: upName.trim(), file_type: upType, storage_url: storageUrl })
+        .select()
+        .single();
+
+      if (data) setResources(prev => [data, ...prev]);
+      setUpSaved(true);
+      setTimeout(() => { setShowUpload(false); resetUpload(); }, 900);
+
+    } catch (err: any) {
+      setUpError(err.message || 'Upload failed. Please try again.');
+      setUploadProgress(0);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const countdown    = folder ? daysUntil(folder.exam_date) : null;
+  const isUrgent     = countdown && countdown !== 'Today' && parseInt(countdown) <= 7;
   const hasResources = resources.length > 0;
+  const selectedType = FILE_TYPES.find(f => f.key === upType);
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAF8' }}>
@@ -126,18 +185,14 @@ export default function MatthewBinder() {
       </nav>
 
       <main style={{ maxWidth: 720, margin: '0 auto', padding: '20px 20px 80px' }}>
-
-        <button
-          onClick={() => router.push(`/matthew/classes/${classId}`)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 16, padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
-        >
+        <button onClick={() => router.push(`/matthew/classes/${classId}`)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 16, padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
           ← {cls?.name || 'Back'}
         </button>
 
         {!loading && cls && folder && (
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 20, overflow: 'hidden', boxShadow: '0 2px 12px rgba(29,27,38,0.07)' }}>
 
-            {/* Binder Header */}
+            {/* Header */}
             <div style={{ padding: '22px 24px 0' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -145,17 +200,13 @@ export default function MatthewBinder() {
                     {classLabel(cls.name)}
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#9E9BB0', marginBottom: 3, letterSpacing: 0.3 }}>{cls.name}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#9E9BB0', marginBottom: 3 }}>{cls.name}</div>
                     <div style={{ fontSize: 22, fontWeight: 900, color: '#1D1B26', letterSpacing: '-0.5px', lineHeight: 1.2 }}>{folder.name}</div>
                     {cls.semester && <div style={{ fontSize: 11, color: '#C4C1D4', marginTop: 3 }}>{cls.semester}</div>}
                   </div>
                 </div>
-
-                {/* Date + countdown */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0, paddingTop: 4 }}>
-                  {folder.exam_date && (
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#6B6880' }}>{formatDate(folder.exam_date)}</div>
-                  )}
+                  {folder.exam_date && <div style={{ fontSize: 13, fontWeight: 700, color: '#6B6880' }}>{formatDate(folder.exam_date)}</div>}
                   {countdown && (
                     <div style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: countdown === 'Today' ? '#FDF2F2' : isUrgent ? '#FFF3E8' : '#EDE9F7', color: countdown === 'Today' ? '#C47878' : isUrgent ? '#C8965A' : '#7B6FA0' }}>
                       {countdown}
@@ -164,23 +215,17 @@ export default function MatthewBinder() {
                 </div>
               </div>
 
-              {/* Resource count summary */}
-              <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
-                <div style={{ fontSize: 11, color: '#9E9BB0' }}>
+              <div style={{ marginBottom: 16 }}>
+                <span style={{ fontSize: 11, color: '#9E9BB0' }}>
                   <span style={{ fontWeight: 700, color: hasResources ? '#7B6FA0' : '#C4C1D4' }}>{resources.length}</span> resource{resources.length !== 1 ? 's' : ''}
-                </div>
+                </span>
               </div>
 
-              {/* Tab bar */}
+              {/* Tabs */}
               <div style={{ display: 'flex', borderBottom: '1.5px solid #E8E5F0', marginLeft: -24, marginRight: -24, paddingLeft: 24 }}>
                 {TABS.map(t => (
-                  <button
-                    key={t.key}
-                    onClick={() => setTab(t.key)}
-                    style={{ padding: '10px 18px', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none', background: 'transparent', borderBottom: `2.5px solid ${tab === t.key ? '#7B6FA0' : 'transparent'}`, marginBottom: -1.5, color: tab === t.key ? '#7B6FA0' : '#9E9BB0', whiteSpace: 'nowrap', fontFamily: 'var(--font-jakarta)', transition: 'color 0.15s', display: 'flex', alignItems: 'center', gap: 5 }}
-                  >
-                    <span style={{ fontSize: 13 }}>{t.icon}</span>
-                    {t.label}
+                  <button key={t.key} onClick={() => setTab(t.key)} style={{ padding: '10px 18px', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none', background: 'transparent', borderBottom: `2.5px solid ${tab === t.key ? '#7B6FA0' : 'transparent'}`, marginBottom: -1.5, color: tab === t.key ? '#7B6FA0' : '#9E9BB0', whiteSpace: 'nowrap', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ fontSize: 13 }}>{t.icon}</span>{t.label}
                   </button>
                 ))}
               </div>
@@ -189,7 +234,6 @@ export default function MatthewBinder() {
             {/* Tab content */}
             <div style={{ padding: '24px' }}>
 
-              {/* ── RESOURCES ── */}
               {tab === 'resources' && (
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
@@ -197,35 +241,20 @@ export default function MatthewBinder() {
                       <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Resources</div>
                       <div style={{ fontSize: 12, color: '#9E9BB0' }}>Lecture notes, PDFs, slides, audio, links</div>
                     </div>
-                    <button
-                      onClick={() => setShowUpload(true)}
-                      style={{ padding: '9px 18px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}
-                    >
-                      + Upload
-                    </button>
+                    <button onClick={() => setShowUpload(true)} style={{ padding: '9px 18px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>+ Upload</button>
                   </div>
-
                   {resources.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
                       <div style={{ fontSize: 40, marginBottom: 12 }}>📂</div>
                       <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No resources yet</div>
-                      <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>
-                        Upload PDFs, slides, audio recordings, old exams, or Google Doc links for this folder.
-                      </div>
-                      <button
-                        onClick={() => setShowUpload(true)}
-                        style={{ padding: '11px 24px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}
-                      >
-                        Upload First Resource
-                      </button>
+                      <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>Upload PDFs, slides, audio recordings, old exams, or Google Doc links.</div>
+                      <button onClick={() => setShowUpload(true)} style={{ padding: '11px 24px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Upload First Resource</button>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {resources.map(r => (
                         <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', background: '#FAFAF8', borderRadius: 12, border: '1.5px solid #E8E5F0' }}>
-                          <div style={{ width: 36, height: 36, borderRadius: 10, background: '#EDE9F7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
-                            {fileIcon(r.file_type)}
-                          </div>
+                          <div style={{ width: 36, height: 36, borderRadius: 10, background: '#EDE9F7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{fileIcon(r.file_type)}</div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.file_name}</div>
                             <div style={{ fontSize: 11, color: '#9E9BB0', textTransform: 'capitalize', marginTop: 2 }}>{r.file_type}</div>
@@ -240,7 +269,6 @@ export default function MatthewBinder() {
                 </div>
               )}
 
-              {/* ── FLASHCARDS ── */}
               {tab === 'cards' && (
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
@@ -248,34 +276,19 @@ export default function MatthewBinder() {
                       <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Flashcards</div>
                       <div style={{ fontSize: 12, color: '#9E9BB0' }}>Generate a deck from this folder's material</div>
                     </div>
-                    {hasResources && (
-                      <button
-                        onClick={() => router.push('/matthew/flashcards')}
-                        style={{ padding: '9px 18px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}
-                      >
-                        Generate
-                      </button>
-                    )}
+                    {hasResources && <button onClick={() => router.push('/matthew/flashcards')} style={{ padding: '9px 18px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate</button>}
                   </div>
                   <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
                     <div style={{ fontSize: 40, marginBottom: 12 }}>🃏</div>
                     <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No flashcard deck yet</div>
-                    <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>
-                      {hasResources
-                        ? 'Generate a Smart or Basic deck from the resources in this folder.'
-                        : 'Upload resources to this folder first, then generate a flashcard deck.'}
-                    </div>
-                    <button
-                      onClick={() => hasResources ? router.push('/matthew/flashcards') : setTab('resources')}
-                      style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? '#7B6FA0' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}
-                    >
+                    <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Generate a Smart or Basic deck from the resources in this folder.' : 'Upload resources first, then generate a flashcard deck.'}</div>
+                    <button onClick={() => hasResources ? router.push('/matthew/flashcards') : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? '#7B6FA0' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
                       {hasResources ? 'Generate Flashcards' : 'Upload Resources First'}
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* ── PRACTICE EXAM ── */}
               {tab === 'exam' && (
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
@@ -283,34 +296,19 @@ export default function MatthewBinder() {
                       <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Practice Exam</div>
                       <div style={{ fontSize: 12, color: '#9E9BB0' }}>Generate a practice exam from this folder</div>
                     </div>
-                    {hasResources && (
-                      <button
-                        onClick={() => router.push('/matthew/practice-exam')}
-                        style={{ padding: '9px 18px', borderRadius: 999, background: '#C8965A', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}
-                      >
-                        Generate
-                      </button>
-                    )}
+                    {hasResources && <button onClick={() => router.push('/matthew/practice-exam')} style={{ padding: '9px 18px', borderRadius: 999, background: '#C8965A', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate</button>}
                   </div>
                   <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
                     <div style={{ fontSize: 40, marginBottom: 12 }}>📝</div>
                     <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No practice exam yet</div>
-                    <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>
-                      {hasResources
-                        ? 'Generate a practice exam from the resources in this folder. Weighted to your weak areas.'
-                        : 'Upload resources to this folder first, then generate a practice exam.'}
-                    </div>
-                    <button
-                      onClick={() => hasResources ? router.push('/matthew/practice-exam') : setTab('resources')}
-                      style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? '#C8965A' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}
-                    >
+                    <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Generate a practice exam weighted to your weak areas.' : 'Upload resources first, then generate a practice exam.'}</div>
+                    <button onClick={() => hasResources ? router.push('/matthew/practice-exam') : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? '#C8965A' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
                       {hasResources ? 'Generate Practice Exam' : 'Upload Resources First'}
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* ── STUDY GUIDE ── */}
               {tab === 'guide' && (
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
@@ -318,27 +316,13 @@ export default function MatthewBinder() {
                       <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Study Guide</div>
                       <div style={{ fontSize: 12, color: '#9E9BB0' }}>Generate a full study guide from this folder</div>
                     </div>
-                    {hasResources && (
-                      <button
-                        onClick={() => router.push('/matthew/study')}
-                        style={{ padding: '9px 18px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}
-                      >
-                        Generate
-                      </button>
-                    )}
+                    {hasResources && <button onClick={() => router.push('/matthew/study')} style={{ padding: '9px 18px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate</button>}
                   </div>
                   <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
                     <div style={{ fontSize: 40, marginBottom: 12 }}>📖</div>
                     <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No study guide yet</div>
-                    <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>
-                      {hasResources
-                        ? 'Ascend builds a full outline and active recall guide from your uploaded material.'
-                        : 'Upload resources to this folder first — Ascend builds the study guide from your material.'}
-                    </div>
-                    <button
-                      onClick={() => hasResources ? router.push('/matthew/study') : setTab('resources')}
-                      style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? '#7B6FA0' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}
-                    >
+                    <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Ascend builds a full outline and active recall guide from your uploaded material.' : 'Upload resources first — Ascend builds the study guide from your material.'}</div>
+                    <button onClick={() => hasResources ? router.push('/matthew/study') : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? '#7B6FA0' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
                       {hasResources ? 'Generate Study Guide' : 'Upload Resources First'}
                     </button>
                   </div>
@@ -353,19 +337,20 @@ export default function MatthewBinder() {
       {/* Upload Modal */}
       {showUpload && (
         <div
-          onClick={e => { if (e.target === e.currentTarget) { setShowUpload(false); setUpType(''); setUpName(''); setUpLink(''); }}}
+          onClick={e => { if (e.target === e.currentTarget) { setShowUpload(false); resetUpload(); }}}
           style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
         >
-          <div style={{ background: '#FFFFFF', borderRadius: '22px 22px 0 0', padding: '24px 20px 40px', width: '100%', maxWidth: 580, boxShadow: '0 -8px 40px rgba(29,27,38,0.15)' }}>
+          <div style={{ background: '#FFFFFF', borderRadius: '22px 22px 0 0', padding: '24px 20px 44px', width: '100%', maxWidth: 580, boxShadow: '0 -8px 40px rgba(29,27,38,0.15)', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 20px' }} />
             <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>Add Resource</div>
             <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>What type of resource is this?</div>
 
+            {/* File type selector */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 20 }}>
               {FILE_TYPES.map(ft => (
                 <div
                   key={ft.key}
-                  onClick={() => setUpType(ft.key)}
+                  onClick={() => { setUpType(ft.key); setUpFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
                   style={{ padding: '12px 6px', borderRadius: 12, border: `1.5px solid ${upType === ft.key ? '#7B6FA0' : '#E8E5F0'}`, background: upType === ft.key ? '#EDE9F7' : '#FAFAF8', cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s' }}
                 >
                   <div style={{ fontSize: 22, marginBottom: 5 }}>{ft.icon}</div>
@@ -374,18 +359,19 @@ export default function MatthewBinder() {
               ))}
             </div>
 
+            {/* Name */}
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Name</label>
               <input
                 autoFocus
                 value={upName}
                 onChange={e => setUpName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && upName.trim() && upType) handleAddResource(); }}
                 placeholder='e.g. "Lecture 8 - Krebs Cycle"'
                 style={{ width: '100%', padding: '12px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }}
               />
             </div>
 
+            {/* Google Doc link */}
             {upType === 'gdoc' && (
               <div style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Google Doc Link</label>
@@ -398,27 +384,75 @@ export default function MatthewBinder() {
               </div>
             )}
 
+            {/* File picker */}
             {upType && upType !== 'gdoc' && (
-              <div style={{ border: '2px dashed #E8E5F0', borderRadius: 12, padding: '20px', textAlign: 'center', marginBottom: 14, background: '#FAFAF8' }}>
-                <div style={{ fontSize: 22, marginBottom: 6 }}>☁️</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#9E9BB0', marginBottom: 3 }}>File upload coming in v1.3</div>
-                <div style={{ fontSize: 11, color: '#C4C1D4' }}>Save the name now — attach the file when uploads go live</div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>File</label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={selectedType?.accept || '*'}
+                  onChange={handleFileChange}
+                  style={{ display: 'none' }}
+                />
+                {upFile ? (
+                  <div style={{ padding: '14px 16px', borderRadius: 12, border: '1.5px solid #7B6FA0', background: '#EDE9F7', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ fontSize: 24 }}>{selectedType?.icon}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{upFile.name}</div>
+                      <div style={{ fontSize: 11, color: '#9E9BB0' }}>{(upFile.size / 1024 / 1024).toFixed(1)} MB</div>
+                    </div>
+                    <button onClick={() => { setUpFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} style={{ fontSize: 13, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>✕</button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{ border: '2px dashed #E8E5F0', borderRadius: 12, padding: '28px 20px', textAlign: 'center', cursor: 'pointer', background: '#FAFAF8' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.borderColor = '#7B6FA0'}
+                    onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.borderColor = '#E8E5F0'}
+                  >
+                    <div style={{ fontSize: 32, marginBottom: 8 }}>☁️</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>Tap to choose file</div>
+                    <div style={{ fontSize: 11, color: '#9E9BB0' }}>{selectedType?.accept?.replace(/\./g, '').toUpperCase().replace(/,/g, ', ')}</div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Progress bar */}
+            {uploading && uploadProgress > 0 && uploadProgress < 100 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#9E9BB0' }}>Uploading...</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#7B6FA0' }}>{uploadProgress}%</span>
+                </div>
+                <div style={{ height: 6, background: '#F3F1EC', borderRadius: 99, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', background: '#7B6FA0', borderRadius: 99, width: `${uploadProgress}%`, transition: 'width 0.2s' }} />
+                </div>
+              </div>
+            )}
+
+            {/* Error */}
+            {upError && (
+              <div style={{ background: '#FDF2F2', border: '1.5px solid rgba(196,120,120,0.25)', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#C47878', fontWeight: 600, marginBottom: 14 }}>
+                {upError}
               </div>
             )}
 
             <div style={{ display: 'flex', gap: 10 }}>
               <button
-                onClick={() => { setShowUpload(false); setUpType(''); setUpName(''); setUpLink(''); }}
+                onClick={() => { setShowUpload(false); resetUpload(); }}
+                disabled={uploading}
                 style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddResource}
-                disabled={!upName.trim() || !upType || saving}
-                style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: !upName.trim() || !upType ? '#F3F1EC' : 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: !upName.trim() || !upType ? '#C4C1D4' : 'white', fontSize: 13, fontWeight: 800, cursor: !upName.trim() || !upType ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-jakarta)' }}
+                disabled={!upName.trim() || !upType || uploading || upSaved || (upType === 'gdoc' ? !upLink.trim() : false)}
+                style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: upSaved ? '#5FAD8E' : !upName.trim() || !upType ? '#F3F1EC' : 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: !upName.trim() || !upType ? '#C4C1D4' : 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: uploading ? 0.7 : 1 }}
               >
-                {saving ? 'Saving...' : 'Add Resource'}
+                {upSaved ? '✅ Saved!' : uploading ? 'Uploading...' : upFile ? 'Upload & Save' : 'Save Resource'}
               </button>
             </div>
           </div>
