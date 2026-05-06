@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import TabBar from '../components/TabBar';
+import UploadResourceModal from '../components/UploadResourceModal';
 
 type Class = { id: string; name: string; semester: string; professor: string | null; class_time: string | null; class_format: string | null; };
 type StudyGuide = { id: string; title: string; source_filename: string; created_at: string; };
@@ -52,6 +53,22 @@ function IconUpload() {
   );
 }
 
+const CLASS_COLORS = ['#9B8EC4', '#7B6FA0', '#A89EC4', '#6B7FA0', '#8E9BC4', '#7B8FA0'];
+
+function classLabel(name: string) {
+  const n = (name || '').toLowerCase();
+  if (n.includes('physics'))   return 'PHY';
+  if (n.includes('biology'))   return 'BIO';
+  if (n.includes('chemistry')) return 'CHM';
+  if (n.includes('algebra') || n.includes('math')) return 'MTH';
+  if (n.includes('english'))   return 'ENG';
+  if (n.includes('science'))   return 'SCI';
+  if (n.includes('sat') || n.includes('act')) return 'SAT';
+  if (n.includes('history'))   return 'HIS';
+  if (n.includes('spanish') || n.includes('french') || n.includes('latin')) return 'LNG';
+  return name.slice(0, 3).toUpperCase();
+}
+
 const DAYS_SHORT = ['S','M','T','W','T','F','S'];
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -63,14 +80,15 @@ export default function MichaelDashboard() {
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
 
-  const [classes, setClasses] = useState<Class[]>([]);
-  const [guides, setGuides] = useState<StudyGuide[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [classes,    setClasses]    = useState<Class[]>([]);
+  const [guides,     setGuides]     = useState<StudyGuide[]>([]);
+  const [tasks,      setTasks]      = useState<Task[]>([]);
+  const [loading,    setLoading]    = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [calView, setCalView] = useState<'week' | 'month'>('week');
-  const [calMonth, setCalMonth] = useState(today.getMonth());
-  const [calYear, setCalYear] = useState(today.getFullYear());
+  const [calView,    setCalView]    = useState<'week' | 'month'>('week');
+  const [calMonth,   setCalMonth]   = useState(today.getMonth());
+  const [calYear,    setCalYear]    = useState(today.getFullYear());
+  const [showUpload, setShowUpload] = useState(false);
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today);
@@ -87,7 +105,7 @@ export default function MichaelDashboard() {
       ]);
       if (classData) setClasses(classData);
       if (guideData) setGuides(guideData);
-      if (taskData) setTasks(taskData);
+      if (taskData)  setTasks(taskData);
       setLoading(false);
     };
     fetchData();
@@ -103,14 +121,14 @@ export default function MichaelDashboard() {
 
   const tasksForDate = (dateStr: string) => tasks.filter(t => t.due_date === dateStr);
   const daysInMonth = getDaysInMonth(calYear, calMonth);
-  const firstDay = getFirstDayOfMonth(calYear, calMonth);
-  const prevMonth = () => { if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1); } else setCalMonth(m => m - 1); };
-  const nextMonth = () => { if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); } else setCalMonth(m => m + 1); };
+  const firstDay    = getFirstDayOfMonth(calYear, calMonth);
+  const prevMonth   = () => { if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1); } else setCalMonth(m => m - 1); };
+  const nextMonth   = () => { if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); } else setCalMonth(m => m + 1); };
 
   const DayCell = ({ dateStr, label, isToday }: { dateStr: string; label: string | number; isToday: boolean; }) => {
     const dayTasks = tasksForDate(dateStr);
     const hasIncomplete = dayTasks.some(t => !t.completed);
-    const hasCompleted = dayTasks.some(t => t.completed);
+    const hasCompleted  = dayTasks.some(t => t.completed);
     return (
       <div onClick={() => router.push('/michael/calendar')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer' }}>
         <div style={{ width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isToday ? '#7B6FA0' : 'transparent' }}>
@@ -118,7 +136,7 @@ export default function MichaelDashboard() {
         </div>
         <div style={{ display: 'flex', gap: 2, minHeight: 6 }}>
           {hasIncomplete && <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#7B6FA0' }} />}
-          {hasCompleted && <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#5FAD8E' }} />}
+          {hasCompleted  && <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#5FAD8E' }} />}
         </div>
       </div>
     );
@@ -180,7 +198,7 @@ export default function MichaelDashboard() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
               {Array.from({ length: firstDay }).map((_, i) => <div key={`e-${i}`} />)}
               {Array.from({ length: daysInMonth }).map((_, i) => {
-                const day = i + 1;
+                const day     = i + 1;
                 const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 return <DayCell key={day} dateStr={dateStr} label={day} isToday={dateStr === todayStr} />;
               })}
@@ -190,7 +208,7 @@ export default function MichaelDashboard() {
 
         {/* Study Tools */}
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 12 }}>Study Tools</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
           <Link href="/michael/study" style={{ textDecoration: 'none' }}>
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', cursor: 'pointer' }}>
               <div style={{ marginBottom: 10 }}><IconCards /></div>
@@ -212,37 +230,63 @@ export default function MichaelDashboard() {
               <div style={{ fontSize: 11, color: '#9E9BB0' }}>3 modes available</div>
             </div>
           </Link>
-          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', opacity: 0.6 }}>
+          <div
+            onClick={() => setShowUpload(true)}
+            style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', cursor: 'pointer' }}
+          >
             <div style={{ marginBottom: 10 }}><IconUpload /></div>
             <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Upload Resources</div>
-            <div style={{ fontSize: 11, color: '#9E9BB0' }}>Coming soon</div>
+            <div style={{ fontSize: 11, color: '#9E9BB0' }}>Add to a class folder</div>
           </div>
         </div>
 
-        {/* Classes */}
+        {/* My Classes */}
         <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 16, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26' }}>My Classes</h2>
+            <h2 style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26', margin: 0 }}>My Classes</h2>
             <Link href="/michael/add-class" style={{ textDecoration: 'none' }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: '#7B6FA0', background: '#EDE9F7', padding: '4px 12px', borderRadius: 999 }}>+ Add Class</span>
             </Link>
           </div>
-          {loading ? <p style={{ fontSize: 13, color: '#9E9BB0' }}>Loading...</p> : classes.length === 0 ? <p style={{ fontSize: 13, color: '#9E9BB0' }}>No classes added yet.</p> : (
+          {loading ? (
+            <p style={{ fontSize: 13, color: '#9E9BB0', margin: 0 }}>Loading...</p>
+          ) : classes.length === 0 ? (
+            <p style={{ fontSize: 13, color: '#9E9BB0', margin: 0 }}>No classes added yet.</p>
+          ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {classes.map((cls) => (
-                <div key={cls.id} style={{ padding: '12px 14px', borderRadius: 12, background: '#FAFAF8', border: '1px solid #E8E5F0' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 2 }}>{cls.name}</div>
-                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>{cls.semester}{cls.professor ? ` · ${cls.professor}` : ''}{cls.class_format ? ` · ${cls.class_format}` : ''}</div>
-                </div>
-              ))}
+              {classes.map((cls, i) => {
+                const color = CLASS_COLORS[i % CLASS_COLORS.length];
+                return (
+                  <div
+                    key={cls.id}
+                    onClick={() => router.push(`/michael/classes/${cls.id}`)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, background: '#FAFAF8', border: '1px solid #E8E5F0', cursor: 'pointer', transition: 'background 0.15s' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = '#EDE9F7'}
+                    onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = '#FAFAF8'}
+                  >
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: color + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color, flexShrink: 0 }}>
+                      {classLabel(cls.name)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 2 }}>{cls.name}</div>
+                      <div style={{ fontSize: 11, color: '#9E9BB0' }}>{cls.semester}{cls.professor ? ` · ${cls.professor}` : ''}</div>
+                    </div>
+                    <span style={{ color: '#C4C1D4', fontSize: 16, flexShrink: 0 }}>›</span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
 
         {/* Recent Study Guides */}
         <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-          <h2 style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26', marginBottom: 16 }}>Recent Study Guides</h2>
-          {loading ? <p style={{ fontSize: 13, color: '#9E9BB0' }}>Loading...</p> : guides.length === 0 ? <p style={{ fontSize: 13, color: '#9E9BB0' }}>Your study guides will appear here once you generate them.</p> : (
+          <h2 style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26', marginBottom: 16, marginTop: 0 }}>Recent Study Guides</h2>
+          {loading ? (
+            <p style={{ fontSize: 13, color: '#9E9BB0', margin: 0 }}>Loading...</p>
+          ) : guides.length === 0 ? (
+            <p style={{ fontSize: 13, color: '#9E9BB0', margin: 0 }}>Your study guides will appear here once you generate them.</p>
+          ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {guides.map((guide) => (
                 <div key={guide.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 12, background: '#FAFAF8', border: '1px solid #E8E5F0' }}>
@@ -259,6 +303,11 @@ export default function MichaelDashboard() {
           )}
         </div>
       </main>
+
+      {showUpload && (
+        <UploadResourceModal student="michael" onClose={() => setShowUpload(false)} />
+      )}
+
       <TabBar student="michael" />
     </div>
   );
