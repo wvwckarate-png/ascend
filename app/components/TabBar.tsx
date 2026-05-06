@@ -80,7 +80,7 @@ export default function TabBar({ student }: Props) {
   ];
 
   const rightTabs = [
-    { label: 'Classes', href: `/${student}/add-class`, icon: IconClasses },
+    { label: 'Classes', href: `/${student}/classes`, icon: IconClasses },
     { label: 'Profile', href: `/${student}/profile`, icon: IconProfile },
   ];
 
@@ -129,7 +129,6 @@ export default function TabBar({ student }: Props) {
 
   return (
     <>
-      {/* Bottom sheet modal */}
       {showModal && (
         <div
           onClick={e => { if (e.target === e.currentTarget) { setShowModal(false); reset(); }}}
@@ -137,12 +136,10 @@ export default function TabBar({ student }: Props) {
         >
           <div style={{ background: '#FFFFFF', borderRadius: '22px 22px 0 0', padding: '20px 18px 36px', width: '100%', maxWidth: 580, boxShadow: '0 -8px 40px rgba(29,27,38,0.12)' }}>
 
-            {/* Drag handle */}
             <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 18px' }} />
 
             <div style={{ fontSize: 18, fontWeight: 800, color: '#1D1B26', marginBottom: 16 }}>Quick Add Task</div>
 
-            {/* Class + Type */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
               <div>
                 <label style={labelStyle}>Class</label>
@@ -159,7 +156,6 @@ export default function TabBar({ student }: Props) {
               </div>
             </div>
 
-            {/* Task name */}
             <div style={{ marginBottom: 12 }}>
               <label style={labelStyle}>Task Name</label>
               <input
@@ -172,7 +168,6 @@ export default function TabBar({ student }: Props) {
               />
             </div>
 
-            {/* Date + Time */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
               <div>
                 <label style={labelStyle}>Due Date</label>
@@ -184,7 +179,6 @@ export default function TabBar({ student }: Props) {
               </div>
             </div>
 
-            {/* Notes */}
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Notes</label>
               <div style={{ position: 'relative' }}>
@@ -201,14 +195,12 @@ export default function TabBar({ student }: Props) {
               </div>
             </div>
 
-            {/* Attachment placeholders */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
               {['Attach File', 'Photo', 'Screenshot'].map(l => (
                 <button key={l} style={{ padding: '7px 12px', borderRadius: 999, border: '1.5px dashed #C4C1D4', background: 'transparent', color: '#9E9BB0', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{l}</button>
               ))}
             </div>
 
-            {/* Actions */}
             <div style={{ display: 'flex', gap: 9 }}>
               <button onClick={() => { setShowModal(false); reset(); }} style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
               <button onClick={handleSave} disabled={!title.trim() || saving} style={{ flex: 2, padding: '12px', borderRadius: 12, border: 'none', background: saved ? '#5FAD8E' : 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !title.trim() ? 0.4 : 1 }}>
