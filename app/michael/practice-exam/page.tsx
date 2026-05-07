@@ -1,7 +1,9 @@
 'use client';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import TabBar from '../../components/TabBar';
+import { supabase } from '../../../lib/supabase';
 
 function Mountain() {
   return (
@@ -15,46 +17,107 @@ function Mountain() {
 
 type Question = { front: string; back: string; };
 
-export default function MichaelPracticeExam() {
-  const [topic, setTopic] = useState('');
-  const [count, setCount] = useState(20);
-  const [examMode, setExamMode] = useState<'lecture' | 'folder' | 'cumulative'>('folder');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [qi, setQi] = useState(0);
-  const [revealed, setRevealed] = useState(false);
-  const [scores, setScores] = useState<Record<number, boolean>>({});
-  const [screen, setScreen] = useState<'setup' | 'exam' | 'done'>('setup');
+function MichaelPracticeExamInner() {
+  const searchParams = useSearchParams();
+  const folderId     = searchParams.get('folderId');
+  const folderName   = searchParams.get('folderName');
 
-  const curQ = questions[qi];
-  const total = questions.length;
-  const progress = total > 0 ? ((qi / total) * 100) : 0;
-  const correct = Object.values(scores).filter(Boolean).length;
+  const [topic,         setTopic]         = useState('');
+  const [count,         setCount]         = useState(20);
+  const [examMode,      setExamMode]      = useState<'lecture' | 'folder' | 'cumulative'>('folder');
+  const [loading,       setLoading]       = useState(false);
+  const [folderLoading, setFolderLoading] = useState(false);
+  const [folderFiles,   setFolderFiles]   = useState<File[]>([]);
+  const [folderLabel,   setFolderLabel]   = useState('');
+  const [error,         setError]         = useState('');
+  const [questions,     setQuestions]     = useState<Question[]>([]);
+  const [qi,            setQi]            = useState(0);
+  const [revealed,      setRevealed]      = useState(false);
+  const [scores,        setScores]        = useState<Record<number, boolean>>({});
+  const [screen,        setScreen]        = useState<'setup' | 'exam' | 'done'>('setup');
+
+  useEffect(() => {
+    if (!folderId) return;
+    if (folderName) setTopic(folderName);
+    const load = async () => {
+      setFolderLoading(true);
+      try {
+        const { data: resources } = await supabase
+          .from('resources')
+          .select('id, file_name, file_type, storage_url')
+          .eq('folder_id', folderId)
+          .eq('file_type', 'pdf');
+
+        if (!resources || resources.length === 0) {
+          setFolderLabel(folderName ? `${folderName} — no PDFs found, generating from topic` : 'No PDFs found');
+          setFolderLoading(false);
+          return;
+        }
+
+        const fetched: File[] = [];
+        for (const r of resources) {
+          if (!r.storage_url) continue;
+          try {
+            const res  = await fetch(r.storage_url);
+            const blob = await res.blob();
+            fetched.push(new File([blob], r.file_name + '.pdf', { type: 'application/pdf' }));
+          } catch { /* skip */ }
+        }
+
+        setFolderFiles(fetched);
+        setFolderLabel(folderName || 'Folder loaded');
+      } catch {
+        setFolderLabel('Could not load folder PDFs — generating from topic');
+      } finally {
+        setFolderLoading(false);
+      }
+    };
+    load();
+  }, [folderId, folderName]);
+
+  const curQ      = questions[qi];
+  const total     = questions.length;
+  const progress  = total > 0 ? ((qi / total) * 100) : 0;
+  const correct   = Object.values(scores).filter(Boolean).length;
   const incorrect = Object.values(scores).filter(v => !v).length;
-  const score = total > 0 ? Math.round((correct / total) * 100) : 0;
+  const score     = total > 0 ? Math.round((correct / total) * 100) : 0;
 
   const generate = async () => {
-    if (!topic.trim()) return;
+    if (!topic.trim() && folderFiles.length === 0) return;
     setLoading(true);
     setError('');
     try {
       const modeLabel = examMode === 'lecture' ? 'single lecture' : examMode === 'cumulative' ? 'cumulative final exam' : 'exam unit';
-      const prompt = `Generate ${count} practice exam questions for: ${topic} (${modeLabel}). Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"detailed answer"}]. Pre-med college level. Make questions challenging and specific.`;
-      const res = await fetch('/api/generate-study-guide', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, student: 'michael', type: 'exam' }),
-      });
-      const data = await res.json();
-      const raw = (data.studyGuide || data.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
+      let raw = '';
+
+      if (folderFiles.length > 0) {
+        const prompt = `Generate ${count} practice exam questions from the uploaded study materials${topic.trim() ? ` about: ${topic}` : ''} (${modeLabel}). Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"detailed answer"}]. Pre-med college level. Make questions challenging and specific.`;
+        const formData = new FormData();
+        folderFiles.forEach(f => formData.append('files', f));
+        formData.append('student', 'michael');
+        formData.append('prompt', prompt);
+        formData.append('type', 'exam');
+        const res  = await fetch('/api/generate-study-guide', { method: 'POST', body: formData });
+        const data = await res.json();
+        raw = (data.studyGuide || data.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
+      } else {
+        const prompt = `Generate ${count} practice exam questions for: ${topic} (${modeLabel}). Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"detailed answer"}]. Pre-med college level. Make questions challenging and specific.`;
+        const res  = await fetch('/api/generate-study-guide', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, student: 'michael', type: 'exam' }),
+        });
+        const data = await res.json();
+        raw = (data.studyGuide || data.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
+      }
+
       const parsed: Question[] = JSON.parse(raw);
       setQuestions(parsed);
       setQi(0);
       setRevealed(false);
       setScores({});
       setScreen('exam');
-    } catch (err) {
+    } catch {
       setError('Could not generate exam. Please try again.');
     } finally {
       setLoading(false);
@@ -68,6 +131,7 @@ export default function MichaelPracticeExam() {
   };
 
   const restart = () => { setQi(0); setRevealed(false); setScores({}); setScreen('exam'); };
+  const canGenerate = topic.trim().length > 0 || folderFiles.length > 0;
 
   useEffect(() => {
     if (screen !== 'exam') return;
@@ -75,7 +139,7 @@ export default function MichaelPracticeExam() {
       if (e.key === ' ') { e.preventDefault(); setRevealed(r => !r); }
       if (revealed) {
         if (e.key === 'ArrowRight' || e.key === 'y') mark(true);
-        if (e.key === 'ArrowLeft' || e.key === 'n') mark(false);
+        if (e.key === 'ArrowLeft'  || e.key === 'n') mark(false);
       }
     };
     window.addEventListener('keydown', handleKey);
@@ -99,6 +163,18 @@ export default function MichaelPracticeExam() {
             <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Practice Exam</div>
             <div style={{ fontSize: 13, color: '#9E9BB0' }}>Choose your scope and generate a practice exam.</div>
           </div>
+
+          {folderId && (
+            <div style={{ background: '#EDE9F7', border: '1.5px solid rgba(123,111,160,0.2)', borderRadius: 14, padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 18 }}>📁</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#5A5078' }}>{folderLoading ? 'Loading folder resources...' : folderLabel || folderName}</div>
+                <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 2 }}>{folderLoading ? 'Fetching your uploaded PDFs...' : `${folderFiles.length} PDF${folderFiles.length !== 1 ? 's' : ''} loaded from this folder`}</div>
+              </div>
+              {folderLoading && <div style={{ width: 18, height: 18, border: '2px solid #E8E5F0', borderTopColor: '#7B6FA0', borderRadius: '50%', animation: 'spin 0.75s linear infinite' }} />}
+            </div>
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
             {([['lecture', 'Single Lecture', 'One lecture. Best for Day 0 review.'], ['folder', 'Exam Folder', 'Full unit prep. Covers all material for one exam.'], ['cumulative', 'Cumulative Final', 'Full course, weighted to weak areas.']] as const).map(([k, lbl, desc]) => (
               <div key={k} onClick={() => setExamMode(k)} style={{ border: `2px solid ${examMode === k ? '#7B6FA0' : '#E8E5F0'}`, borderRadius: 14, padding: '14px 16px', cursor: 'pointer', background: examMode === k ? '#EDE9F7' : '#FFFFFF', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
@@ -110,9 +186,12 @@ export default function MichaelPracticeExam() {
               </div>
             ))}
           </div>
+
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Subject / Topic</label>
-            <input value={topic} onChange={e => setTopic(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !loading && topic.trim()) generate(); }} placeholder="e.g. Biology - Ecosystems" style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', marginBottom: 16 }} />
+            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>
+              {folderFiles.length > 0 ? 'Topic (optional — folder PDFs will be used)' : 'Subject / Topic'}
+            </label>
+            <input value={topic} onChange={e => setTopic(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !loading && canGenerate) generate(); }} placeholder={folderFiles.length > 0 ? 'Refine focus (optional)...' : 'e.g. Biology - Cellular Respiration'} style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', marginBottom: 16 }} />
             <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 8, display: 'block' }}>Questions</label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {[10, 15, 20, 30, 40].map(n => (
@@ -120,7 +199,9 @@ export default function MichaelPracticeExam() {
               ))}
             </div>
           </div>
+
           {error && <p style={{ fontSize: 13, color: '#C47878', marginBottom: 12 }}>{error}</p>}
+
           {loading ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
               <div style={{ width: 32, height: 32, border: '2.5px solid #E8E5F0', borderTopColor: '#C8965A', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.75s linear infinite' }} />
@@ -128,8 +209,8 @@ export default function MichaelPracticeExam() {
               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
           ) : (
-            <button onClick={generate} disabled={!topic.trim()} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #C8965A, #A87840)', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: topic.trim() ? 1 : 0.4 }}>
-              {topic.trim() ? 'Generate Practice Exam' : 'Enter a topic first'}
+            <button onClick={generate} disabled={!canGenerate || folderLoading} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #C8965A, #A87840)', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: canGenerate && !folderLoading ? 1 : 0.4 }}>
+              {folderLoading ? 'Loading folder files...' : canGenerate ? 'Generate Practice Exam' : 'Enter a topic first'}
             </button>
           )}
         </main>
@@ -162,7 +243,7 @@ export default function MichaelPracticeExam() {
               <div style={{ fontSize: 12, fontWeight: 700, color: '#9E9BB0', textAlign: 'center', marginBottom: 10 }}>Did you get it right?</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <button onClick={() => mark(false)} style={{ padding: '14px', borderRadius: 14, border: '2px solid #C47878', background: '#FDF2F2', color: '#C47878', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>✗ Incorrect · N</button>
-                <button onClick={() => mark(true)} style={{ padding: '14px', borderRadius: 14, border: 'none', background: '#5FAD8E', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>✓ Correct · Y</button>
+                <button onClick={() => mark(true)}  style={{ padding: '14px', borderRadius: 14, border: 'none', background: '#5FAD8E', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>✓ Correct · Y</button>
               </div>
             </>
           )}
@@ -204,5 +285,13 @@ export default function MichaelPracticeExam() {
       )}
       <TabBar student="michael" />
     </div>
+  );
+}
+
+export default function MichaelPracticeExam() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#FAFAF8', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9E9BB0', fontSize: 13 }}>Loading...</div>}>
+      <MichaelPracticeExamInner />
+    </Suspense>
   );
 }

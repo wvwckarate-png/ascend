@@ -1,7 +1,9 @@
 'use client';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import TabBar from '../../components/TabBar';
+import { supabase } from '../../../lib/supabase';
 
 function Mountain() {
   return (
@@ -25,38 +27,102 @@ function requeue(q: Card[], idx: number, conf: number): Card[] {
   return rest;
 }
 
-export default function MatthewFlashcards() {
-  const [topic, setTopic] = useState('');
-  const [count, setCount] = useState(15);
-  const [mode, setMode] = useState<'basic' | 'smart'>('smart');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [cards, setCards] = useState<Card[]>([]);
-  const [queue, setQueue] = useState<Card[]>([]);
-  const [qi, setQi] = useState(0);
-  const [flipped, setFlipped] = useState(false);
-  const [ratings, setRatings] = useState<Record<number, number>>({});
-  const [screen, setScreen] = useState<'generate' | 'study' | 'done'>('generate');
+function MatthewFlashcardsInner() {
+  const searchParams = useSearchParams();
+  const folderId   = searchParams.get('folderId');
+  const folderName = searchParams.get('folderName');
 
-  const curCard = mode === 'smart' ? queue[qi] : cards[qi];
-  const total = mode === 'smart' ? queue.length : cards.length;
+  const [topic,        setTopic]        = useState('');
+  const [count,        setCount]        = useState(15);
+  const [mode,         setMode]         = useState<'basic' | 'smart'>('smart');
+  const [loading,      setLoading]      = useState(false);
+  const [folderLoading,setFolderLoading]= useState(false);
+  const [folderFiles,  setFolderFiles]  = useState<File[]>([]);
+  const [folderLabel,  setFolderLabel]  = useState('');
+  const [error,        setError]        = useState('');
+  const [cards,        setCards]        = useState<Card[]>([]);
+  const [queue,        setQueue]        = useState<Card[]>([]);
+  const [qi,           setQi]           = useState(0);
+  const [flipped,      setFlipped]      = useState(false);
+  const [ratings,      setRatings]      = useState<Record<number, number>>({});
+  const [screen,       setScreen]       = useState<'generate' | 'study' | 'done'>('generate');
+
+  // Load folder PDFs if folderId is in URL
+  useEffect(() => {
+    if (!folderId) return;
+    if (folderName) setTopic(folderName);
+    const load = async () => {
+      setFolderLoading(true);
+      try {
+        const { data: resources } = await supabase
+          .from('resources')
+          .select('id, file_name, file_type, storage_url')
+          .eq('folder_id', folderId)
+          .eq('file_type', 'pdf');
+
+        if (!resources || resources.length === 0) {
+          setFolderLabel(folderName ? `${folderName} — no PDFs found, generating from topic` : 'No PDFs found');
+          setFolderLoading(false);
+          return;
+        }
+
+        const fetched: File[] = [];
+        for (const r of resources) {
+          if (!r.storage_url) continue;
+          try {
+            const res  = await fetch(r.storage_url);
+            const blob = await res.blob();
+            fetched.push(new File([blob], r.file_name + '.pdf', { type: 'application/pdf' }));
+          } catch { /* skip */ }
+        }
+
+        setFolderFiles(fetched);
+        setFolderLabel(folderName || 'Folder loaded');
+      } catch {
+        setFolderLabel('Could not load folder PDFs — generating from topic');
+      } finally {
+        setFolderLoading(false);
+      }
+    };
+    load();
+  }, [folderId, folderName]);
+
+  const curCard  = mode === 'smart' ? queue[qi] : cards[qi];
+  const total    = mode === 'smart' ? queue.length : cards.length;
   const progress = total > 0 ? ((qi / total) * 100) : 0;
   const knewWell = Object.values(ratings).filter(r => r >= 2).length;
   const needWork = Object.values(ratings).filter(r => r < 2).length;
 
   const generate = async () => {
-    if (!topic.trim()) return;
+    if (!topic.trim() && folderFiles.length === 0) return;
     setLoading(true);
     setError('');
     try {
-      const prompt = `Generate ${count} flashcards for: ${topic}. Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]. Pre-med/dental college level.`;
-      const res = await fetch('/api/generate-study-guide', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, student: 'matthew', type: 'flashcards' }),
-      });
-      const data = await res.json();
-      const raw = (data.studyGuide || data.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
+      let raw = '';
+
+      if (folderFiles.length > 0) {
+        // Send PDFs via FormData
+        const prompt = `Generate ${count} flashcards from the uploaded study materials${topic.trim() ? ` about: ${topic}` : ''}. Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]. Pre-dental college level.`;
+        const formData = new FormData();
+        folderFiles.forEach(f => formData.append('files', f));
+        formData.append('student', 'matthew');
+        formData.append('prompt', prompt);
+        formData.append('type', 'flashcards');
+        const res  = await fetch('/api/generate-study-guide', { method: 'POST', body: formData });
+        const data = await res.json();
+        raw = (data.studyGuide || data.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
+      } else {
+        // Text-only topic
+        const prompt = `Generate ${count} flashcards for: ${topic}. Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]. Pre-dental college level.`;
+        const res  = await fetch('/api/generate-study-guide', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, student: 'matthew', type: 'flashcards' }),
+        });
+        const data = await res.json();
+        raw = (data.studyGuide || data.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
+      }
+
       const parsed: Card[] = JSON.parse(raw);
       setCards(parsed);
       setQueue([...parsed]);
@@ -64,7 +130,7 @@ export default function MatthewFlashcards() {
       setFlipped(false);
       setRatings({});
       setScreen('study');
-    } catch (err) {
+    } catch {
       setError('Could not generate flashcards. Please try again.');
     } finally {
       setLoading(false);
@@ -78,9 +144,7 @@ export default function MatthewFlashcards() {
     setQi(i => i + 1);
   };
 
-  const prev = () => {
-    if (qi > 0) { setQi(i => i - 1); setFlipped(false); }
-  };
+  const prev = () => { if (qi > 0) { setQi(i => i - 1); setFlipped(false); } };
 
   const rate = (conf: number) => {
     setRatings(r => ({ ...r, [qi]: conf }));
@@ -94,19 +158,13 @@ export default function MatthewFlashcards() {
     }
   };
 
-  const restart = () => {
-    setQueue([...cards]);
-    setQi(0);
-    setFlipped(false);
-    setRatings({});
-    setScreen('study');
-  };
+  const restart = () => { setQueue([...cards]); setQi(0); setFlipped(false); setRatings({}); setScreen('study'); };
 
   useEffect(() => {
     if (screen !== 'study') return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setFlipped(f => !f); }
-      if (e.key === 'ArrowUp') { e.preventDefault(); next(); }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); next(); }
       if (e.key === 'ArrowDown') { e.preventDefault(); prev(); }
       if (e.key === '1') rate(0);
       if (e.key === '2') rate(1);
@@ -116,6 +174,8 @@ export default function MatthewFlashcards() {
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [screen, qi, flipped, queue, cards]);
+
+  const canGenerate = topic.trim().length > 0 || folderFiles.length > 0;
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAF8' }}>
@@ -134,6 +194,23 @@ export default function MatthewFlashcards() {
             <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Flashcards</div>
             <div style={{ fontSize: 13, color: '#9E9BB0' }}>Generate a deck from any topic or chapter.</div>
           </div>
+
+          {/* Folder context banner */}
+          {folderId && (
+            <div style={{ background: '#EDE9F7', border: '1.5px solid rgba(123,111,160,0.2)', borderRadius: 14, padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 18 }}>📁</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#5A5078' }}>
+                  {folderLoading ? 'Loading folder resources...' : folderLabel || folderName}
+                </div>
+                <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 2 }}>
+                  {folderLoading ? 'Fetching your uploaded PDFs...' : `${folderFiles.length} PDF${folderFiles.length !== 1 ? 's' : ''} loaded from this folder`}
+                </div>
+              </div>
+              {folderLoading && <div style={{ width: 18, height: 18, border: '2px solid #E8E5F0', borderTopColor: '#7B6FA0', borderRadius: '50%', animation: 'spin 0.75s linear infinite' }} />}
+            </div>
+          )}
+
           <div style={{ background: '#F3F1EC', borderRadius: 12, padding: 3, display: 'flex', gap: 2, marginBottom: 8 }}>
             {(['smart', 'basic'] as const).map(m => (
               <button key={m} onClick={() => setMode(m)} style={{ flex: 1, padding: '9px', borderRadius: 9, border: 'none', fontFamily: 'var(--font-jakarta)', fontSize: 12, fontWeight: 700, cursor: 'pointer', background: mode === m ? '#FFFFFF' : 'transparent', color: mode === m ? '#7B6FA0' : '#9E9BB0', boxShadow: mode === m ? '0 1px 4px rgba(29,27,38,0.08)' : 'none' }}>
@@ -144,9 +221,18 @@ export default function MatthewFlashcards() {
           <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 20, textAlign: 'center' }}>
             {mode === 'smart' ? 'Adaptive — cards repeat until mastered' : 'Linear — card 1 to end, no algorithm'}
           </div>
+
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Topic or Subject</label>
-            <input value={topic} onChange={e => setTopic(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !loading && topic.trim()) generate(); }} placeholder="e.g. AP Biology - Cellular Respiration" style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', marginBottom: 16 }} />
+            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>
+              {folderFiles.length > 0 ? 'Topic (optional — folder PDFs will be used)' : 'Topic or Subject'}
+            </label>
+            <input
+              value={topic}
+              onChange={e => setTopic(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !loading && canGenerate) generate(); }}
+              placeholder={folderFiles.length > 0 ? 'Refine focus (optional)...' : 'e.g. AP Biology - Cellular Respiration'}
+              style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', marginBottom: 16 }}
+            />
             <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 8, display: 'block' }}>Number of Cards</label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {[10, 15, 20, 30].map(n => (
@@ -154,7 +240,9 @@ export default function MatthewFlashcards() {
               ))}
             </div>
           </div>
+
           {error && <p style={{ fontSize: 13, color: '#C47878', marginBottom: 12 }}>{error}</p>}
+
           {loading ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
               <div style={{ width: 32, height: 32, border: '2.5px solid #E8E5F0', borderTopColor: '#7B6FA0', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.75s linear infinite' }} />
@@ -162,8 +250,8 @@ export default function MatthewFlashcards() {
               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
           ) : (
-            <button onClick={generate} disabled={!topic.trim()} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: topic.trim() ? 1 : 0.4 }}>
-              {topic.trim() ? 'Generate Deck' : 'Enter a topic first'}
+            <button onClick={generate} disabled={!canGenerate || folderLoading} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: canGenerate && !folderLoading ? 1 : 0.4 }}>
+              {folderLoading ? 'Loading folder files...' : canGenerate ? `Generate ${count} Cards` : 'Enter a topic first'}
             </button>
           )}
         </main>
@@ -248,5 +336,13 @@ export default function MatthewFlashcards() {
       )}
       <TabBar student="matthew" />
     </div>
+  );
+}
+
+export default function MatthewFlashcards() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#FAFAF8', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9E9BB0', fontSize: 13 }}>Loading...</div>}>
+      <MatthewFlashcardsInner />
+    </Suspense>
   );
 }

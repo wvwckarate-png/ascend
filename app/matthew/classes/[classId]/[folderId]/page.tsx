@@ -276,8 +276,7 @@ export default function MatthewBinder() {
                       <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Flashcards</div>
                       <div style={{ fontSize: 12, color: '#9E9BB0' }}>Generate a deck from this folder's material</div>
                     </div>
-                    {hasResources && <button onClick={() => router.push('/matthew/flashcards')} style={{ padding: '9px 18px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate</button>}
-                  </div>
+{hasResources && <button onClick={() => router.push(`/matthew/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate</button>}                  </div>
                   <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
                     <div style={{ fontSize: 40, marginBottom: 12 }}>🃏</div>
                     <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No flashcard deck yet</div>
@@ -296,8 +295,7 @@ export default function MatthewBinder() {
                       <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Practice Exam</div>
                       <div style={{ fontSize: 12, color: '#9E9BB0' }}>Generate a practice exam from this folder</div>
                     </div>
-                    {hasResources && <button onClick={() => router.push('/matthew/practice-exam')} style={{ padding: '9px 18px', borderRadius: 999, background: '#C8965A', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate</button>}
-                  </div>
+{hasResources && <button onClick={() => router.push(`/matthew/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: '#C8965A', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>Generate</button>}                  </div>
                   <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
                     <div style={{ fontSize: 40, marginBottom: 12 }}>📝</div>
                     <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No practice exam yet</div>
@@ -316,8 +314,7 @@ export default function MatthewBinder() {
                       <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Study Guide</div>
                       <div style={{ fontSize: 12, color: '#9E9BB0' }}>Generate a full study guide from this folder</div>
                     </div>
-                    {hasResources && <button onClick={() => router.push('/matthew/study')} style={{ padding: '9px 18px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate</button>}
-                  </div>
+{hasResources && <button onClick={() => router.push(`/matthew/study?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate</button>}                  </div>
                   <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
                     <div style={{ fontSize: 40, marginBottom: 12 }}>📖</div>
                     <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No study guide yet</div>

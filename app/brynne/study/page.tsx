@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import { useReactToPrint } from 'react-to-print';
 import { supabase } from '../../../lib/supabase';
@@ -17,10 +18,10 @@ function Mountain() {
 }
 
 const LEVELS = [
-  { id: 'outline', label: 'Outline', desc: 'Headers and bullets only. Quick scan.' },
-  { id: 'basic', label: 'Basic', desc: 'Short explanations. Good for review.' },
-  { id: 'detailed', label: 'Detailed', desc: 'Full explanations with examples.' },
-  { id: 'mastery', label: 'Mastery', desc: 'Super detailed. For learning from scratch.' },
+  { id: 'outline',  label: 'Outline',  desc: 'Headers and bullets only. Quick pre-class scan.' },
+  { id: 'basic',    label: 'Basic',    desc: 'Short explanations. Good for review.' },
+  { id: 'detailed', label: 'Detailed', desc: 'Full explanations with examples. Everyday workhorse.' },
+  { id: 'mastery',  label: 'Mastery',  desc: 'Deep synthesis across all materials. For primary learning.' },
 ];
 
 const QUESTION_FORMATS = ['Multiple Choice', 'Short Answer', 'Both'];
@@ -31,23 +32,69 @@ function addDays(date: Date, days: number): string {
   return d.toISOString().split('T')[0];
 }
 
-export default function BrynneStudy() {
-  const [files, setFiles] = useState<File[]>([]);
-  const [level, setLevel] = useState<string>('detailed');
+function BrynneStudyInner() {
+  const searchParams = useSearchParams();
+  const folderId     = searchParams.get('folderId');
+  const folderName   = searchParams.get('folderName');
+
+  const [files,              setFiles]              = useState<File[]>([]);
+  const [folderLoading,      setFolderLoading]      = useState(false);
+  const [folderLabel,        setFolderLabel]        = useState('');
+  const [level,              setLevel]              = useState<string>('detailed');
   const [customInstructions, setCustomInstructions] = useState('');
-  const [addQuestions, setAddQuestions] = useState(false);
-  const [questionFormat, setQuestionFormat] = useState('Multiple Choice');
-  const [showAnswers, setShowAnswers] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [studyGuide, setStudyGuide] = useState('');
-  const [error, setError] = useState('');
-  const [guideName, setGuideName] = useState('');
-  const [showNamePrompt, setShowNamePrompt] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [sourceFiles, setSourceFiles] = useState<string[]>([]);
+  const [addQuestions,       setAddQuestions]       = useState(false);
+  const [questionFormat,     setQuestionFormat]     = useState('Multiple Choice');
+  const [showAnswers,        setShowAnswers]        = useState(true);
+  const [loading,            setLoading]            = useState(false);
+  const [saving,             setSaving]             = useState(false);
+  const [studyGuide,         setStudyGuide]         = useState('');
+  const [error,              setError]              = useState('');
+  const [guideName,          setGuideName]          = useState('');
+  const [showNamePrompt,     setShowNamePrompt]     = useState(false);
+  const [saved,              setSaved]              = useState(false);
+  const [copied,             setCopied]             = useState(false);
+  const [sourceFiles,        setSourceFiles]        = useState<string[]>([]);
   const printRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!folderId) return;
+    const loadFolderFiles = async () => {
+      setFolderLoading(true);
+      setError('');
+      try {
+        const { data: resources } = await supabase
+          .from('resources')
+          .select('id, file_name, file_type, storage_url')
+          .eq('folder_id', folderId)
+          .eq('file_type', 'pdf');
+
+        if (!resources || resources.length === 0) {
+          setFolderLabel(folderName ? `${folderName} — no PDFs found` : 'No PDFs in this folder');
+          setFolderLoading(false);
+          return;
+        }
+
+        const fetchedFiles: File[] = [];
+        for (const resource of resources) {
+          if (!resource.storage_url) continue;
+          try {
+            const res  = await fetch(resource.storage_url);
+            const blob = await res.blob();
+            fetchedFiles.push(new File([blob], resource.file_name + '.pdf', { type: 'application/pdf' }));
+          } catch { /* skip */ }
+        }
+
+        setFiles(fetchedFiles);
+        setFolderLabel(folderName || 'Folder resources loaded');
+        if (folderName) setGuideName(folderName + ' — Study Guide');
+      } catch {
+        setError('Could not load folder resources. You can still upload files manually.');
+      } finally {
+        setFolderLoading(false);
+      }
+    };
+    loadFolderFiles();
+  }, [folderId, folderName]);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -65,16 +112,16 @@ export default function BrynneStudy() {
 
   const buildPrompt = () => {
     const levelPrompts: Record<string, string> = {
-      outline: 'Generate a clean outline with headers and bullet points only. No prose. Make it scannable.',
-      basic: 'Generate a basic study guide with short explanations. Keep it simple and fun.',
-      detailed: 'Generate a detailed study guide with full explanations and examples. Use simple language a 5th grader can understand.',
-      mastery: 'Generate a comprehensive study guide with full explanations, examples, and connections between concepts. Use simple, encouraging language.',
+      outline:  'Generate a clean outline with headers and bullet points only. No prose. Make it scannable.',
+      basic:    'Generate a basic study guide with short explanations. High-level and accessible.',
+      detailed: 'Generate a detailed study guide with full explanations, examples, and context for each concept.',
+      mastery:  'Generate a comprehensive mastery-level guide. Full explanations, cross-material synthesis, recurring themes, connections between concepts, deep discussion. For primary learning.',
     };
     const questionPrompt = addQuestions
       ? `\n\nAfter the study guide, add a "Practice Questions" section with ${questionFormat === 'Both' ? 'a mix of multiple choice and short answer' : questionFormat.toLowerCase()} questions.${showAnswers ? ' Include answers and brief explanation after each.' : ' Do not include answers.'}`
       : '';
     const custom = customInstructions.trim() ? `\n\nAdditional instructions: ${customInstructions.trim()}` : '';
-    return `You are Ascend, an AI study assistant for Brynne, a 5th grade student who wants to be a doctor. Be warm, encouraging, and use simple language.\n\n${level ? levelPrompts[level] : 'Generate a study guide based on the custom instructions below.'}${custom}${questionPrompt}\n\nFormat with clear markdown headers and structure.`;
+    return `You are Ascend, an AI study assistant for Brynne, a 5th grader who is advanced in math and science and wants to become a doctor. Be encouraging, clear, and age-appropriate but don't talk down to her.\n\n${level ? levelPrompts[level] : 'Generate a study guide based on the custom instructions below.'}${custom}${questionPrompt}\n\nFormat with clear markdown headers and structure.`;
   };
 
   const handleGenerate = async () => {
@@ -86,15 +133,15 @@ export default function BrynneStudy() {
       files.forEach(f => formData.append('files', f));
       formData.append('student', 'brynne');
       formData.append('prompt', buildPrompt());
-      const res = await fetch('/api/generate-study-guide', { method: 'POST', body: formData });
+      const res  = await fetch('/api/generate-study-guide', { method: 'POST', body: formData });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setStudyGuide(data.studyGuide);
       setSourceFiles(files.map(f => f.name));
-      setGuideName(files.length > 0 ? files[0].name.replace('.pdf', '') : 'Custom Study Guide');
+      if (!guideName) setGuideName(files.length > 0 ? files[0].name.replace('.pdf', '') : 'Custom Study Guide');
       setShowNamePrompt(true);
       setSaved(false);
-    } catch (err) {
+    } catch {
       setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
@@ -105,67 +152,46 @@ export default function BrynneStudy() {
     if (!guideName.trim()) return;
     setSaving(true);
     try {
-      const { error: saveError } = await supabase.from('study_guides').insert({
-        student_id: 'brynne',
-        title: guideName.trim(),
-        content: studyGuide,
+      await supabase.from('study_guides').insert({
+        student_id:      'brynne',
+        title:           guideName.trim(),
+        content:         studyGuide,
         source_filename: sourceFiles.join(', ') || 'Custom',
+        folder_id:       folderId || null,
       });
-      if (saveError) throw saveError;
-
       const today = new Date();
-      const reviewTasks = [1, 3, 7].map(days => ({
+      await supabase.from('tasks').insert([1, 3, 7].map(days => ({
         student_id: 'brynne',
-        title: `Review: ${guideName.trim()}`,
-        due_date: addDays(today, days),
-        task_type: 'review',
-        completed: false,
-      }));
-      await supabase.from('tasks').insert(reviewTasks);
-
+        title:      `Review: ${guideName.trim()}`,
+        due_date:   addDays(today, days),
+        task_type:  'review',
+        completed:  false,
+      })));
       setSaved(true);
       setShowNamePrompt(false);
-    } catch (err) {
+    } catch {
       setError('Could not save. Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
-  const handlePrint = useReactToPrint({
-    contentRef: printRef,
-    documentTitle: guideName || 'Ascend Study Guide',
-  });
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(studyGuide);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
+  const handlePrint    = useReactToPrint({ contentRef: printRef, documentTitle: guideName || 'Ascend Study Guide' });
+  const handleCopy     = async () => { await navigator.clipboard.writeText(studyGuide); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  const handleShare    = async () => { if (navigator.share) { await navigator.share({ title: guideName || 'Ascend Study Guide', text: studyGuide }); } else handleCopy(); };
   const handleDownload = async () => {
     const { jsPDF } = await import('jspdf');
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const lines = doc.splitTextToSize(studyGuide.replace(/[#*`]/g, ''), 170);
     let y = 20;
     doc.setFontSize(11);
-    lines.forEach((line: string) => {
-      if (y > 270) { doc.addPage(); y = 20; }
-      doc.text(line, 20, y);
-      y += 6;
-    });
+    lines.forEach((line: string) => { if (y > 270) { doc.addPage(); y = 20; } doc.text(line, 20, y); y += 6; });
     doc.save(`${guideName || 'Ascend Study Guide'}.pdf`);
   };
 
-  const handleShare = async () => {
-    if (navigator.share) {
-      await navigator.share({ title: guideName || 'Ascend Study Guide', text: studyGuide });
-    } else {
-      handleCopy();
-    }
-  };
-
   const canGenerate = files.length > 0 || customInstructions.trim().length > 0;
+  const color = '#E8956D';
+  const light = '#FFF3E8';
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAF8' }}>
@@ -180,15 +206,26 @@ export default function BrynneStudy() {
       <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Brynne</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Let's Make a Study Guide! 🌟</div>
-          <div style={{ fontSize: 13, color: '#9E9BB0' }}>Upload your materials and Ascend will make something amazing!</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Generate Study Guide ✨</div>
+          <div style={{ fontSize: 13, color: '#9E9BB0' }}>Upload your notes and Ascend will build your study guide!</div>
         </div>
+
+        {folderId && (
+          <div style={{ background: light, border: `1.5px solid rgba(232,149,109,0.2)`, borderRadius: 14, padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 18 }}>📁</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color }}>{folderLoading ? 'Loading folder resources...' : folderLabel || folderName}</div>
+              <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 2 }}>{folderLoading ? 'Fetching your uploaded PDFs...' : `${files.length} PDF${files.length !== 1 ? 's' : ''} loaded from this folder`}</div>
+            </div>
+            {folderLoading && <div style={{ width: 18, height: 18, border: '2px solid #E8E5F0', borderTopColor: color, borderRadius: '50%', animation: 'spin 0.75s linear infinite' }} />}
+          </div>
+        )}
 
         {!studyGuide ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 12 }}>Upload Materials</div>
-              <div onDrop={handleDrop} onDragOver={e => e.preventDefault()} onClick={() => document.getElementById('pdf-upload-brynne')?.click()} style={{ padding: '32px 20px', borderRadius: 12, border: `2px dashed ${files.length > 0 ? '#E8956D' : '#E8E5F0'}`, background: '#FAFAF8', textAlign: 'center', cursor: 'pointer' }}>
+              <div onDrop={handleDrop} onDragOver={e => e.preventDefault()} onClick={() => document.getElementById('pdf-upload-brynne')?.click()} style={{ padding: '32px 20px', borderRadius: 12, border: `2px dashed ${files.length > 0 ? color : '#E8E5F0'}`, background: '#FAFAF8', textAlign: 'center', cursor: 'pointer' }}>
                 <div style={{ fontSize: 28, marginBottom: 8 }}>📄</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>{files.length > 0 ? `${files.length} file${files.length > 1 ? 's' : ''} selected` : 'Upload PDFs'}</div>
                 <div style={{ fontSize: 11, color: '#9E9BB0' }}>Click or drag and drop · Multiple files supported</div>
@@ -197,8 +234,8 @@ export default function BrynneStudy() {
               {files.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
                   {files.map((f, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 10, background: '#FFF3E8' }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: '#C4A882', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {f.name}</span>
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 10, background: light }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {f.name}</span>
                       <button onClick={() => removeFile(i)} style={{ marginLeft: 8, fontSize: 13, color: '#9E9BB0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, flexShrink: 0 }}>✕</button>
                     </div>
                   ))}
@@ -210,8 +247,8 @@ export default function BrynneStudy() {
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 12 }}>Level of Detail</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 {LEVELS.map(l => (
-                  <div key={l.id} onClick={() => setLevel(level === l.id ? '' : l.id)} style={{ padding: '12px 14px', borderRadius: 12, border: `2px solid ${level === l.id ? '#E8956D' : '#E8E5F0'}`, background: level === l.id ? '#FFF3E8' : '#FAFAF8', cursor: 'pointer' }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: level === l.id ? '#C4A882' : '#1D1B26', marginBottom: 3 }}>{l.label}</div>
+                  <div key={l.id} onClick={() => setLevel(level === l.id ? '' : l.id)} style={{ padding: '12px 14px', borderRadius: 12, border: `2px solid ${level === l.id ? color : '#E8E5F0'}`, background: level === l.id ? light : '#FAFAF8', cursor: 'pointer' }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: level === l.id ? color : '#1D1B26', marginBottom: 3 }}>{l.label}</div>
                     <div style={{ fontSize: 10, color: '#9E9BB0', lineHeight: 1.4 }}>{l.desc}</div>
                   </div>
                 ))}
@@ -220,17 +257,17 @@ export default function BrynneStudy() {
 
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 4 }}>Custom Instructions</div>
-              <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 10 }}>Tell Ascend anything special you want! ✨</div>
-              <textarea value={customInstructions} onChange={e => setCustomInstructions(e.target.value)} placeholder='e.g. "Focus on the math problems" or "Make it really simple for me"' rows={3} style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.6 }} />
+              <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 10 }}>Tell Ascend exactly what you need!</div>
+              <textarea value={customInstructions} onChange={e => setCustomInstructions(e.target.value)} placeholder='e.g. "Focus on chapter 4" or "Make it really simple"' rows={3} style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.6 }} />
             </div>
 
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: addQuestions ? 16 : 0 }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Add Practice Questions ✨</div>
-                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>Add quiz questions to your guide</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Add Practice Questions</div>
+                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>Add questions at the end to test yourself!</div>
                 </div>
-                <button onClick={() => setAddQuestions(q => !q)} style={{ width: 44, height: 26, borderRadius: 999, border: 'none', background: addQuestions ? '#E8956D' : '#E8E5F0', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                <button onClick={() => setAddQuestions(q => !q)} style={{ width: 44, height: 26, borderRadius: 999, border: 'none', background: addQuestions ? color : '#E8E5F0', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
                   <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'white', position: 'absolute', top: 3, left: addQuestions ? 21 : 3, transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />
                 </button>
               </div>
@@ -240,7 +277,7 @@ export default function BrynneStudy() {
                     <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 8 }}>Format</div>
                     <div style={{ display: 'flex', gap: 8 }}>
                       {QUESTION_FORMATS.map(f => (
-                        <button key={f} onClick={() => setQuestionFormat(f)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: `1.5px solid ${questionFormat === f ? '#E8956D' : '#E8E5F0'}`, background: questionFormat === f ? '#E8956D' : '#FAFAF8', color: questionFormat === f ? 'white' : '#9E9BB0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{f}</button>
+                        <button key={f} onClick={() => setQuestionFormat(f)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: `1.5px solid ${questionFormat === f ? color : '#E8E5F0'}`, background: questionFormat === f ? color : '#FAFAF8', color: questionFormat === f ? 'white' : '#9E9BB0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{f}</button>
                       ))}
                     </div>
                   </div>
@@ -249,7 +286,7 @@ export default function BrynneStudy() {
                       <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 2 }}>Include Answers</div>
                       <div style={{ fontSize: 11, color: '#9E9BB0' }}>Show answers after each question</div>
                     </div>
-                    <button onClick={() => setShowAnswers(a => !a)} style={{ width: 44, height: 26, borderRadius: 999, border: 'none', background: showAnswers ? '#E8956D' : '#E8E5F0', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                    <button onClick={() => setShowAnswers(a => !a)} style={{ width: 44, height: 26, borderRadius: 999, border: 'none', background: showAnswers ? color : '#E8E5F0', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
                       <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'white', position: 'absolute', top: 3, left: showAnswers ? 21 : 3, transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />
                     </button>
                   </div>
@@ -261,60 +298,60 @@ export default function BrynneStudy() {
 
             {loading ? (
               <div style={{ textAlign: 'center', padding: '24px 0' }}>
-                <div style={{ width: 32, height: 32, border: '2.5px solid #E8E5F0', borderTopColor: '#E8956D', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.75s linear infinite' }} />
-                <div style={{ fontSize: 13, color: '#9E9BB0' }}>Making your study guide... ✨</div>
+                <div style={{ width: 32, height: 32, border: '2.5px solid #E8E5F0', borderTopColor: color, borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.75s linear infinite' }} />
+                <div style={{ fontSize: 13, color: '#9E9BB0' }}>Building your study guide... 🌟</div>
                 <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
               </div>
             ) : (
-              <button onClick={handleGenerate} disabled={!canGenerate} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #E8956D, #C4A882)', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: canGenerate ? 1 : 0.4 }}>
-                {canGenerate ? 'Make My Study Guide! ✨' : 'Upload files or add instructions to begin'}
+              <button onClick={handleGenerate} disabled={!canGenerate || folderLoading} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: color, color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: canGenerate && !folderLoading ? 1 : 0.4 }}>
+                {folderLoading ? 'Loading folder files...' : canGenerate ? 'Generate Study Guide ✨' : 'Upload files or add instructions to begin'}
               </button>
             )}
           </div>
         ) : (
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '24px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
             {showNamePrompt && (
-              <div style={{ background: '#FFF3E8', borderRadius: 14, padding: '18px', marginBottom: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#C4A882', marginBottom: 10 }}>What should we call this study guide? 🌟</div>
-                <input type="text" value={guideName} onChange={e => setGuideName(e.target.value)} placeholder="e.g. Algebra Chapter 7 - Equations" style={{ width: '100%', padding: '10px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FFFFFF', outline: 'none', marginBottom: 10 }} />
-                <button onClick={handleSave} disabled={!guideName.trim() || saving} style={{ width: '100%', padding: '11px', borderRadius: 11, border: 'none', background: '#E8956D', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !guideName.trim() || saving ? 0.4 : 1 }}>
-                  {saving ? 'Saving... ✨' : 'Save to Ascend! ✨'}
+              <div style={{ background: light, borderRadius: 14, padding: '18px', marginBottom: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color, marginBottom: 10 }}>What should we call this study guide? 📖</div>
+                <input type="text" value={guideName} onChange={e => setGuideName(e.target.value)} placeholder='e.g. "Chapter 4 - Fractions"' style={{ width: '100%', padding: '10px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FFFFFF', outline: 'none', marginBottom: 10 }} />
+                <button onClick={handleSave} disabled={!guideName.trim() || saving} style={{ width: '100%', padding: '11px', borderRadius: 11, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !guideName.trim() || saving ? 0.4 : 1 }}>
+                  {saving ? 'Saving...' : 'Save to Ascend 🌟'}
                 </button>
               </div>
             )}
             {saved && (
               <div style={{ background: '#EDF7F2', borderRadius: 12, padding: '12px 16px', marginBottom: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#5FAD8E', marginBottom: 4 }}>✅ Saved to your Ascend dashboard! 🎉</div>
-                <div style={{ fontSize: 11, color: '#9E9BB0' }}>📅 Review sessions scheduled for Day 1, Day 3, and Day 7 on your calendar!</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#5FAD8E', marginBottom: 4 }}>✅ Saved to your Ascend dashboard!</div>
+                <div style={{ fontSize: 11, color: '#9E9BB0' }}>📅 Review reminders set for Day 1, Day 3, and Day 7!</div>
               </div>
             )}
             {sourceFiles.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: '#9E9BB0', letterSpacing: 1, textTransform: 'uppercase', alignSelf: 'center', marginRight: 2 }}>From</span>
                 {sourceFiles.map((name, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 999, background: '#FFF3E8', border: '1px solid rgba(232,149,109,0.2)' }}>
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 999, background: light, border: `1px solid rgba(232,149,109,0.2)` }}>
                     <span style={{ fontSize: 10 }}>📄</span>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: '#C4A882' }}>{name}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color }}>{name}</span>
                   </div>
                 ))}
               </div>
             )}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26' }}>{guideName || 'Your Study Guide'} 🎉</div>
-              <button onClick={() => { setStudyGuide(''); setFiles([]); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); }} style={{ fontSize: 12, fontWeight: 700, color: '#E8956D', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Make Another</button>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26' }}>{guideName || 'Your Study Guide'}</div>
+              <button onClick={() => { setStudyGuide(''); setFiles([]); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); }} style={{ fontSize: 12, fontWeight: 700, color, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate Another</button>
             </div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
-              <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>🖨️ Print</button>
-              <button onClick={handleShare} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>📤 Share</button>
-              <button onClick={handleCopy} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: `1.5px solid ${copied ? '#5FAD8E' : '#E8E5F0'}`, background: copied ? '#EDF7F2' : '#FAFAF8', color: copied ? '#5FAD8E' : '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{copied ? '✅ Copied!' : '📋 Copy'}</button>
+              <button onClick={handlePrint}    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>🖨️ Print</button>
+              <button onClick={handleShare}    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>📤 Share</button>
+              <button onClick={handleCopy}     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: `1.5px solid ${copied ? '#5FAD8E' : '#E8E5F0'}`, background: copied ? '#EDF7F2' : '#FAFAF8', color: copied ? '#5FAD8E' : '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{copied ? '✅ Copied!' : '📋 Copy'}</button>
               <button onClick={handleDownload} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>⬇️ Download PDF</button>
             </div>
             <div ref={printRef} style={{ padding: '4px' }}>
               <ReactMarkdown components={{
-                h1: ({children}) => <h1 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.4rem', fontWeight: 800, color: '#5A5078', marginTop: '1.5rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: '2px solid #EDE9F7' }}>{children}</h1>,
-                h2: ({children}) => <h2 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.1rem', fontWeight: 800, color: '#5A5078', marginTop: '1.25rem', marginBottom: '0.5rem' }}>{children}</h2>,
+                h1: ({children}) => <h1 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.4rem', fontWeight: 800, color, marginTop: '1.5rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: `2px solid ${light}` }}>{children}</h1>,
+                h2: ({children}) => <h2 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.1rem', fontWeight: 800, color, marginTop: '1.25rem', marginBottom: '0.5rem' }}>{children}</h2>,
                 h3: ({children}) => <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1D1B26', marginTop: '1rem', marginBottom: '0.25rem' }}>{children}</h3>,
-                p: ({children}) => <p style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: '0.75rem' }}>{children}</p>,
+                p:  ({children}) => <p  style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: '0.75rem' }}>{children}</p>,
                 strong: ({children}) => <strong style={{ fontWeight: 700, color: '#1D1B26' }}>{children}</strong>,
                 ul: ({children}) => <ul style={{ paddingLeft: '1.25rem', marginBottom: '0.75rem', listStyleType: 'disc' }}>{children}</ul>,
                 ol: ({children}) => <ol style={{ paddingLeft: '1.25rem', marginBottom: '0.75rem', listStyleType: 'decimal' }}>{children}</ol>,
@@ -327,5 +364,13 @@ export default function BrynneStudy() {
       </main>
       <TabBar student="brynne" />
     </div>
+  );
+}
+
+export default function BrynneStudy() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#FAFAF8', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9E9BB0', fontSize: 13 }}>Loading...</div>}>
+      <BrynneStudyInner />
+    </Suspense>
   );
 }
