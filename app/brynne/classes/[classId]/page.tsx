@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import TabBar from '../../../components/TabBar';
 import { supabase } from '../../../../lib/supabase';
@@ -28,8 +28,9 @@ function classLabel(name: string) {
   return name.slice(0, 3).toUpperCase();
 }
 
-type ClassRow = { id: string; name: string; semester: string; professor: string; };
-type Folder   = { id: string; name: string; exam_date: string | null; created_at: string; };
+type ClassRow   = { id: string; name: string; semester: string; professor: string; };
+type Folder     = { id: string; name: string; exam_date: string | null; created_at: string; };
+type ParsedExam = { name: string; date: string | null; };
 
 const color = '#E8956D';
 const light = '#FFF3E8';
@@ -39,13 +40,21 @@ export default function BrynneClassBinder() {
   const params  = useParams();
   const classId = params.classId as string;
 
-  const [cls,     setCls]     = useState<ClassRow | null>(null);
-  const [folders, setFolders] = useState<Folder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showAdd, setShowAdd] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newDate, setNewDate] = useState('');
-  const [saving,  setSaving]  = useState(false);
+  const [cls,          setCls]          = useState<ClassRow | null>(null);
+  const [folders,      setFolders]      = useState<Folder[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [showAdd,      setShowAdd]      = useState(false);
+  const [newName,      setNewName]      = useState('');
+  const [newDate,      setNewDate]      = useState('');
+  const [saving,       setSaving]       = useState(false);
+  const [showSyllabus, setShowSyllabus] = useState(false);
+  const [syllabusFile, setSyllabusFile] = useState<File | null>(null);
+  const [parsing,      setParsing]      = useState(false);
+  const [parsedExams,  setParsedExams]  = useState<ParsedExam[]>([]);
+  const [parseError,   setParseError]   = useState('');
+  const [creating,     setCreating]     = useState(false);
+  const [createDone,   setCreateDone]   = useState(false);
+  const syllabusRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -54,7 +63,6 @@ export default function BrynneClassBinder() {
         .select('id, name, semester, professor')
         .eq('id', classId)
         .single();
-
       if (classData) setCls(classData);
 
       const { data: folderData } = await supabase
@@ -62,12 +70,18 @@ export default function BrynneClassBinder() {
         .select('id, name, exam_date, created_at')
         .eq('class_id', classId)
         .order('exam_date', { ascending: true });
-
       if (folderData) setFolders(folderData);
       setLoading(false);
     };
     load();
   }, [classId]);
+
+  const sortedInsert = (prev: Folder[], newItems: Folder[]) =>
+    [...prev, ...newItems].sort((a, b) => {
+      if (!a.exam_date) return 1;
+      if (!b.exam_date) return -1;
+      return a.exam_date.localeCompare(b.exam_date);
+    });
 
   const handleAddFolder = async () => {
     if (!newName.trim()) return;
@@ -77,9 +91,66 @@ export default function BrynneClassBinder() {
       .insert({ class_id: classId, name: newName.trim(), exam_date: newDate || null })
       .select()
       .single();
-    if (data) setFolders(prev => [...prev, data]);
-    setNewName(''); setNewDate('');
-    setShowAdd(false); setSaving(false);
+    if (data) setFolders(prev => sortedInsert(prev, [data]));
+    setNewName(''); setNewDate(''); setShowAdd(false); setSaving(false);
+  };
+
+  const handleSyllabusParse = async () => {
+    if (!syllabusFile) return;
+    setParsing(true);
+    setParseError('');
+    setParsedExams([]);
+    try {
+      const formData = new FormData();
+      formData.append('file', syllabusFile);
+      const res  = await fetch('/api/parse-syllabus', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      if (!data.exams || data.exams.length === 0) {
+        setParseError('No exams found in this syllabus. Try adding folders manually.');
+      } else {
+        setParsedExams(data.exams);
+      }
+    } catch (err: any) {
+      setParseError(err.message || 'Could not parse syllabus. Try again.');
+    } finally {
+      setParsing(false);
+    }
+  };
+
+  const updateParsedExam = (i: number, field: 'name' | 'date', value: string) =>
+    setParsedExams(prev => prev.map((e, idx) => idx === i ? { ...e, [field]: value } : e));
+
+  const removeParsedExam = (i: number) =>
+    setParsedExams(prev => prev.filter((_, idx) => idx !== i));
+
+  const handleCreateFolders = async () => {
+    if (parsedExams.length === 0) return;
+    setCreating(true);
+    try {
+      const { data } = await supabase
+        .from('exam_folders')
+        .insert(parsedExams.map(e => ({ class_id: classId, name: e.name, exam_date: e.date || null })))
+        .select();
+      if (data) setFolders(prev => sortedInsert(prev, data));
+      setCreateDone(true);
+      setTimeout(() => {
+        setShowSyllabus(false);
+        setSyllabusFile(null);
+        setParsedExams([]);
+        setCreateDone(false);
+        setParseError('');
+      }, 1200);
+    } catch {
+      setParseError('Could not create folders. Please try again.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const resetSyllabus = () => {
+    setSyllabusFile(null); setParsedExams([]); setParseError(''); setCreateDone(false);
+    if (syllabusRef.current) syllabusRef.current.value = '';
   };
 
   const formatDate = (d: string | null) => {
@@ -107,6 +178,7 @@ export default function BrynneClassBinder() {
       </nav>
 
       <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
+
         <button onClick={() => router.push('/brynne/classes')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>
           ← Classes
         </button>
@@ -116,18 +188,36 @@ export default function BrynneClassBinder() {
             <div style={{ width: 52, height: 52, borderRadius: 14, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color, flexShrink: 0 }}>
               {classLabel(cls.name)}
             </div>
-            <div>
+            <div style={{ flex: 1 }}>
               <div style={{ fontSize: 24, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.6px', marginBottom: 2 }}>{cls.name}</div>
               <div style={{ fontSize: 12, color: '#9E9BB0' }}>{[cls.semester, cls.professor].filter(Boolean).join(' · ')}</div>
             </div>
           </div>
         )}
 
+        {!loading && folders.length === 0 && (
+          <div style={{ background: `linear-gradient(135deg, ${color}, #C4A882)`, borderRadius: 18, padding: '20px 22px', marginBottom: 20, color: 'white' }}>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', opacity: 0.7, marginBottom: 6 }}>Quick Setup</div>
+            <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Upload your syllabus! 📄</div>
+            <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 16, lineHeight: 1.5 }}>Ascend reads your syllabus and creates all your folders automatically — so cool!</div>
+            <button onClick={() => setShowSyllabus(true)} style={{ padding: '10px 20px', borderRadius: 999, background: 'rgba(255,255,255,0.25)', border: '1px solid rgba(255,255,255,0.35)', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+              Upload Syllabus →
+            </button>
+          </div>
+        )}
+
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4' }}>Exam Folders</div>
-          <button onClick={() => setShowAdd(true)} style={{ padding: '6px 14px', borderRadius: 999, background: light, border: 'none', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-            + Add Folder
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {folders.length > 0 && (
+              <button onClick={() => setShowSyllabus(true)} style={{ padding: '6px 14px', borderRadius: 999, background: '#F3F1EC', border: 'none', color: '#9E9BB0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                📄 Syllabus
+              </button>
+            )}
+            <button onClick={() => setShowAdd(true)} style={{ padding: '6px 14px', borderRadius: 999, background: light, border: 'none', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+              + Add Folder
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -136,7 +226,7 @@ export default function BrynneClassBinder() {
           <div style={{ background: '#FFFFFF', border: '1.5px dashed #C4C1D4', borderRadius: 18, padding: '40px 20px', textAlign: 'center' }}>
             <div style={{ fontSize: 32, marginBottom: 12 }}>📁</div>
             <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No folders yet!</div>
-            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>Add a folder for each test or unit. You've got this! 🌟</div>
+            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>Upload your syllabus above or add folders manually.</div>
             <button onClick={() => setShowAdd(true)} style={{ padding: '10px 22px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
               Add First Folder
             </button>
@@ -163,7 +253,7 @@ export default function BrynneClassBinder() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         {folder.exam_date && <span style={{ fontSize: 11, color: '#9E9BB0' }}>{formatDate(folder.exam_date)}</span>}
                         {countdown && (
-                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: countdown === 'Today!' ? '#FDF2F2' : isUrgent ? '#FFF3E8' : light, color: countdown === 'Today!' ? '#C47878' : isUrgent ? '#C8965A' : color }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: countdown === 'Today!' ? '#FDF2F2' : isUrgent ? light : light, color: countdown === 'Today!' ? '#C47878' : isUrgent ? '#C8965A' : color }}>
                             {countdown}
                           </span>
                         )}
@@ -183,26 +273,14 @@ export default function BrynneClassBinder() {
           <div style={{ background: '#FFFFFF', borderRadius: '22px 22px 0 0', padding: '24px 20px 36px', width: '100%', maxWidth: 580, boxShadow: '0 -8px 40px rgba(29,27,38,0.12)' }}>
             <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 20px' }} />
             <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>New Folder 📁</div>
-            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 22 }}>What test or unit is this folder for?</div>
+            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 22 }}>Add a folder for a test, quiz, or unit!</div>
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Folder Name</label>
-              <input
-                autoFocus
-                value={newName}
-                onChange={e => setNewName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && newName.trim()) handleAddFolder(); }}
-                placeholder="e.g. Chapter 7 Test, Midterm..."
-                style={{ width: '100%', padding: '11px 14px', border: `1.5px solid ${color}`, borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }}
-              />
+              <input autoFocus value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newName.trim()) handleAddFolder(); }} placeholder="e.g. Chapter 4 Test, Midterm..." style={{ width: '100%', padding: '11px 14px', border: `1.5px solid ${color}`, borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
             </div>
             <div style={{ marginBottom: 22 }}>
               <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Test Date (optional)</label>
-              <input
-                type="date"
-                value={newDate}
-                onChange={e => setNewDate(e.target.value)}
-                style={{ width: '100%', padding: '11px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }}
-              />
+              <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} style={{ width: '100%', padding: '11px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => { setShowAdd(false); setNewName(''); setNewDate(''); }} style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
@@ -210,6 +288,81 @@ export default function BrynneClassBinder() {
                 {saving ? 'Saving...' : 'Create Folder 🌟'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showSyllabus && (
+        <div onClick={e => { if (e.target === e.currentTarget) { setShowSyllabus(false); resetSyllabus(); }}} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <div style={{ background: '#FFFFFF', borderRadius: '22px 22px 0 0', padding: '24px 20px 44px', width: '100%', maxWidth: 580, boxShadow: '0 -8px 40px rgba(29,27,38,0.15)', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 20px' }} />
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>Upload Syllabus 📄</div>
+            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>Ascend will read your syllabus and create all your folders automatically — so easy!</div>
+
+            {!parsedExams.length && !parsing && (
+              <>
+                <input ref={syllabusRef} type="file" accept=".pdf" onChange={e => { setSyllabusFile(e.target.files?.[0] || null); setParseError(''); }} style={{ display: 'none' }} />
+                {syllabusFile ? (
+                  <div style={{ padding: '14px 16px', borderRadius: 12, border: `1.5px solid ${color}`, background: light, display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                    <span style={{ fontSize: 24 }}>📄</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{syllabusFile.name}</div>
+                      <div style={{ fontSize: 11, color: '#9E9BB0' }}>{(syllabusFile.size / 1024 / 1024).toFixed(1)} MB</div>
+                    </div>
+                    <button onClick={resetSyllabus} style={{ fontSize: 13, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>✕</button>
+                  </div>
+                ) : (
+                  <div onClick={() => syllabusRef.current?.click()} style={{ border: '2px dashed #E8E5F0', borderRadius: 12, padding: '28px 20px', textAlign: 'center', cursor: 'pointer', background: '#FAFAF8', marginBottom: 14 }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.borderColor = color} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.borderColor = '#E8E5F0'}>
+                    <div style={{ fontSize: 32, marginBottom: 8 }}>📄</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>Tap to choose your syllabus!</div>
+                    <div style={{ fontSize: 11, color: '#9E9BB0' }}>PDF files only</div>
+                  </div>
+                )}
+                {parseError && <div style={{ background: '#FDF2F2', border: '1.5px solid rgba(196,120,120,0.25)', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#C47878', fontWeight: 600, marginBottom: 14 }}>{parseError}</div>}
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={() => { setShowSyllabus(false); resetSyllabus(); }} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+                  <button onClick={handleSyllabusParse} disabled={!syllabusFile} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: syllabusFile ? color : '#F3F1EC', color: syllabusFile ? 'white' : '#C4C1D4', fontSize: 13, fontWeight: 800, cursor: syllabusFile ? 'pointer' : 'not-allowed', fontFamily: 'var(--font-jakarta)' }}>
+                    Read My Syllabus ✨
+                  </button>
+                </div>
+              </>
+            )}
+
+            {parsing && (
+              <div style={{ textAlign: 'center', padding: '32px 0' }}>
+                <div style={{ width: 36, height: 36, border: '3px solid #E8E5F0', borderTopColor: color, borderRadius: '50%', margin: '0 auto 16px', animation: 'spin 0.75s linear infinite' }} />
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#1D1B26', marginBottom: 6 }}>Reading your syllabus... 🌟</div>
+                <div style={{ fontSize: 12, color: '#9E9BB0' }}>Ascend is finding all your tests and quizzes!</div>
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+              </div>
+            )}
+
+            {parsedExams.length > 0 && !parsing && (
+              <>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>
+                  {parsedExams.length} test{parsedExams.length !== 1 ? 's' : ''} found! 🎉
+                </div>
+                <div style={{ fontSize: 12, color: '#9E9BB0', marginBottom: 16 }}>Check them over and make any changes!</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+                  {parsedExams.map((exam, i) => (
+                    <div key={i} style={{ background: '#FAFAF8', border: '1.5px solid #E8E5F0', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <input value={exam.name} onChange={e => updateParsedExam(i, 'name', e.target.value)} style={{ padding: '7px 10px', border: `1.5px solid ${color}`, borderRadius: 8, fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, color: '#1D1B26', background: '#FFFFFF', outline: 'none', width: '100%', boxSizing: 'border-box' as const }} />
+                        <input type="date" value={exam.date || ''} onChange={e => updateParsedExam(i, 'date', e.target.value)} style={{ padding: '7px 10px', border: '1.5px solid #E8E5F0', borderRadius: 8, fontFamily: 'var(--font-jakarta)', fontSize: 12, color: '#9E9BB0', background: '#FFFFFF', outline: 'none', width: '100%', boxSizing: 'border-box' as const }} />
+                      </div>
+                      <button onClick={() => removeParsedExam(i)} style={{ fontSize: 14, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', flexShrink: 0 }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+                {parseError && <div style={{ background: '#FDF2F2', border: '1.5px solid rgba(196,120,120,0.25)', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#C47878', fontWeight: 600, marginBottom: 14 }}>{parseError}</div>}
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={resetSyllabus} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Start Over</button>
+                  <button onClick={handleCreateFolders} disabled={parsedExams.length === 0 || creating || createDone} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: createDone ? '#5FAD8E' : color, color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: creating ? 0.7 : 1 }}>
+                    {createDone ? '✅ Folders Created!' : creating ? 'Creating...' : `Create ${parsedExams.length} Folder${parsedExams.length !== 1 ? 's' : ''} 🌟`}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
