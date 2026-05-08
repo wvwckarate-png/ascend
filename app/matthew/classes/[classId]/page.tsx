@@ -35,6 +35,38 @@ type ParsedExam = { name: string; date: string | null; };
 const color = '#7B6FA0';
 const light = '#EDE9F7';
 
+async function createNudges(examName: string, examDate: string, studentId: string) {
+  const exam  = new Date(examDate + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const nudgeDays = [
+    { days: 14, label: `2 weeks until ${examName}` },
+    { days: 7,  label: `1 week until ${examName}` },
+    { days: 3,  label: `${examName} in 3 days` },
+    { days: 1,  label: `${examName} tomorrow` },
+  ];
+
+  const nudges = nudgeDays
+    .map(n => {
+      const d = new Date(exam);
+      d.setDate(exam.getDate() - n.days);
+      return { date: d, label: n.label };
+    })
+    .filter(n => n.date >= today)
+    .map(n => ({
+      student_id: studentId,
+      title:      n.label,
+      due_date:   n.date.toISOString().split('T')[0],
+      task_type:  'nudge',
+      completed:  false,
+    }));
+
+  if (nudges.length > 0) {
+    await supabase.from('tasks').insert(nudges);
+  }
+}
+
 export default function MatthewClassBinder() {
   const router  = useRouter();
   const params  = useParams();
@@ -59,17 +91,11 @@ export default function MatthewClassBinder() {
   useEffect(() => {
     const load = async () => {
       const { data: classData } = await supabase
-        .from('classes')
-        .select('id, name, semester, professor')
-        .eq('id', classId)
-        .single();
+        .from('classes').select('id, name, semester, professor').eq('id', classId).single();
       if (classData) setCls(classData);
 
       const { data: folderData } = await supabase
-        .from('exam_folders')
-        .select('id, name, exam_date, created_at')
-        .eq('class_id', classId)
-        .order('exam_date', { ascending: true });
+        .from('exam_folders').select('id, name, exam_date, created_at').eq('class_id', classId).order('exam_date', { ascending: true });
       if (folderData) setFolders(folderData);
       setLoading(false);
     };
@@ -89,17 +115,17 @@ export default function MatthewClassBinder() {
     const { data } = await supabase
       .from('exam_folders')
       .insert({ class_id: classId, name: newName.trim(), exam_date: newDate || null })
-      .select()
-      .single();
-    if (data) setFolders(prev => sortedInsert(prev, [data]));
+      .select().single();
+    if (data) {
+      setFolders(prev => sortedInsert(prev, [data]));
+      if (newDate) await createNudges(newName.trim(), newDate, 'matthew');
+    }
     setNewName(''); setNewDate(''); setShowAdd(false); setSaving(false);
   };
 
   const handleSyllabusParse = async () => {
     if (!syllabusFile) return;
-    setParsing(true);
-    setParseError('');
-    setParsedExams([]);
+    setParsing(true); setParseError(''); setParsedExams([]);
     try {
       const formData = new FormData();
       formData.append('file', syllabusFile);
@@ -132,14 +158,16 @@ export default function MatthewClassBinder() {
         .from('exam_folders')
         .insert(parsedExams.map(e => ({ class_id: classId, name: e.name, exam_date: e.date || null })))
         .select();
-      if (data) setFolders(prev => sortedInsert(prev, data));
+      if (data) {
+        setFolders(prev => sortedInsert(prev, data));
+        for (const exam of parsedExams) {
+          if (exam.date) await createNudges(exam.name, exam.date, 'matthew');
+        }
+      }
       setCreateDone(true);
       setTimeout(() => {
-        setShowSyllabus(false);
-        setSyllabusFile(null);
-        setParsedExams([]);
-        setCreateDone(false);
-        setParseError('');
+        setShowSyllabus(false); setSyllabusFile(null); setParsedExams([]);
+        setCreateDone(false); setParseError('');
       }, 1200);
     } catch {
       setParseError('Could not create folders. Please try again.');
@@ -178,7 +206,6 @@ export default function MatthewClassBinder() {
       </nav>
 
       <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
-
         <button onClick={() => router.push('/matthew/classes')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>
           ← Classes
         </button>
@@ -195,12 +222,11 @@ export default function MatthewClassBinder() {
           </div>
         )}
 
-        {/* Syllabus banner — only when no folders */}
         {!loading && folders.length === 0 && (
           <div style={{ background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', borderRadius: 18, padding: '20px 22px', marginBottom: 20, color: 'white' }}>
             <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', opacity: 0.6, marginBottom: 6 }}>Quick Setup</div>
             <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Upload your syllabus</div>
-            <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 16, lineHeight: 1.5 }}>Ascend reads your syllabus and creates all your exam folders automatically.</div>
+            <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 16, lineHeight: 1.5 }}>Ascend reads your syllabus and creates all your exam folders — and countdown reminders — automatically.</div>
             <button onClick={() => setShowSyllabus(true)} style={{ padding: '10px 20px', borderRadius: 999, background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
               Upload Syllabus →
             </button>
@@ -275,7 +301,7 @@ export default function MatthewClassBinder() {
           <div style={{ background: '#FFFFFF', borderRadius: '22px 22px 0 0', padding: '24px 20px 36px', width: '100%', maxWidth: 580, boxShadow: '0 -8px 40px rgba(29,27,38,0.12)' }}>
             <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 20px' }} />
             <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>New Exam Folder</div>
-            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 22 }}>Add a folder for an exam, unit, or section.</div>
+            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 22 }}>Ascend will create countdown reminders automatically when you add a date.</div>
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Folder Name</label>
               <input autoFocus value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newName.trim()) handleAddFolder(); }} placeholder="e.g. Exam 2, Midterm, Final..." style={{ width: '100%', padding: '11px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
@@ -284,6 +310,11 @@ export default function MatthewClassBinder() {
               <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Exam Date (optional)</label>
               <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} style={{ width: '100%', padding: '11px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
             </div>
+            {newDate && (
+              <div style={{ background: light, borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color, fontWeight: 600 }}>
+                📅 Countdown reminders will be added at 14 days, 7 days, 3 days, and 1 day before
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => { setShowAdd(false); setNewName(''); setNewDate(''); }} style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
               <button onClick={handleAddFolder} disabled={!newName.trim() || saving} style={{ flex: 2, padding: '12px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !newName.trim() || saving ? 0.4 : 1 }}>
@@ -300,7 +331,7 @@ export default function MatthewClassBinder() {
           <div style={{ background: '#FFFFFF', borderRadius: '22px 22px 0 0', padding: '24px 20px 44px', width: '100%', maxWidth: 580, boxShadow: '0 -8px 40px rgba(29,27,38,0.15)', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 20px' }} />
             <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>Upload Syllabus</div>
-            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>Ascend will read your syllabus and create exam folders automatically.</div>
+            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>Ascend will create exam folders and countdown reminders automatically.</div>
 
             {!parsedExams.length && !parsing && (
               <>
@@ -335,17 +366,15 @@ export default function MatthewClassBinder() {
               <div style={{ textAlign: 'center', padding: '32px 0' }}>
                 <div style={{ width: 36, height: 36, border: '3px solid #E8E5F0', borderTopColor: color, borderRadius: '50%', margin: '0 auto 16px', animation: 'spin 0.75s linear infinite' }} />
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#1D1B26', marginBottom: 6 }}>Reading your syllabus...</div>
-                <div style={{ fontSize: 12, color: '#9E9BB0' }}>Ascend is finding your exams and dates</div>
+                <div style={{ fontSize: 12, color: '#9E9BB0' }}>Finding exams and creating reminders</div>
                 <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
               </div>
             )}
 
             {parsedExams.length > 0 && !parsing && (
               <>
-                <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>
-                  {parsedExams.length} exam{parsedExams.length !== 1 ? 's' : ''} found
-                </div>
-                <div style={{ fontSize: 12, color: '#9E9BB0', marginBottom: 16 }}>Review and edit before creating folders.</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>{parsedExams.length} exam{parsedExams.length !== 1 ? 's' : ''} found</div>
+                <div style={{ fontSize: 12, color: '#9E9BB0', marginBottom: 16 }}>Review and edit before creating folders. Countdown reminders will be created automatically.</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
                   {parsedExams.map((exam, i) => (
                     <div key={i} style={{ background: '#FAFAF8', border: '1.5px solid #E8E5F0', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -356,6 +385,9 @@ export default function MatthewClassBinder() {
                       <button onClick={() => removeParsedExam(i)} style={{ fontSize: 14, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', flexShrink: 0 }}>✕</button>
                     </div>
                   ))}
+                </div>
+                <div style={{ background: light, borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color, fontWeight: 600 }}>
+                  📅 Countdown reminders will be created at 14, 7, 3, and 1 day before each exam
                 </div>
                 {parseError && <div style={{ background: '#FDF2F2', border: '1.5px solid rgba(196,120,120,0.25)', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#C47878', fontWeight: 600, marginBottom: 14 }}>{parseError}</div>}
                 <div style={{ display: 'flex', gap: 10 }}>
