@@ -15,132 +15,138 @@ function Mountain() {
   );
 }
 
-type Question = { front: string; back: string; };
+type Question    = { front: string; back: string; };
+type LibResource = { id: string; file_name: string; storage_url: string; folder_id: string; };
+type LibFolder   = { id: string; name: string; class_id: string; resources: LibResource[]; };
+type LibClass    = { id: string; name: string; folders: LibFolder[]; };
+
+const color = '#7B6FA0';
+const light = '#EDE9F7';
 
 function MichaelPracticeExamInner() {
   const searchParams = useSearchParams();
-  const folderId     = searchParams.get('folderId');
-  const folderName   = searchParams.get('folderName');
+  const folderId   = searchParams.get('folderId');
+  const folderName = searchParams.get('folderName');
 
-  const [topic,         setTopic]         = useState('');
-  const [count,         setCount]         = useState(20);
-  const [examMode,      setExamMode]      = useState<'lecture' | 'folder' | 'cumulative'>('folder');
-  const [loading,       setLoading]       = useState(false);
-  const [folderLoading, setFolderLoading] = useState(false);
-  const [folderFiles,   setFolderFiles]   = useState<File[]>([]);
-  const [folderLabel,   setFolderLabel]   = useState('');
-  const [error,         setError]         = useState('');
-  const [questions,     setQuestions]     = useState<Question[]>([]);
-  const [qi,            setQi]            = useState(0);
-  const [revealed,      setRevealed]      = useState(false);
-  const [scores,        setScores]        = useState<Record<number, boolean>>({});
-  const [screen,        setScreen]        = useState<'setup' | 'exam' | 'done'>('setup');
+  const [library,         setLibrary]         = useState<LibClass[]>([]);
+  const [libLoading,      setLibLoading]       = useState(true);
+  const [selectedIds,     setSelectedIds]      = useState<Set<string>>(new Set());
+  const [expandedClasses, setExpandedClasses]  = useState<Set<string>>(new Set());
+  const [expandedFolders, setExpandedFolders]  = useState<Set<string>>(new Set());
+  const [newFiles,        setNewFiles]         = useState<File[]>([]);
+  const [fileInputRef,    setFileInputRef]     = useState<HTMLInputElement | null>(null);
+
+  const [topic,              setTopic]              = useState('');
+  const [count,              setCount]              = useState(20);
+  const [examMode,           setExamMode]           = useState<'lecture' | 'folder' | 'cumulative'>('folder');
+  const [customInstructions, setCustomInstructions] = useState('');
+
+  const [loading,   setLoading]   = useState(false);
+  const [error,     setError]     = useState('');
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [qi,        setQi]        = useState(0);
+  const [revealed,  setRevealed]  = useState(false);
+  const [scores,    setScores]    = useState<Record<number, boolean>>({});
+  const [screen,    setScreen]    = useState<'setup' | 'exam' | 'done'>('setup');
 
   useEffect(() => {
-    if (!folderId) return;
-    if (folderName) setTopic(folderName);
-    const load = async () => {
-      setFolderLoading(true);
-      try {
-        const { data: resources } = await supabase
-          .from('resources')
-          .select('id, file_name, file_type, storage_url')
-          .eq('folder_id', folderId)
-          .eq('file_type', 'pdf');
-
-        if (!resources || resources.length === 0) {
-          setFolderLabel(folderName ? `${folderName} — no PDFs found, generating from topic` : 'No PDFs found');
-          setFolderLoading(false);
-          return;
-        }
-
-        const fetched: File[] = [];
-        for (const r of resources) {
-          if (!r.storage_url) continue;
-          try {
-            const res  = await fetch(r.storage_url);
-            const blob = await res.blob();
-            fetched.push(new File([blob], r.file_name + '.pdf', { type: 'application/pdf' }));
-          } catch { /* skip */ }
-        }
-
-        setFolderFiles(fetched);
-        setFolderLabel(folderName || 'Folder loaded');
-      } catch {
-        setFolderLabel('Could not load folder PDFs — generating from topic');
-      } finally {
-        setFolderLoading(false);
+    const loadLibrary = async () => {
+      setLibLoading(true);
+      const { data: classData } = await supabase.from('classes').select('id, name').eq('student_id', 'michael').eq('is_active', true).order('created_at', { ascending: true });
+      if (!classData || classData.length === 0) { setLibLoading(false); return; }
+      const classIds = classData.map(c => c.id);
+      const { data: folderData } = await supabase.from('exam_folders').select('id, name, class_id').in('class_id', classIds).order('exam_date', { ascending: true });
+      const folderIds = (folderData || []).map(f => f.id);
+      let resourceData: any[] = [];
+      if (folderIds.length > 0) {
+        const { data } = await supabase.from('resources').select('id, file_name, file_type, storage_url, folder_id').in('folder_id', folderIds).eq('file_type', 'pdf').not('storage_url', 'is', null);
+        resourceData = data || [];
       }
+      const rByFolder: Record<string, LibResource[]> = {};
+      resourceData.forEach(r => { if (!rByFolder[r.folder_id]) rByFolder[r.folder_id] = []; rByFolder[r.folder_id].push(r); });
+      const fByClass: Record<string, LibFolder[]> = {};
+      (folderData || []).forEach(f => { if (!fByClass[f.class_id]) fByClass[f.class_id] = []; fByClass[f.class_id].push({ ...f, resources: rByFolder[f.id] || [] }); });
+      const lib = classData.map(c => ({ ...c, folders: (fByClass[c.id] || []).filter(f => f.resources.length > 0) })).filter(c => c.folders.length > 0);
+      setLibrary(lib);
+      if (folderId) {
+        const folder = (folderData || []).find(f => f.id === folderId);
+        if (folder) {
+          setExpandedClasses(new Set([folder.class_id]));
+          setExpandedFolders(new Set([folderId]));
+          setSelectedIds(new Set((rByFolder[folderId] || []).map(r => r.id)));
+          if (folderName) setTopic(folderName);
+        }
+      }
+      setLibLoading(false);
     };
-    load();
+    loadLibrary();
   }, [folderId, folderName]);
 
-  const curQ      = questions[qi];
-  const total     = questions.length;
-  const progress  = total > 0 ? ((qi / total) * 100) : 0;
-  const correct   = Object.values(scores).filter(Boolean).length;
-  const incorrect = Object.values(scores).filter(v => !v).length;
-  const score     = total > 0 ? Math.round((correct / total) * 100) : 0;
+  const toggleResource = (id: string) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleFolder   = (folder: LibFolder) => { const ids = folder.resources.map(r => r.id); const allSel = ids.length > 0 && ids.every(id => selectedIds.has(id)); setSelectedIds(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; }); };
+  const toggleClass    = (cls: LibClass)    => { const ids = cls.folders.flatMap(f => f.resources.map(r => r.id)); const allSel = ids.length > 0 && ids.every(id => selectedIds.has(id)); setSelectedIds(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; }); };
+
+  const handleNewFileInput = (e: React.ChangeEvent<HTMLInputElement>) => { const selected = Array.from(e.target.files || []).filter(f => f.type === 'application/pdf'); setNewFiles(prev => [...prev, ...selected]); e.target.value = ''; };
+
+  const totalSelected = selectedIds.size + newFiles.length;
+  const canGenerate   = totalSelected > 0 || topic.trim().length > 0;
 
   const generate = async () => {
-    if (!topic.trim() && folderFiles.length === 0) return;
-    setLoading(true);
-    setError('');
+    if (!canGenerate) return;
+    setLoading(true); setError('');
     try {
+      const allResources = library.flatMap(c => c.folders.flatMap(f => f.resources));
+      const selectedResources = allResources.filter(r => selectedIds.has(r.id));
+      const fetchedFiles: File[] = [];
+      for (const r of selectedResources) {
+        if (!r.storage_url) continue;
+        try { const res = await fetch(r.storage_url); const blob = await res.blob(); fetchedFiles.push(new File([blob], r.file_name + '.pdf', { type: 'application/pdf' })); } catch { /* skip */ }
+      }
+      const allFiles = [...fetchedFiles, ...newFiles];
       const modeLabel = examMode === 'lecture' ? 'single lecture' : examMode === 'cumulative' ? 'cumulative final exam' : 'exam unit';
-      let raw = '';
+      const custom = customInstructions.trim() ? ` Additional instructions: ${customInstructions.trim()}.` : '';
 
-      if (folderFiles.length > 0) {
-        const prompt = `Generate ${count} practice exam questions from the uploaded study materials${topic.trim() ? ` about: ${topic}` : ''} (${modeLabel}). Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"detailed answer"}]. Pre-med college level. Make questions challenging and specific.`;
+      const basePrompt = allFiles.length > 1
+        ? `You are Ascend analyzing ${allFiles.length} study documents for Michael, a pre-med high school freshman. Perform CROSS-DOCUMENT ANALYSIS: identify concepts recurring across multiple documents, weight your questions toward these high-frequency overlapping topics. Generate ${count} practice exam questions (${modeLabel}).${topic.trim() ? ` Focus area: ${topic.trim()}.` : ''}${custom} Make questions challenging and specific. Return ONLY a JSON array with no markdown, no backticks. Format: [{"front":"question","back":"detailed answer"}]`
+        : `Generate ${count} practice exam questions${topic.trim() ? ` for: ${topic.trim()}` : ' from the uploaded material'} (${modeLabel}).${custom} Pre-med high school level. Make questions challenging and specific. Return ONLY a JSON array with no markdown, no backticks. Format: [{"front":"question","back":"detailed answer"}]`;
+
+      let raw = '';
+      if (allFiles.length > 0) {
         const formData = new FormData();
-        folderFiles.forEach(f => formData.append('files', f));
+        allFiles.forEach(f => formData.append('files', f));
         formData.append('student', 'michael');
-        formData.append('prompt', prompt);
+        formData.append('prompt', basePrompt);
         formData.append('type', 'exam');
         const res  = await fetch('/api/generate-study-guide', { method: 'POST', body: formData });
         const data = await res.json();
         raw = (data.studyGuide || data.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
       } else {
-        const prompt = `Generate ${count} practice exam questions for: ${topic} (${modeLabel}). Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"detailed answer"}]. Pre-med college level. Make questions challenging and specific.`;
-        const res  = await fetch('/api/generate-study-guide', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt, student: 'michael', type: 'exam' }),
-        });
+        const res  = await fetch('/api/generate-study-guide', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: basePrompt, student: 'michael', type: 'exam' }) });
         const data = await res.json();
         raw = (data.studyGuide || data.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
       }
 
       const parsed: Question[] = JSON.parse(raw);
-      setQuestions(parsed);
-      setQi(0);
-      setRevealed(false);
-      setScores({});
-      setScreen('exam');
-    } catch {
-      setError('Could not generate exam. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+      setQuestions(parsed); setQi(0); setRevealed(false); setScores({}); setScreen('exam');
+    } catch { setError('Could not generate exam. Please try again.'); }
+    finally { setLoading(false); }
   };
 
-  const mark = (isCorrect: boolean) => {
-    setScores(s => ({ ...s, [qi]: isCorrect }));
-    setRevealed(false);
-    if (qi + 1 >= total) { setScreen('done'); } else { setQi(i => i + 1); }
-  };
-
+  const mark    = (isCorrect: boolean) => { setScores(s => ({ ...s, [qi]: isCorrect })); setRevealed(false); if (qi + 1 >= total) { setScreen('done'); } else { setQi(i => i + 1); } };
   const restart = () => { setQi(0); setRevealed(false); setScores({}); setScreen('exam'); };
-  const canGenerate = topic.trim().length > 0 || folderFiles.length > 0;
+
+  const total     = questions.length;
+  const progress  = total > 0 ? ((qi / total) * 100) : 0;
+  const correct   = Object.values(scores).filter(Boolean).length;
+  const incorrect = Object.values(scores).filter(v => !v).length;
+  const score     = total > 0 ? Math.round((correct / total) * 100) : 0;
+  const curQ      = questions[qi];
 
   useEffect(() => {
     if (screen !== 'exam') return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === ' ') { e.preventDefault(); setRevealed(r => !r); }
-      if (revealed) {
-        if (e.key === 'ArrowRight' || e.key === 'y') mark(true);
-        if (e.key === 'ArrowLeft'  || e.key === 'n') mark(false);
-      }
+      if (revealed) { if (e.key === 'ArrowRight' || e.key === 'y') mark(true); if (e.key === 'ArrowLeft' || e.key === 'n') mark(false); }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
@@ -158,27 +164,16 @@ function MichaelPracticeExamInner() {
 
       {screen === 'setup' && (
         <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
-          <div style={{ marginBottom: 28 }}>
+          <div style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Michael</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Practice Exam</div>
-            <div style={{ fontSize: 13, color: '#9E9BB0' }}>Choose your scope and generate a practice exam.</div>
+            <div style={{ fontSize: 13, color: '#9E9BB0' }}>Select materials from your library to generate a practice exam.</div>
           </div>
 
-          {folderId && (
-            <div style={{ background: '#EDE9F7', border: '1.5px solid rgba(123,111,160,0.2)', borderRadius: 14, padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 18 }}>📁</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#5A5078' }}>{folderLoading ? 'Loading folder resources...' : folderLabel || folderName}</div>
-                <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 2 }}>{folderLoading ? 'Fetching your uploaded PDFs...' : `${folderFiles.length} PDF${folderFiles.length !== 1 ? 's' : ''} loaded from this folder`}</div>
-              </div>
-              {folderLoading && <div style={{ width: 18, height: 18, border: '2px solid #E8E5F0', borderTopColor: '#7B6FA0', borderRadius: '50%', animation: 'spin 0.75s linear infinite' }} />}
-            </div>
-          )}
-
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-            {([['lecture', 'Single Lecture', 'One lecture. Best for Day 0 review.'], ['folder', 'Exam Folder', 'Full unit prep. Covers all material for one exam.'], ['cumulative', 'Cumulative Final', 'Full course, weighted to weak areas.']] as const).map(([k, lbl, desc]) => (
-              <div key={k} onClick={() => setExamMode(k)} style={{ border: `2px solid ${examMode === k ? '#7B6FA0' : '#E8E5F0'}`, borderRadius: 14, padding: '14px 16px', cursor: 'pointer', background: examMode === k ? '#EDE9F7' : '#FFFFFF', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                <div style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${examMode === k ? '#7B6FA0' : '#C4C1D4'}`, background: examMode === k ? '#7B6FA0' : 'transparent', flexShrink: 0, marginTop: 2 }} />
+            {([['lecture', 'Single Lecture', 'One lecture. Best for Day 0 review.'], ['folder', 'Exam Unit', 'Full unit prep. Covers all selected material.'], ['cumulative', 'Cumulative Final', 'Full course, weighted to weak areas.']] as const).map(([k, lbl, desc]) => (
+              <div key={k} onClick={() => setExamMode(k)} style={{ border: `2px solid ${examMode === k ? color : '#E8E5F0'}`, borderRadius: 14, padding: '14px 16px', cursor: 'pointer', background: examMode === k ? light : '#FFFFFF', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                <div style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${examMode === k ? color : '#C4C1D4'}`, background: examMode === k ? color : 'transparent', flexShrink: 0, marginTop: 2 }} />
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 800, color: examMode === k ? '#5A5078' : '#1D1B26', marginBottom: 2 }}>{lbl}</div>
                   <div style={{ fontSize: 11, color: '#9E9BB0', lineHeight: 1.4 }}>{desc}</div>
@@ -188,10 +183,110 @@ function MichaelPracticeExamInner() {
           </div>
 
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Select Resources</div>
+                <div style={{ fontSize: 11, color: '#9E9BB0' }}>{totalSelected > 0 ? `${totalSelected} file${totalSelected !== 1 ? 's' : ''} selected` : 'Pick from your uploaded library'}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {totalSelected > 0 && <button onClick={() => { setSelectedIds(new Set()); setNewFiles([]); }} style={{ padding: '6px 10px', borderRadius: 999, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#9E9BB0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear</button>}
+                <input type="file" accept=".pdf" multiple ref={el => setFileInputRef(el)} onChange={handleNewFileInput} style={{ display: 'none' }} />
+                <button onClick={() => fileInputRef?.click()} style={{ padding: '6px 12px', borderRadius: 999, background: light, border: 'none', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Upload</button>
+              </div>
+            </div>
+
+            {newFiles.length > 0 && (
+              <div style={{ marginBottom: 10 }}>
+                {newFiles.map((f, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: light, marginBottom: 4 }}>
+                    <span style={{ fontSize: 12 }}>📄</span>
+                    <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                    <button onClick={() => setNewFiles(prev => prev.filter((_, idx) => idx !== i))} style={{ fontSize: 11, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {libLoading ? (
+              <div style={{ textAlign: 'center', padding: '16px 0', color: '#9E9BB0', fontSize: 12 }}>Loading library...</div>
+            ) : library.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '20px', border: '2px dashed #E8E5F0', borderRadius: 10 }}>
+                <div style={{ fontSize: 24, marginBottom: 6 }}>📂</div>
+                <div style={{ fontSize: 12, color: '#9E9BB0' }}>No uploaded PDFs yet — upload files to your class folders first.</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {library.map(cls => {
+                  const clsIds     = cls.folders.flatMap(f => f.resources.map(r => r.id));
+                  const clsAllSel  = clsIds.length > 0 && clsIds.every(id => selectedIds.has(id));
+                  const clsSomeSel = clsIds.some(id => selectedIds.has(id));
+                  const clsExp     = expandedClasses.has(cls.id);
+                  return (
+                    <div key={cls.id} style={{ border: '1.5px solid #E8E5F0', borderRadius: 10, overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', background: '#FAFAF8', cursor: 'pointer' }} onClick={() => setExpandedClasses(prev => { const n = new Set(prev); n.has(cls.id) ? n.delete(cls.id) : n.add(cls.id); return n; })}>
+                        <span style={{ fontSize: 10, color: '#9E9BB0', width: 10 }}>{clsExp ? '▾' : '▸'}</span>
+                        <span style={{ flex: 1, fontSize: 12, fontWeight: 800, color: '#1D1B26' }}>{cls.name}</span>
+                        <button onClick={e => { e.stopPropagation(); toggleClass(cls); }} style={{ fontSize: 10, fontWeight: 700, color: clsAllSel || clsSomeSel ? color : '#9E9BB0', background: clsAllSel || clsSomeSel ? light : '#F3F1EC', border: 'none', borderRadius: 999, padding: '2px 8px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                          {clsAllSel ? 'Deselect' : 'Select all'}
+                        </button>
+                      </div>
+                      {clsExp && (
+                        <div style={{ padding: '0 12px 8px' }}>
+                          {cls.folders.map(folder => {
+                            const fIds     = folder.resources.map(r => r.id);
+                            const fAllSel  = fIds.length > 0 && fIds.every(id => selectedIds.has(id));
+                            const fSomeSel = fIds.some(id => selectedIds.has(id));
+                            const fExp     = expandedFolders.has(folder.id);
+                            return (
+                              <div key={folder.id} style={{ marginTop: 6 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderRadius: 7, background: '#F3F1EC', cursor: 'pointer', marginBottom: 3 }} onClick={() => setExpandedFolders(prev => { const n = new Set(prev); n.has(folder.id) ? n.delete(folder.id) : n.add(folder.id); return n; })}>
+                                  <span style={{ fontSize: 9, color: '#9E9BB0', width: 8 }}>{fExp ? '▾' : '▸'}</span>
+                                  <span style={{ flex: 1, fontSize: 11, fontWeight: 700, color: '#1D1B26' }}>📁 {folder.name}</span>
+                                  <span style={{ fontSize: 9, color: '#9E9BB0' }}>{folder.resources.length} PDF{folder.resources.length !== 1 ? 's' : ''}</span>
+                                  <button onClick={e => { e.stopPropagation(); toggleFolder(folder); }} style={{ fontSize: 9, fontWeight: 700, color: fAllSel || fSomeSel ? color : '#9E9BB0', background: fAllSel || fSomeSel ? light : '#FFFFFF', border: `1px solid ${fAllSel || fSomeSel ? color : '#E8E5F0'}`, borderRadius: 999, padding: '2px 7px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                                    {fAllSel ? 'Deselect' : 'Select all'}
+                                  </button>
+                                </div>
+                                {fExp && (
+                                  <div style={{ paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                    {folder.resources.map(r => {
+                                      const isSel = selectedIds.has(r.id);
+                                      return (
+                                        <div key={r.id} onClick={() => toggleResource(r.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, border: `1.5px solid ${isSel ? color : '#E8E5F0'}`, background: isSel ? light : '#FFFFFF', cursor: 'pointer' }}>
+                                          <div style={{ width: 16, height: 16, borderRadius: 3, border: `2px solid ${isSel ? color : '#C4C1D4'}`, background: isSel ? color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            {isSel && <span style={{ color: 'white', fontSize: 9 }}>✓</span>}
+                                          </div>
+                                          <span style={{ fontSize: 11, fontWeight: isSel ? 700 : 400, color: isSel ? color : '#1D1B26', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {r.file_name}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {totalSelected > 0 && (
+              <div style={{ marginTop: 10, padding: '9px 12px', borderRadius: 9, background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 11, fontWeight: 700 }}>
+                📚 {totalSelected} file{totalSelected !== 1 ? 's' : ''} selected{totalSelected > 1 ? ' — questions will be weighted to recurring topics' : ''}
+              </div>
+            )}
+          </div>
+
+          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
             <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>
-              {folderFiles.length > 0 ? 'Topic (optional — folder PDFs will be used)' : 'Subject / Topic'}
+              {totalSelected > 0 ? 'Refine Focus (optional)' : 'Subject / Topic'}
             </label>
-            <input value={topic} onChange={e => setTopic(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !loading && canGenerate) generate(); }} placeholder={folderFiles.length > 0 ? 'Refine focus (optional)...' : 'e.g. Biology - Cellular Respiration'} style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', marginBottom: 16 }} />
+            <input value={topic} onChange={e => setTopic(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && canGenerate && !loading) generate(); }} placeholder={totalSelected > 0 ? 'e.g. "Focus on enzymatic reactions"' : 'e.g. Biology - Cellular Respiration'} style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', marginBottom: 14 }} />
+            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Custom Instructions (optional)</label>
+            <textarea value={customInstructions} onChange={e => setCustomInstructions(e.target.value)} placeholder='e.g. "More calculation questions" or "Focus on mechanisms"' rows={2} style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.5, marginBottom: 14 }} />
             <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 8, display: 'block' }}>Questions</label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {[10, 15, 20, 30, 40].map(n => (
@@ -205,12 +300,12 @@ function MichaelPracticeExamInner() {
           {loading ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
               <div style={{ width: 32, height: 32, border: '2.5px solid #E8E5F0', borderTopColor: '#C8965A', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.75s linear infinite' }} />
-              <div style={{ fontSize: 13, color: '#9E9BB0' }}>Generating your exam...</div>
+              <div style={{ fontSize: 13, color: '#9E9BB0' }}>{totalSelected > 1 ? `Analyzing ${totalSelected} documents...` : 'Generating your exam...'}</div>
               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
           ) : (
-            <button onClick={generate} disabled={!canGenerate || folderLoading} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #C8965A, #A87840)', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: canGenerate && !folderLoading ? 1 : 0.4 }}>
-              {folderLoading ? 'Loading folder files...' : canGenerate ? 'Generate Practice Exam' : 'Enter a topic first'}
+            <button onClick={generate} disabled={!canGenerate} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #C8965A, #A87840)', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: canGenerate ? 1 : 0.4 }}>
+              {canGenerate ? (totalSelected > 1 ? `Generate ${count} Questions from ${totalSelected} Files` : 'Generate Practice Exam') : 'Select resources or enter a topic'}
             </button>
           )}
         </main>
@@ -236,8 +331,8 @@ function MichaelPracticeExamInner() {
             <button onClick={() => setRevealed(true)} style={{ width: '100%', padding: '14px', borderRadius: 14, border: '2px dashed #E8E5F0', background: 'transparent', color: '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Show Answer · press Space</button>
           ) : (
             <>
-              <div style={{ background: '#EDE9F7', border: '1.5px solid rgba(123,111,160,0.2)', borderRadius: 20, padding: '24px 28px', marginBottom: 14 }}>
-                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#7B6FA0', opacity: 0.7, marginBottom: 12 }}>Answer</div>
+              <div style={{ background: light, border: `1.5px solid rgba(123,111,160,0.2)`, borderRadius: 20, padding: '24px 28px', marginBottom: 14 }}>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color, opacity: 0.7, marginBottom: 12 }}>Answer</div>
                 <div style={{ fontSize: 15, fontWeight: 500, lineHeight: 1.65, color: '#5A5078' }}>{curQ.back}</div>
               </div>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#9E9BB0', textAlign: 'center', marginBottom: 10 }}>Did you get it right?</div>

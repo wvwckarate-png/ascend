@@ -15,77 +15,263 @@ function Mountain() {
   );
 }
 
-type Card = { front: string; back: string; };
+type Card        = { id?: string; front: string; back: string; };
+type Deck        = { id: string; title: string; source_files: string | null; card_count: number; created_at: string; class_name: string | null; };
+type LibResource = { id: string; file_name: string; storage_url: string; folder_id: string; };
+type LibFolder   = { id: string; name: string; class_id: string; resources: LibResource[]; };
+type LibClass    = { id: string; name: string; folders: LibFolder[]; };
 
 function requeue(q: Card[], idx: number, conf: number): Card[] {
   const card = q[idx];
   const rest = q.filter((_, i) => i !== idx);
   if (conf === 3) return rest;
-  const positions = [3, 8, 18, 999];
-  const pos = Math.min(positions[conf], rest.length);
+  const pos = Math.min([3, 8, 18, 999][conf], rest.length);
   rest.splice(pos, 0, card);
   return rest;
 }
+
+const color = '#7B6FA0';
+const light = '#EDE9F7';
 
 function MatthewFlashcardsInner() {
   const searchParams = useSearchParams();
   const folderId   = searchParams.get('folderId');
   const folderName = searchParams.get('folderName');
 
-  const [topic,        setTopic]        = useState('');
-  const [count,        setCount]        = useState(15);
-  const [mode,         setMode]         = useState<'basic' | 'smart'>('smart');
-  const [loading,      setLoading]      = useState(false);
-  const [folderLoading,setFolderLoading]= useState(false);
-  const [folderFiles,  setFolderFiles]  = useState<File[]>([]);
-  const [folderLabel,  setFolderLabel]  = useState('');
-  const [error,        setError]        = useState('');
-  const [cards,        setCards]        = useState<Card[]>([]);
-  const [queue,        setQueue]        = useState<Card[]>([]);
-  const [qi,           setQi]           = useState(0);
-  const [flipped,      setFlipped]      = useState(false);
-  const [ratings,      setRatings]      = useState<Record<number, number>>({});
-  const [screen,       setScreen]       = useState<'generate' | 'study' | 'done'>('generate');
+  // Screen: 'decks' | 'generate' | 'study' | 'done' | 'deck-detail'
+  const [screen, setScreen] = useState<'decks' | 'generate' | 'study' | 'done' | 'deck-detail'>('decks');
 
-  // Load folder PDFs if folderId is in URL
+  // Saved decks
+  const [decks,        setDecks]        = useState<Deck[]>([]);
+  const [decksLoading, setDecksLoading] = useState(true);
+  const [activeDeck,   setActiveDeck]   = useState<Deck | null>(null);
+  const [deckCards,    setDeckCards]    = useState<Card[]>([]);
+  const [deckLoading,  setDeckLoading]  = useState(false);
+
+  // Custom card editor
+  const [showAddCard,  setShowAddCard]  = useState(false);
+  const [editCardId,   setEditCardId]   = useState<string | null>(null);
+  const [newFront,     setNewFront]     = useState('');
+  const [newBack,      setNewBack]      = useState('');
+  const [cardSaving,   setCardSaving]   = useState(false);
+
+  // Library
+  const [library,         setLibrary]         = useState<LibClass[]>([]);
+  const [libLoading,      setLibLoading]       = useState(true);
+  const [selectedIds,     setSelectedIds]      = useState<Set<string>>(new Set());
+  const [expandedClasses, setExpandedClasses]  = useState<Set<string>>(new Set());
+  const [expandedFolders, setExpandedFolders]  = useState<Set<string>>(new Set());
+  const [newFiles,        setNewFiles]         = useState<File[]>([]);
+  const [fileInputRef,    setFileInputRef]     = useState<HTMLInputElement | null>(null);
+
+  // Generate config
+  const [topic,              setTopic]              = useState('');
+  const [count,              setCount]              = useState(15);
+  const [mode,               setMode]               = useState<'basic' | 'smart'>('smart');
+  const [customInstructions, setCustomInstructions] = useState('');
+
+  // Study state
+  const [loading,   setLoading]   = useState(false);
+  const [saving,    setSaving]    = useState(false);
+  const [error,     setError]     = useState('');
+  const [cards,     setCards]     = useState<Card[]>([]);
+  const [queue,     setQueue]     = useState<Card[]>([]);
+  const [qi,        setQi]        = useState(0);
+  const [flipped,   setFlipped]   = useState(false);
+  const [ratings,   setRatings]   = useState<Record<number, number>>({});
+  const [deckName,  setDeckName]  = useState('');
+  const [showSave,  setShowSave]  = useState(false);
+  const [saved,     setSaved]     = useState(false);
+  const [savedDeckId, setSavedDeckId] = useState<string | null>(null);
+
+  // Load decks on mount
   useEffect(() => {
-    if (!folderId) return;
-    if (folderName) setTopic(folderName);
-    const load = async () => {
-      setFolderLoading(true);
-      try {
-        const { data: resources } = await supabase
-          .from('resources')
-          .select('id, file_name, file_type, storage_url')
-          .eq('folder_id', folderId)
-          .eq('file_type', 'pdf');
+    loadDecks();
+    loadLibrary();
+  }, []);
 
-        if (!resources || resources.length === 0) {
-          setFolderLabel(folderName ? `${folderName} — no PDFs found, generating from topic` : 'No PDFs found');
-          setFolderLoading(false);
-          return;
-        }
+  // If coming from binder, go straight to generate
+  useEffect(() => {
+    if (folderId) setScreen('generate');
+  }, [folderId]);
 
-        const fetched: File[] = [];
-        for (const r of resources) {
-          if (!r.storage_url) continue;
-          try {
-            const res  = await fetch(r.storage_url);
-            const blob = await res.blob();
-            fetched.push(new File([blob], r.file_name + '.pdf', { type: 'application/pdf' }));
-          } catch { /* skip */ }
-        }
+  const loadDecks = async () => {
+    setDecksLoading(true);
+    const { data } = await supabase
+      .from('flashcard_decks')
+      .select('*')
+      .eq('student_id', 'matthew')
+      .order('created_at', { ascending: false });
+    if (data) setDecks(data);
+    setDecksLoading(false);
+  };
 
-        setFolderFiles(fetched);
-        setFolderLabel(folderName || 'Folder loaded');
-      } catch {
-        setFolderLabel('Could not load folder PDFs — generating from topic');
-      } finally {
-        setFolderLoading(false);
+  const loadLibrary = async () => {
+    setLibLoading(true);
+    const { data: classData } = await supabase.from('classes').select('id, name').eq('student_id', 'matthew').eq('is_active', true).order('created_at', { ascending: true });
+    if (!classData || classData.length === 0) { setLibLoading(false); return; }
+    const classIds = classData.map(c => c.id);
+    const { data: folderData } = await supabase.from('exam_folders').select('id, name, class_id').in('class_id', classIds).order('exam_date', { ascending: true });
+    const folderIds = (folderData || []).map(f => f.id);
+    let resourceData: any[] = [];
+    if (folderIds.length > 0) {
+      const { data } = await supabase.from('resources').select('id, file_name, file_type, storage_url, folder_id').in('folder_id', folderIds).eq('file_type', 'pdf').not('storage_url', 'is', null);
+      resourceData = data || [];
+    }
+    const rByFolder: Record<string, LibResource[]> = {};
+    resourceData.forEach(r => { if (!rByFolder[r.folder_id]) rByFolder[r.folder_id] = []; rByFolder[r.folder_id].push(r); });
+    const fByClass: Record<string, LibFolder[]> = {};
+    (folderData || []).forEach(f => { if (!fByClass[f.class_id]) fByClass[f.class_id] = []; fByClass[f.class_id].push({ ...f, resources: rByFolder[f.id] || [] }); });
+    const lib = classData.map(c => ({ ...c, folders: (fByClass[c.id] || []).filter(f => f.resources.length > 0) })).filter(c => c.folders.length > 0);
+    setLibrary(lib);
+    if (folderId) {
+      const folder = (folderData || []).find(f => f.id === folderId);
+      if (folder) {
+        setExpandedClasses(new Set([folder.class_id]));
+        setExpandedFolders(new Set([folderId]));
+        setSelectedIds(new Set((rByFolder[folderId] || []).map(r => r.id)));
+        if (folderName) setTopic(folderName);
       }
-    };
-    load();
-  }, [folderId, folderName]);
+    }
+    setLibLoading(false);
+  };
+
+  const openDeck = async (deck: Deck) => {
+    setActiveDeck(deck);
+    setDeckLoading(true);
+    setScreen('deck-detail');
+    const { data } = await supabase
+      .from('flashcard_cards')
+      .select('*')
+      .eq('deck_id', deck.id)
+      .order('position', { ascending: true });
+    if (data) setDeckCards(data);
+    setDeckLoading(false);
+  };
+
+  const studyDeck = (deck: Deck, cards: Card[]) => {
+    setCards(cards);
+    setQueue([...cards]);
+    setQi(0); setFlipped(false); setRatings({});
+    setSaved(true); setSavedDeckId(deck.id); setShowSave(false);
+    setScreen('study');
+  };
+
+  const deleteDeck = async (deckId: string) => {
+    await supabase.from('flashcard_decks').delete().eq('id', deckId);
+    setDecks(prev => prev.filter(d => d.id !== deckId));
+    if (activeDeck?.id === deckId) setScreen('decks');
+  };
+
+  const saveCard = async () => {
+    if (!newFront.trim() || !newBack.trim() || !activeDeck) return;
+    setCardSaving(true);
+    if (editCardId) {
+      await supabase.from('flashcard_cards').update({ front: newFront.trim(), back: newBack.trim() }).eq('id', editCardId);
+      setDeckCards(prev => prev.map(c => c.id === editCardId ? { ...c, front: newFront.trim(), back: newBack.trim() } : c));
+    } else {
+      const { data } = await supabase.from('flashcard_cards').insert({ deck_id: activeDeck.id, front: newFront.trim(), back: newBack.trim(), position: deckCards.length }).select().single();
+      if (data) {
+        setDeckCards(prev => [...prev, data]);
+        await supabase.from('flashcard_decks').update({ card_count: deckCards.length + 1 }).eq('id', activeDeck.id);
+        setDecks(prev => prev.map(d => d.id === activeDeck.id ? { ...d, card_count: deckCards.length + 1 } : d));
+      }
+    }
+    setNewFront(''); setNewBack(''); setEditCardId(null); setShowAddCard(false);
+    setCardSaving(false);
+  };
+
+  const deleteCard = async (cardId: string) => {
+    await supabase.from('flashcard_cards').delete().eq('id', cardId);
+    const updated = deckCards.filter(c => c.id !== cardId);
+    setDeckCards(updated);
+    if (activeDeck) {
+      await supabase.from('flashcard_decks').update({ card_count: updated.length }).eq('id', activeDeck.id);
+      setDecks(prev => prev.map(d => d.id === activeDeck.id ? { ...d, card_count: updated.length } : d));
+    }
+  };
+
+  const startEdit = (card: Card) => {
+    setEditCardId(card.id || null);
+    setNewFront(card.front);
+    setNewBack(card.back);
+    setShowAddCard(true);
+  };
+
+  // Library toggles
+  const toggleResource = (id: string) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleFolder   = (folder: LibFolder) => { const ids = folder.resources.map(r => r.id); const allSel = ids.length > 0 && ids.every(id => selectedIds.has(id)); setSelectedIds(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; }); };
+  const toggleClass    = (cls: LibClass)    => { const ids = cls.folders.flatMap(f => f.resources.map(r => r.id)); const allSel = ids.length > 0 && ids.every(id => selectedIds.has(id)); setSelectedIds(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; }); };
+  const handleNewFileInput = (e: React.ChangeEvent<HTMLInputElement>) => { const selected = Array.from(e.target.files || []).filter(f => f.type === 'application/pdf'); setNewFiles(prev => [...prev, ...selected]); e.target.value = ''; };
+
+  const totalSelected = selectedIds.size + newFiles.length;
+  const canGenerate   = totalSelected > 0 || topic.trim().length > 0;
+
+  const generate = async () => {
+    if (!canGenerate) return;
+    setLoading(true); setError('');
+    try {
+      const allResources = library.flatMap(c => c.folders.flatMap(f => f.resources));
+      const selectedResources = allResources.filter(r => selectedIds.has(r.id));
+      const fetchedFiles: File[] = [];
+      for (const r of selectedResources) {
+        if (!r.storage_url) continue;
+        try { const res = await fetch(r.storage_url); const blob = await res.blob(); fetchedFiles.push(new File([blob], r.file_name + '.pdf', { type: 'application/pdf' })); } catch { /* skip */ }
+      }
+      const allFiles = [...fetchedFiles, ...newFiles];
+      const baseInstruction = totalSelected > 1
+        ? `You are Ascend analyzing ${allFiles.length} documents for Matthew, a pre-dental high school junior. Perform CROSS-DOCUMENT ANALYSIS: identify concepts recurring across multiple documents, find overlapping themes and high-yield topics. Generate ${count} flashcards focused on these high-frequency cross-document concepts.${topic.trim() ? ` Additional focus: ${topic.trim()}.` : ''}`
+        : `Generate ${count} flashcards${topic.trim() ? ` for: ${topic.trim()}` : ' from the uploaded study material'}. Pre-dental high school level.`;
+      const custom = customInstructions.trim() ? ` Additional instructions: ${customInstructions.trim()}` : '';
+      const prompt = baseInstruction + custom + ' Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]';
+      let raw = '';
+      if (allFiles.length > 0) {
+        const formData = new FormData();
+        allFiles.forEach(f => formData.append('files', f));
+        formData.append('student', 'matthew');
+        formData.append('prompt', prompt);
+        formData.append('type', 'flashcards');
+        const res = await fetch('/api/generate-study-guide', { method: 'POST', body: formData });
+        const data = await res.json();
+        raw = (data.studyGuide || data.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
+      } else {
+        const res = await fetch('/api/generate-study-guide', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt, student: 'matthew', type: 'flashcards' }) });
+        const data = await res.json();
+        raw = (data.studyGuide || data.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
+      }
+      const parsed: Card[] = JSON.parse(raw);
+      setCards(parsed); setQueue([...parsed]); setQi(0); setFlipped(false); setRatings({});
+      setSaved(false); setSavedDeckId(null); setShowSave(true);
+      if (!deckName) setDeckName(topic.trim() || (newFiles[0]?.name.replace('.pdf', '')) || 'New Deck');
+      setScreen('study');
+    } catch { setError('Could not generate flashcards. Please try again.'); }
+    finally { setLoading(false); }
+  };
+
+  const saveDeck = async () => {
+    if (!deckName.trim() || saved) return;
+    setSaving(true);
+    try {
+      const { data: deck } = await supabase
+        .from('flashcard_decks')
+        .insert({ student_id: 'matthew', title: deckName.trim(), card_count: cards.length, folder_id: folderId || null })
+        .select().single();
+      if (deck) {
+        setSavedDeckId(deck.id);
+        await supabase.from('flashcard_cards').insert(
+          cards.map((c, i) => ({ deck_id: deck.id, front: c.front, back: c.back, position: i }))
+        );
+        setDecks(prev => [deck, ...prev]);
+        setSaved(true); setShowSave(false);
+      }
+    } catch { setError('Could not save deck.'); }
+    finally { setSaving(false); }
+  };
+
+  const next    = () => { setFlipped(false); const isLast = mode === 'smart' ? qi + 1 >= queue.length : qi + 1 >= cards.length; if (isLast) { setScreen('done'); return; } setQi(i => i + 1); };
+  const prev    = () => { if (qi > 0) { setQi(i => i - 1); setFlipped(false); } };
+  const rate    = (conf: number) => { setRatings(r => ({ ...r, [qi]: conf })); if (mode === 'smart') { const nq = requeue(queue, qi, conf); if (nq.length === 0) { setScreen('done'); return; } setQueue(nq); setFlipped(false); } else { next(); } };
+  const restart = () => { setQueue([...cards]); setQi(0); setFlipped(false); setRatings({}); setScreen('study'); };
 
   const curCard  = mode === 'smart' ? queue[qi] : cards[qi];
   const total    = mode === 'smart' ? queue.length : cards.length;
@@ -93,89 +279,19 @@ function MatthewFlashcardsInner() {
   const knewWell = Object.values(ratings).filter(r => r >= 2).length;
   const needWork = Object.values(ratings).filter(r => r < 2).length;
 
-  const generate = async () => {
-    if (!topic.trim() && folderFiles.length === 0) return;
-    setLoading(true);
-    setError('');
-    try {
-      let raw = '';
-
-      if (folderFiles.length > 0) {
-        // Send PDFs via FormData
-        const prompt = `Generate ${count} flashcards from the uploaded study materials${topic.trim() ? ` about: ${topic}` : ''}. Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]. Pre-dental college level.`;
-        const formData = new FormData();
-        folderFiles.forEach(f => formData.append('files', f));
-        formData.append('student', 'matthew');
-        formData.append('prompt', prompt);
-        formData.append('type', 'flashcards');
-        const res  = await fetch('/api/generate-study-guide', { method: 'POST', body: formData });
-        const data = await res.json();
-        raw = (data.studyGuide || data.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
-      } else {
-        // Text-only topic
-        const prompt = `Generate ${count} flashcards for: ${topic}. Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]. Pre-dental college level.`;
-        const res  = await fetch('/api/generate-study-guide', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt, student: 'matthew', type: 'flashcards' }),
-        });
-        const data = await res.json();
-        raw = (data.studyGuide || data.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
-      }
-
-      const parsed: Card[] = JSON.parse(raw);
-      setCards(parsed);
-      setQueue([...parsed]);
-      setQi(0);
-      setFlipped(false);
-      setRatings({});
-      setScreen('study');
-    } catch {
-      setError('Could not generate flashcards. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const next = () => {
-    setFlipped(false);
-    const isLast = mode === 'smart' ? qi + 1 >= queue.length : qi + 1 >= cards.length;
-    if (isLast) { setScreen('done'); return; }
-    setQi(i => i + 1);
-  };
-
-  const prev = () => { if (qi > 0) { setQi(i => i - 1); setFlipped(false); } };
-
-  const rate = (conf: number) => {
-    setRatings(r => ({ ...r, [qi]: conf }));
-    if (mode === 'smart') {
-      const nq = requeue(queue, qi, conf);
-      if (nq.length === 0) { setScreen('done'); return; }
-      setQueue(nq);
-      setFlipped(false);
-    } else {
-      next();
-    }
-  };
-
-  const restart = () => { setQueue([...cards]); setQi(0); setFlipped(false); setRatings({}); setScreen('study'); };
-
   useEffect(() => {
     if (screen !== 'study') return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setFlipped(f => !f); }
       if (e.key === 'ArrowUp')   { e.preventDefault(); next(); }
       if (e.key === 'ArrowDown') { e.preventDefault(); prev(); }
-      if (e.key === '1') rate(0);
-      if (e.key === '2') rate(1);
-      if (e.key === '3') rate(2);
-      if (e.key === '4') rate(3);
+      if (e.key === '1') rate(0); if (e.key === '2') rate(1); if (e.key === '3') rate(2); if (e.key === '4') rate(3);
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [screen, qi, flipped, queue, cards]);
 
-  const canGenerate = topic.trim().length > 0 || folderFiles.length > 0;
+  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAF8' }}>
@@ -187,33 +303,156 @@ function MatthewFlashcardsInner() {
         </Link>
       </nav>
 
-      {screen === 'generate' && (
+      {/* ── DECKS SCREEN ── */}
+      {screen === 'decks' && (
         <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
-          <div style={{ marginBottom: 28 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Matthew</div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Flashcards</div>
-            <div style={{ fontSize: 13, color: '#9E9BB0' }}>Generate a deck from any topic or chapter.</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Matthew</div>
+              <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px' }}>Flashcard Decks</div>
+            </div>
+            <button onClick={() => setScreen('generate')} style={{ padding: '10px 18px', borderRadius: 999, background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+              + New Deck
+            </button>
           </div>
 
-          {/* Folder context banner */}
-          {folderId && (
-            <div style={{ background: '#EDE9F7', border: '1.5px solid rgba(123,111,160,0.2)', borderRadius: 14, padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 18 }}>📁</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#5A5078' }}>
-                  {folderLoading ? 'Loading folder resources...' : folderLabel || folderName}
+          {decksLoading ? (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: '#9E9BB0', fontSize: 13 }}>Loading decks...</div>
+          ) : decks.length === 0 ? (
+            <div style={{ background: '#FFFFFF', border: '1.5px dashed #C4C1D4', borderRadius: 18, padding: '48px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: 40, marginBottom: 14 }}>🃏</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26', marginBottom: 8 }}>No decks yet</div>
+              <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 24 }}>Generate a deck from your uploaded materials to get started.</div>
+              <button onClick={() => setScreen('generate')} style={{ padding: '12px 24px', borderRadius: 999, background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                Generate First Deck
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {decks.map(deck => (
+                <div key={deck.id} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px 20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div onClick={() => openDeck(deck)} style={{ flex: 1, cursor: 'pointer', minWidth: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{deck.title}</div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color, background: light, padding: '2px 8px', borderRadius: 999 }}>{deck.card_count} cards</span>
+                      <span style={{ fontSize: 11, color: '#9E9BB0' }}>{formatDate(deck.created_at)}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                    <button
+                      onClick={() => openDeck(deck)}
+                      style={{ padding: '8px 14px', borderRadius: 10, background: light, border: 'none', color, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}
+                    >
+                      Study
+                    </button>
+                  </div>
                 </div>
-                <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 2 }}>
-                  {folderLoading ? 'Fetching your uploaded PDFs...' : `${folderFiles.length} PDF${folderFiles.length !== 1 ? 's' : ''} loaded from this folder`}
+              ))}
+            </div>
+          )}
+        </main>
+      )}
+
+      {/* ── DECK DETAIL SCREEN ── */}
+      {screen === 'deck-detail' && activeDeck && (
+        <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
+          <button onClick={() => setScreen('decks')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>
+            ← Decks
+          </button>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 24, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.6px', marginBottom: 4 }}>{activeDeck.title}</div>
+              <div style={{ fontSize: 12, color: '#9E9BB0' }}>{activeDeck.card_count} cards · Created {formatDate(activeDeck.created_at)}</div>
+            </div>
+            <button onClick={() => { if (confirm('Delete this deck?')) deleteDeck(activeDeck.id); }} style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0, marginLeft: 12 }}>
+              Delete
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
+            <button
+              onClick={() => { if (deckCards.length > 0) studyDeck(activeDeck, deckCards); }}
+              disabled={deckCards.length === 0}
+              style={{ flex: 1, padding: '13px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: deckCards.length === 0 ? 0.4 : 1 }}
+            >
+              Study This Deck
+            </button>
+            <button
+              onClick={() => { setShowAddCard(true); setEditCardId(null); setNewFront(''); setNewBack(''); }}
+              style={{ padding: '13px 18px', borderRadius: 14, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}
+            >
+              + Add Card
+            </button>
+          </div>
+
+          {deckLoading ? (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: '#9E9BB0', fontSize: 13 }}>Loading cards...</div>
+          ) : deckCards.length === 0 ? (
+            <div style={{ background: '#FFFFFF', border: '1.5px dashed #C4C1D4', borderRadius: 14, padding: '32px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: 13, color: '#9E9BB0' }}>No cards yet. Add your first card above.</div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {deckCards.map((card, i) => (
+                <div key={card.id || i} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '14px 16px', boxShadow: '0 1px 4px rgba(29,27,38,0.05)' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Q</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 8, lineHeight: 1.4 }}>{card.front}</div>
+                      <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color, marginBottom: 4 }}>A</div>
+                      <div style={{ fontSize: 13, color: '#5A5078', lineHeight: 1.4 }}>{card.back}</div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+                      <button onClick={() => startEdit(card)} style={{ fontSize: 11, fontWeight: 700, color: '#9E9BB0', background: '#F3F1EC', border: 'none', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Edit</button>
+                      <button onClick={() => { if (card.id) deleteCard(card.id); }} style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Delete</button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              {folderLoading && <div style={{ width: 18, height: 18, border: '2px solid #E8E5F0', borderTopColor: '#7B6FA0', borderRadius: '50%', animation: 'spin 0.75s linear infinite' }} />}
+              ))}
             </div>
           )}
 
-          <div style={{ background: '#F3F1EC', borderRadius: 12, padding: 3, display: 'flex', gap: 2, marginBottom: 8 }}>
+          {/* Add/Edit Card Modal */}
+          {showAddCard && (
+            <div onClick={e => { if (e.target === e.currentTarget) { setShowAddCard(false); setEditCardId(null); setNewFront(''); setNewBack(''); }}} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+              <div style={{ background: '#FFFFFF', borderRadius: '22px 22px 0 0', padding: '24px 20px 44px', width: '100%', maxWidth: 580, boxShadow: '0 -8px 40px rgba(29,27,38,0.15)' }}>
+                <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 20px' }} />
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#1D1B26', marginBottom: 16 }}>{editCardId ? 'Edit Card' : 'Add Card'}</div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Front (Question)</label>
+                  <textarea autoFocus value={newFront} onChange={e => setNewFront(e.target.value)} rows={3} placeholder="Enter the question or term..." style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.5, boxSizing: 'border-box' as const }} />
+                </div>
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Back (Answer)</label>
+                  <textarea value={newBack} onChange={e => setNewBack(e.target.value)} rows={3} placeholder="Enter the answer or definition..." style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.5, boxSizing: 'border-box' as const }} />
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={() => { setShowAddCard(false); setEditCardId(null); setNewFront(''); setNewBack(''); }} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+                  <button onClick={saveCard} disabled={!newFront.trim() || !newBack.trim() || cardSaving} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !newFront.trim() || !newBack.trim() ? 0.4 : 1 }}>
+                    {cardSaving ? 'Saving...' : editCardId ? 'Save Changes' : 'Add Card'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
+      )}
+
+      {/* ── GENERATE SCREEN ── */}
+      {screen === 'generate' && (
+        <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
+          <button onClick={() => setScreen('decks')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>
+            ← Decks
+          </button>
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Matthew</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Generate Deck</div>
+            <div style={{ fontSize: 13, color: '#9E9BB0' }}>Select materials from your library to generate a deck.</div>
+          </div>
+
+          <div style={{ background: '#F3F1EC', borderRadius: 12, padding: 3, display: 'flex', gap: 2, marginBottom: 20 }}>
             {(['smart', 'basic'] as const).map(m => (
-              <button key={m} onClick={() => setMode(m)} style={{ flex: 1, padding: '9px', borderRadius: 9, border: 'none', fontFamily: 'var(--font-jakarta)', fontSize: 12, fontWeight: 700, cursor: 'pointer', background: mode === m ? '#FFFFFF' : 'transparent', color: mode === m ? '#7B6FA0' : '#9E9BB0', boxShadow: mode === m ? '0 1px 4px rgba(29,27,38,0.08)' : 'none' }}>
+              <button key={m} onClick={() => setMode(m)} style={{ flex: 1, padding: '9px', borderRadius: 9, border: 'none', fontFamily: 'var(--font-jakarta)', fontSize: 12, fontWeight: 700, cursor: 'pointer', background: mode === m ? '#FFFFFF' : 'transparent', color: mode === m ? color : '#9E9BB0', boxShadow: mode === m ? '0 1px 4px rgba(29,27,38,0.08)' : 'none' }}>
                 {m === 'smart' ? 'Smart Deck' : 'Basic Deck'}
               </button>
             ))}
@@ -222,21 +461,116 @@ function MatthewFlashcardsInner() {
             {mode === 'smart' ? 'Adaptive — cards repeat until mastered' : 'Linear — card 1 to end, no algorithm'}
           </div>
 
+          {/* Resource Library */}
+          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Select Resources</div>
+                <div style={{ fontSize: 11, color: '#9E9BB0' }}>{totalSelected > 0 ? `${totalSelected} file${totalSelected !== 1 ? 's' : ''} selected` : 'Pick from your uploaded library'}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {totalSelected > 0 && <button onClick={() => { setSelectedIds(new Set()); setNewFiles([]); }} style={{ padding: '6px 10px', borderRadius: 999, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#9E9BB0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear</button>}
+                <input type="file" accept=".pdf" multiple ref={el => setFileInputRef(el)} onChange={handleNewFileInput} style={{ display: 'none' }} />
+                <button onClick={() => fileInputRef?.click()} style={{ padding: '6px 12px', borderRadius: 999, background: light, border: 'none', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Upload</button>
+              </div>
+            </div>
+
+            {newFiles.length > 0 && (
+              <div style={{ marginBottom: 10 }}>
+                {newFiles.map((f, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: light, marginBottom: 4 }}>
+                    <span style={{ fontSize: 12 }}>📄</span>
+                    <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                    <button onClick={() => setNewFiles(prev => prev.filter((_, idx) => idx !== i))} style={{ fontSize: 11, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {libLoading ? (
+              <div style={{ textAlign: 'center', padding: '16px 0', color: '#9E9BB0', fontSize: 12 }}>Loading library...</div>
+            ) : library.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '20px', border: '2px dashed #E8E5F0', borderRadius: 10 }}>
+                <div style={{ fontSize: 24, marginBottom: 6 }}>📂</div>
+                <div style={{ fontSize: 12, color: '#9E9BB0' }}>No uploaded PDFs yet — upload files to your class folders first.</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {library.map(cls => {
+                  const clsIds     = cls.folders.flatMap(f => f.resources.map(r => r.id));
+                  const clsAllSel  = clsIds.length > 0 && clsIds.every(id => selectedIds.has(id));
+                  const clsSomeSel = clsIds.some(id => selectedIds.has(id));
+                  const clsExp     = expandedClasses.has(cls.id);
+                  return (
+                    <div key={cls.id} style={{ border: '1.5px solid #E8E5F0', borderRadius: 10, overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', background: '#FAFAF8', cursor: 'pointer' }} onClick={() => setExpandedClasses(prev => { const n = new Set(prev); n.has(cls.id) ? n.delete(cls.id) : n.add(cls.id); return n; })}>
+                        <span style={{ fontSize: 10, color: '#9E9BB0', width: 10 }}>{clsExp ? '▾' : '▸'}</span>
+                        <span style={{ flex: 1, fontSize: 12, fontWeight: 800, color: '#1D1B26' }}>{cls.name}</span>
+                        <button onClick={e => { e.stopPropagation(); toggleClass(cls); }} style={{ fontSize: 10, fontWeight: 700, color: clsAllSel || clsSomeSel ? color : '#9E9BB0', background: clsAllSel || clsSomeSel ? light : '#F3F1EC', border: 'none', borderRadius: 999, padding: '2px 8px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                          {clsAllSel ? 'Deselect' : 'Select all'}
+                        </button>
+                      </div>
+                      {clsExp && (
+                        <div style={{ padding: '0 12px 8px' }}>
+                          {cls.folders.map(folder => {
+                            const fIds     = folder.resources.map(r => r.id);
+                            const fAllSel  = fIds.length > 0 && fIds.every(id => selectedIds.has(id));
+                            const fSomeSel = fIds.some(id => selectedIds.has(id));
+                            const fExp     = expandedFolders.has(folder.id);
+                            return (
+                              <div key={folder.id} style={{ marginTop: 6 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderRadius: 7, background: '#F3F1EC', cursor: 'pointer', marginBottom: 3 }} onClick={() => setExpandedFolders(prev => { const n = new Set(prev); n.has(folder.id) ? n.delete(folder.id) : n.add(folder.id); return n; })}>
+                                  <span style={{ fontSize: 9, color: '#9E9BB0', width: 8 }}>{fExp ? '▾' : '▸'}</span>
+                                  <span style={{ flex: 1, fontSize: 11, fontWeight: 700, color: '#1D1B26' }}>📁 {folder.name}</span>
+                                  <span style={{ fontSize: 9, color: '#9E9BB0' }}>{folder.resources.length} PDF{folder.resources.length !== 1 ? 's' : ''}</span>
+                                  <button onClick={e => { e.stopPropagation(); toggleFolder(folder); }} style={{ fontSize: 9, fontWeight: 700, color: fAllSel || fSomeSel ? color : '#9E9BB0', background: fAllSel || fSomeSel ? light : '#FFFFFF', border: `1px solid ${fAllSel || fSomeSel ? color : '#E8E5F0'}`, borderRadius: 999, padding: '2px 7px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                                    {fAllSel ? 'Deselect' : 'Select all'}
+                                  </button>
+                                </div>
+                                {fExp && (
+                                  <div style={{ paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                    {folder.resources.map(r => {
+                                      const isSel = selectedIds.has(r.id);
+                                      return (
+                                        <div key={r.id} onClick={() => toggleResource(r.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, border: `1.5px solid ${isSel ? color : '#E8E5F0'}`, background: isSel ? light : '#FFFFFF', cursor: 'pointer' }}>
+                                          <div style={{ width: 16, height: 16, borderRadius: 3, border: `2px solid ${isSel ? color : '#C4C1D4'}`, background: isSel ? color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            {isSel && <span style={{ color: 'white', fontSize: 9 }}>✓</span>}
+                                          </div>
+                                          <span style={{ fontSize: 11, fontWeight: isSel ? 700 : 400, color: isSel ? color : '#1D1B26', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {r.file_name}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {totalSelected > 0 && (
+              <div style={{ marginTop: 10, padding: '9px 12px', borderRadius: 9, background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 11, fontWeight: 700 }}>
+                📚 {totalSelected} file{totalSelected !== 1 ? 's' : ''} selected{totalSelected > 1 ? ' — Ascend will find common themes' : ''}
+              </div>
+            )}
+          </div>
+
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
             <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>
-              {folderFiles.length > 0 ? 'Topic (optional — folder PDFs will be used)' : 'Topic or Subject'}
+              {totalSelected > 0 ? 'Refine Focus (optional)' : 'Topic or Subject'}
             </label>
-            <input
-              value={topic}
-              onChange={e => setTopic(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !loading && canGenerate) generate(); }}
-              placeholder={folderFiles.length > 0 ? 'Refine focus (optional)...' : 'e.g. AP Biology - Cellular Respiration'}
-              style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', marginBottom: 16 }}
-            />
+            <input value={topic} onChange={e => setTopic(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && canGenerate && !loading) generate(); }} placeholder={totalSelected > 0 ? 'e.g. "Focus on enzymatic reactions"' : 'e.g. AP Biology - Cellular Respiration'} style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', marginBottom: 14 }} />
+            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Custom Instructions (optional)</label>
+            <textarea value={customInstructions} onChange={e => setCustomInstructions(e.target.value)} placeholder='e.g. "Emphasize definitions" or "Focus on mechanisms"' rows={2} style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.5, marginBottom: 14 }} />
             <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 8, display: 'block' }}>Number of Cards</label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {[10, 15, 20, 30].map(n => (
-                <button key={n} onClick={() => setCount(n)} style={{ padding: '6px 16px', borderRadius: 999, border: `1.5px solid ${count === n ? '#7B6FA0' : '#E8E5F0'}`, background: count === n ? '#7B6FA0' : '#FAFAF8', color: count === n ? 'white' : '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{n}</button>
+                <button key={n} onClick={() => setCount(n)} style={{ padding: '6px 16px', borderRadius: 999, border: `1.5px solid ${count === n ? color : '#E8E5F0'}`, background: count === n ? color : '#FAFAF8', color: count === n ? 'white' : '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{n}</button>
               ))}
             </div>
           </div>
@@ -245,41 +579,63 @@ function MatthewFlashcardsInner() {
 
           {loading ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
-              <div style={{ width: 32, height: 32, border: '2.5px solid #E8E5F0', borderTopColor: '#7B6FA0', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.75s linear infinite' }} />
-              <div style={{ fontSize: 13, color: '#9E9BB0' }}>Generating your deck...</div>
+              <div style={{ width: 32, height: 32, border: '2.5px solid #E8E5F0', borderTopColor: color, borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.75s linear infinite' }} />
+              <div style={{ fontSize: 13, color: '#9E9BB0' }}>{totalSelected > 1 ? `Analyzing ${totalSelected} documents...` : 'Generating your deck...'}</div>
               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
           ) : (
-            <button onClick={generate} disabled={!canGenerate || folderLoading} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: canGenerate && !folderLoading ? 1 : 0.4 }}>
-              {folderLoading ? 'Loading folder files...' : canGenerate ? `Generate ${count} Cards` : 'Enter a topic first'}
+            <button onClick={generate} disabled={!canGenerate} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: canGenerate ? 1 : 0.4 }}>
+              {canGenerate ? (totalSelected > 1 ? `Generate ${count} Cards from ${totalSelected} Files` : `Generate ${count} Cards`) : 'Select resources or enter a topic'}
             </button>
           )}
         </main>
       )}
 
+      {/* ── STUDY SCREEN ── */}
       {screen === 'study' && curCard && (
         <main style={{ maxWidth: 600, margin: '0 auto', padding: '20px 20px 80px' }}>
+
+          {/* Save banner */}
+          {showSave && !saved && (
+            <div style={{ background: light, border: `1.5px solid ${color}40`, borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 6 }}>Save this deck?</div>
+                <input value={deckName} onChange={e => setDeckName(e.target.value)} placeholder="Deck name..." style={{ width: '100%', padding: '8px 11px', border: '1.5px solid #E8E5F0', borderRadius: 8, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FFFFFF', outline: 'none' }} />
+              </div>
+              <button onClick={saveDeck} disabled={!deckName.trim() || saving} style={{ padding: '9px 14px', borderRadius: 10, border: 'none', background: color, color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0, opacity: !deckName.trim() ? 0.4 : 1 }}>
+                {saving ? '...' : 'Save'}
+              </button>
+            </div>
+          )}
+          {saved && (
+            <div style={{ background: '#EDF7F2', borderRadius: 12, padding: '10px 14px', marginBottom: 16, fontSize: 12, fontWeight: 700, color: '#5FAD8E' }}>
+              ✅ Deck saved — find it in your deck library
+            </div>
+          )}
+
           {mode === 'basic' && (
             <div style={{ height: 3, background: '#E8E5F0', borderRadius: 99, overflow: 'hidden', marginBottom: 16 }}>
-              <div style={{ height: '100%', background: '#7B6FA0', width: `${progress}%`, transition: 'width 0.4s' }} />
+              <div style={{ height: '100%', background: color, width: `${progress}%`, transition: 'width 0.4s' }} />
             </div>
           )}
           {mode === 'smart' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <span style={{ fontSize: 9, fontWeight: 700, color: '#7B6FA0', letterSpacing: 1, textTransform: 'uppercase' }}>Smart</span>
+              <span style={{ fontSize: 9, fontWeight: 700, color, letterSpacing: 1, textTransform: 'uppercase' }}>Smart</span>
               <div style={{ flex: 1, display: 'flex', gap: 2 }}>
                 {Array.from({ length: Math.min(total, 20) }).map((_, i) => (
-                  <div key={i} style={{ flex: 1, height: 4, borderRadius: 99, background: i < qi ? '#5FAD8E' : i === qi ? '#7B6FA0' : '#E8E5F0' }} />
+                  <div key={i} style={{ flex: 1, height: 4, borderRadius: 99, background: i < qi ? '#5FAD8E' : i === qi ? color : '#E8E5F0' }} />
                 ))}
               </div>
               <span style={{ fontSize: 12, fontWeight: 700, color: '#9E9BB0' }}>{qi + 1}/{total}</span>
             </div>
           )}
+
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <button onClick={prev} style={{ width: 38, height: 38, borderRadius: '50%', border: '1.5px solid #E8E5F0', background: '#FFFFFF', cursor: 'pointer', fontSize: 16, color: '#9E9BB0' }}>{'<'}</button>
             <span style={{ fontSize: 13, fontWeight: 700, color: '#9E9BB0' }}>{qi + 1} of {total}</span>
             <button onClick={next} style={{ width: 38, height: 38, borderRadius: '50%', border: '1.5px solid #E8E5F0', background: '#FFFFFF', cursor: 'pointer', fontSize: 16, color: '#9E9BB0' }}>{'>'}</button>
           </div>
+
           <div onClick={() => setFlipped(f => !f)} style={{ width: '100%', perspective: 1400, cursor: 'pointer', marginBottom: 20 }}>
             <div style={{ position: 'relative', width: '100%', minHeight: 240, transformStyle: 'preserve-3d', transition: 'transform 0.35s', transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
               <div style={{ position: 'absolute', width: '100%', minHeight: 240, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', borderRadius: 20, padding: '36px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: '#FFFFFF', border: '1.5px solid #E8E5F0', boxShadow: '0 6px 28px rgba(29,27,38,0.08)' }}>
@@ -287,17 +643,18 @@ function MatthewFlashcardsInner() {
                 <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.5, color: '#1D1B26' }}>{curCard.front}</div>
                 <div style={{ marginTop: 20, fontSize: 11, color: '#C4C1D4' }}>tap · left/right arrow to flip</div>
               </div>
-              <div style={{ position: 'absolute', width: '100%', minHeight: 240, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', borderRadius: 20, padding: '36px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: '#EDE9F7', border: '1.5px solid rgba(123,111,160,0.2)', transform: 'rotateY(180deg)' }}>
-                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#7B6FA0', opacity: 0.7, marginBottom: 16 }}>Answer</div>
+              <div style={{ position: 'absolute', width: '100%', minHeight: 240, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', borderRadius: 20, padding: '36px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: light, border: `1.5px solid rgba(123,111,160,0.2)`, transform: 'rotateY(180deg)' }}>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color, opacity: 0.7, marginBottom: 16 }}>Answer</div>
                 <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.5, color: '#5A5078' }}>{curCard.back}</div>
               </div>
             </div>
           </div>
+
           <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#C4C1D4', textAlign: 'center', marginBottom: 10 }}>How well did you know this?</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-            {([["Didn't Know", '#C47878'], ['Almost', '#C8965A'], ['Got It', '#5FAD8E'], ['Cold!', '#7B6FA0']] as const).map(([label, color], i) => (
+            {([["Didn't Know", '#C47878'], ['Almost', '#C8965A'], ['Got It', '#5FAD8E'], ['Cold!', color]] as const).map(([label, btnColor], i) => (
               <button key={i} onClick={() => rate(i)} style={{ padding: '12px 4px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: '#FFFFFF', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', textAlign: 'center' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color, marginBottom: 2 }}>{label}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: btnColor, marginBottom: 2 }}>{label}</div>
                 <div style={{ fontSize: 9, color: '#C4C1D4' }}>press {i + 1}</div>
               </button>
             ))}
@@ -313,27 +670,43 @@ function MatthewFlashcardsInner() {
         </main>
       )}
 
+      {/* ── DONE SCREEN ── */}
       {screen === 'done' && (
         <main style={{ maxWidth: 500, margin: '0 auto', padding: '40px 20px 80px', textAlign: 'center' }}>
           <div style={{ fontSize: 52, marginBottom: 14 }}>🎉</div>
           <div style={{ fontSize: 26, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.5px', marginBottom: 8 }}>Session Complete!</div>
-          <div style={{ fontSize: 14, color: '#9E9BB0', lineHeight: 1.6, marginBottom: 28 }}>You reviewed <strong>{Object.keys(ratings).length} cards</strong>. Day 1 review scheduled for tomorrow.</div>
+          <div style={{ fontSize: 14, color: '#9E9BB0', lineHeight: 1.6, marginBottom: 28 }}>You reviewed <strong>{Object.keys(ratings).length} cards</strong>.</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, maxWidth: 340, margin: '0 auto 28px' }}>
-            {[{ n: Object.keys(ratings).length, l: 'Reviewed', c: '#7B6FA0' }, { n: knewWell, l: 'Knew Well', c: '#5FAD8E' }, { n: needWork, l: 'Needs Work', c: '#C47878' }, { n: cards.length, l: 'Total Cards', c: '#C8965A' }].map((s, i) => (
+            {[{ n: Object.keys(ratings).length, l: 'Reviewed', c: color }, { n: knewWell, l: 'Knew Well', c: '#5FAD8E' }, { n: needWork, l: 'Needs Work', c: '#C47878' }, { n: cards.length, l: 'Total Cards', c: '#C8965A' }].map((s, i) => (
               <div key={i} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '16px', textAlign: 'center', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
                 <div style={{ fontSize: 26, fontWeight: 800, color: s.c, marginBottom: 4 }}>{s.n}</div>
                 <div style={{ fontSize: 11, color: '#9E9BB0', fontWeight: 600 }}>{s.l}</div>
               </div>
             ))}
           </div>
+
+          {!saved && (
+            <div style={{ background: light, borderRadius: 14, padding: '16px', marginBottom: 20, maxWidth: 340, margin: '0 auto 20px' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 8 }}>Save this deck to study again later</div>
+              <input value={deckName} onChange={e => setDeckName(e.target.value)} placeholder="Deck name..." style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #E8E5F0', borderRadius: 9, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FFFFFF', outline: 'none', marginBottom: 10 }} />
+              <button onClick={saveDeck} disabled={!deckName.trim() || saving} style={{ width: '100%', padding: '11px', borderRadius: 10, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !deckName.trim() ? 0.4 : 1 }}>
+                {saving ? 'Saving...' : 'Save Deck'}
+              </button>
+            </div>
+          )}
+          {saved && (
+            <div style={{ background: '#EDF7F2', borderRadius: 12, padding: '12px 16px', marginBottom: 20, maxWidth: 340, margin: '0 auto 20px' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#5FAD8E' }}>✅ Deck saved to your library</div>
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 10, maxWidth: 340, margin: '0 auto' }}>
             <button onClick={restart} style={{ flex: 1, padding: '13px', borderRadius: 14, border: '1.5px solid #E8E5F0', background: '#F3F1EC', color: '#6B6880', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Study Again</button>
-            <Link href="/matthew" style={{ flex: 1, textDecoration: 'none' }}>
-              <button style={{ width: '100%', padding: '13px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Dashboard</button>
-            </Link>
+            <button onClick={() => setScreen('decks')} style={{ flex: 1, padding: '13px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>My Decks</button>
           </div>
         </main>
       )}
+
       <TabBar student="matthew" />
     </div>
   );

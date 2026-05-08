@@ -18,10 +18,10 @@ function Mountain() {
 }
 
 const LEVELS = [
-  { id: 'outline',  label: 'Outline',  desc: 'Headers and bullets only. Quick pre-class scan.' },
+  { id: 'outline',  label: 'Outline',  desc: 'Headers and bullets only. Quick overview!' },
   { id: 'basic',    label: 'Basic',    desc: 'Short explanations. Good for review.' },
-  { id: 'detailed', label: 'Detailed', desc: 'Full explanations with examples. Everyday workhorse.' },
-  { id: 'mastery',  label: 'Mastery',  desc: 'Deep synthesis across all materials. For primary learning.' },
+  { id: 'detailed', label: 'Detailed', desc: 'Full explanations with examples.' },
+  { id: 'mastery',  label: 'Mastery',  desc: 'Deep dive into everything. For real learning!' },
 ];
 
 const QUESTION_FORMATS = ['Multiple Choice', 'Short Answer', 'Both'];
@@ -32,15 +32,27 @@ function addDays(date: Date, days: number): string {
   return d.toISOString().split('T')[0];
 }
 
+type LibResource = { id: string; file_name: string; storage_url: string; folder_id: string; };
+type LibFolder   = { id: string; name: string; class_id: string; resources: LibResource[]; };
+type LibClass    = { id: string; name: string; folders: LibFolder[]; };
+
+const color = '#E8956D';
+const light = '#FFF3E8';
+
 function BrynneStudyInner() {
   const searchParams = useSearchParams();
-  const folderId     = searchParams.get('folderId');
-  const folderName   = searchParams.get('folderName');
+  const folderId   = searchParams.get('folderId');
+  const folderName = searchParams.get('folderName');
 
-  const [files,              setFiles]              = useState<File[]>([]);
-  const [folderLoading,      setFolderLoading]      = useState(false);
-  const [folderLabel,        setFolderLabel]        = useState('');
-  const [level,              setLevel]              = useState<string>('detailed');
+  const [library,         setLibrary]         = useState<LibClass[]>([]);
+  const [libLoading,      setLibLoading]       = useState(true);
+  const [selectedIds,     setSelectedIds]      = useState<Set<string>>(new Set());
+  const [expandedClasses, setExpandedClasses]  = useState<Set<string>>(new Set());
+  const [expandedFolders, setExpandedFolders]  = useState<Set<string>>(new Set());
+  const [newFiles,        setNewFiles]         = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [level,              setLevel]              = useState('detailed');
   const [customInstructions, setCustomInstructions] = useState('');
   const [addQuestions,       setAddQuestions]       = useState(false);
   const [questionFormat,     setQuestionFormat]     = useState('Multiple Choice');
@@ -57,123 +69,97 @@ function BrynneStudyInner() {
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!folderId) return;
-    const loadFolderFiles = async () => {
-      setFolderLoading(true);
-      setError('');
-      try {
-        const { data: resources } = await supabase
-          .from('resources')
-          .select('id, file_name, file_type, storage_url')
-          .eq('folder_id', folderId)
-          .eq('file_type', 'pdf');
-
-        if (!resources || resources.length === 0) {
-          setFolderLabel(folderName ? `${folderName} — no PDFs found` : 'No PDFs in this folder');
-          setFolderLoading(false);
-          return;
-        }
-
-        const fetchedFiles: File[] = [];
-        for (const resource of resources) {
-          if (!resource.storage_url) continue;
-          try {
-            const res  = await fetch(resource.storage_url);
-            const blob = await res.blob();
-            fetchedFiles.push(new File([blob], resource.file_name + '.pdf', { type: 'application/pdf' }));
-          } catch { /* skip */ }
-        }
-
-        setFiles(fetchedFiles);
-        setFolderLabel(folderName || 'Folder resources loaded');
-        if (folderName) setGuideName(folderName + ' — Study Guide');
-      } catch {
-        setError('Could not load folder resources. You can still upload files manually.');
-      } finally {
-        setFolderLoading(false);
+    const loadLibrary = async () => {
+      setLibLoading(true);
+      const { data: classData } = await supabase.from('classes').select('id, name').eq('student_id', 'brynne').eq('is_active', true).order('created_at', { ascending: true });
+      if (!classData || classData.length === 0) { setLibLoading(false); return; }
+      const classIds = classData.map(c => c.id);
+      const { data: folderData } = await supabase.from('exam_folders').select('id, name, class_id').in('class_id', classIds).order('exam_date', { ascending: true });
+      const folderIds = (folderData || []).map(f => f.id);
+      let resourceData: any[] = [];
+      if (folderIds.length > 0) {
+        const { data } = await supabase.from('resources').select('id, file_name, file_type, storage_url, folder_id').in('folder_id', folderIds).eq('file_type', 'pdf').not('storage_url', 'is', null);
+        resourceData = data || [];
       }
+      const rByFolder: Record<string, LibResource[]> = {};
+      resourceData.forEach(r => { if (!rByFolder[r.folder_id]) rByFolder[r.folder_id] = []; rByFolder[r.folder_id].push(r); });
+      const fByClass: Record<string, LibFolder[]> = {};
+      (folderData || []).forEach(f => { if (!fByClass[f.class_id]) fByClass[f.class_id] = []; fByClass[f.class_id].push({ ...f, resources: rByFolder[f.id] || [] }); });
+      const lib = classData.map(c => ({ ...c, folders: (fByClass[c.id] || []).filter(f => f.resources.length > 0) })).filter(c => c.folders.length > 0);
+      setLibrary(lib);
+      if (folderId) {
+        const folder = (folderData || []).find(f => f.id === folderId);
+        if (folder) {
+          setExpandedClasses(new Set([folder.class_id]));
+          setExpandedFolders(new Set([folderId]));
+          setSelectedIds(new Set((rByFolder[folderId] || []).map(r => r.id)));
+          if (folderName) setGuideName(folderName + ' — Study Guide');
+        }
+      }
+      setLibLoading(false);
     };
-    loadFolderFiles();
+    loadLibrary();
   }, [folderId, folderName]);
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const dropped = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf');
-    setFiles(prev => [...prev, ...dropped]);
-  };
+  const toggleResource = (id: string) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleFolder   = (folder: LibFolder) => { const ids = folder.resources.map(r => r.id); const allSel = ids.every(id => selectedIds.has(id)); setSelectedIds(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; }); };
+  const toggleClass    = (cls: LibClass)    => { const ids = cls.folders.flatMap(f => f.resources.map(r => r.id)); const allSel = ids.length > 0 && ids.every(id => selectedIds.has(id)); setSelectedIds(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; }); };
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = Array.from(e.target.files || []).filter(f => f.type === 'application/pdf');
-    setFiles(prev => [...prev, ...selected]);
-    e.target.value = '';
-  };
+  const handleNewFileInput = (e: React.ChangeEvent<HTMLInputElement>) => { const selected = Array.from(e.target.files || []).filter(f => f.type === 'application/pdf'); setNewFiles(prev => [...prev, ...selected]); e.target.value = ''; };
 
-  const removeFile = (i: number) => setFiles(prev => prev.filter((_, idx) => idx !== i));
-
-  const buildPrompt = () => {
+  const buildPrompt = (fileCount: number) => {
     const levelPrompts: Record<string, string> = {
-      outline:  'Generate a clean outline with headers and bullet points only. No prose. Make it scannable.',
-      basic:    'Generate a basic study guide with short explanations. High-level and accessible.',
-      detailed: 'Generate a detailed study guide with full explanations, examples, and context for each concept.',
-      mastery:  'Generate a comprehensive mastery-level guide. Full explanations, cross-material synthesis, recurring themes, connections between concepts, deep discussion. For primary learning.',
+      outline:  'Generate a clean outline with headers and bullet points only. No prose.',
+      basic:    'Generate a basic study guide with short, simple explanations.',
+      detailed: 'Generate a detailed study guide with full explanations and examples.',
+      mastery:  'Generate a comprehensive mastery-level guide with deep explanations across all materials.',
     };
-    const questionPrompt = addQuestions
-      ? `\n\nAfter the study guide, add a "Practice Questions" section with ${questionFormat === 'Both' ? 'a mix of multiple choice and short answer' : questionFormat.toLowerCase()} questions.${showAnswers ? ' Include answers and brief explanation after each.' : ' Do not include answers.'}`
-      : '';
-    const custom = customInstructions.trim() ? `\n\nAdditional instructions: ${customInstructions.trim()}` : '';
-    return `You are Ascend, an AI study assistant for Brynne, a 5th grader who is advanced in math and science and wants to become a doctor. Be encouraging, clear, and age-appropriate but don't talk down to her.\n\n${level ? levelPrompts[level] : 'Generate a study guide based on the custom instructions below.'}${custom}${questionPrompt}\n\nFormat with clear markdown headers and structure.`;
+    const base = fileCount > 1
+      ? `You are Ascend analyzing ${fileCount} study documents for Brynne, an advanced 5th grader who is doing high school level math and science. Use friendly, encouraging language. Perform CROSS-DOCUMENT ANALYSIS: identify concepts recurring across multiple documents, find overlapping themes, and focus your output on these high-frequency areas. ${level ? levelPrompts[level] : ''}`
+      : `You are Ascend, an AI study assistant for Brynne, an advanced 5th grader who loves learning. Be encouraging, clear, and use friendly language. ${level ? levelPrompts[level] : 'Generate a study guide based on the instructions below.'}`;
+    const q = addQuestions ? `\n\nAdd a "Practice Questions" section with ${questionFormat === 'Both' ? 'mixed multiple choice and short answer' : questionFormat.toLowerCase()} questions.${showAnswers ? ' Include answers and explanations.' : ' Do not include answers.'}` : '';
+    const c = customInstructions.trim() ? `\n\nAdditional instructions: ${customInstructions.trim()}` : '';
+    return base + c + q + '\n\nFormat with clear markdown headers and structure.';
   };
 
   const handleGenerate = async () => {
-    if (files.length === 0 && !customInstructions.trim()) return;
-    setLoading(true);
-    setError('');
+    const totalCount = selectedIds.size + newFiles.length;
+    if (totalCount === 0 && !customInstructions.trim()) return;
+    setLoading(true); setError('');
     try {
+      const allResources = library.flatMap(c => c.folders.flatMap(f => f.resources));
+      const selectedResources = allResources.filter(r => selectedIds.has(r.id));
+      const fetchedFiles: File[] = [];
+      for (const r of selectedResources) {
+        if (!r.storage_url) continue;
+        try { const res = await fetch(r.storage_url); const blob = await res.blob(); fetchedFiles.push(new File([blob], r.file_name + '.pdf', { type: 'application/pdf' })); } catch { /* skip */ }
+      }
+      const allFiles = [...fetchedFiles, ...newFiles];
       const formData = new FormData();
-      files.forEach(f => formData.append('files', f));
+      allFiles.forEach(f => formData.append('files', f));
       formData.append('student', 'brynne');
-      formData.append('prompt', buildPrompt());
+      formData.append('prompt', buildPrompt(allFiles.length));
       const res  = await fetch('/api/generate-study-guide', { method: 'POST', body: formData });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setStudyGuide(data.studyGuide);
-      setSourceFiles(files.map(f => f.name));
-      if (!guideName) setGuideName(files.length > 0 ? files[0].name.replace('.pdf', '') : 'Custom Study Guide');
-      setShowNamePrompt(true);
-      setSaved(false);
-    } catch {
-      setError('Something went wrong. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+      setSourceFiles(allFiles.map(f => f.name));
+      if (!guideName) setGuideName(allFiles.length > 0 ? allFiles[0].name.replace('.pdf', '') : 'My Study Guide');
+      setShowNamePrompt(true); setSaved(false);
+    } catch { setError('Something went wrong. Please try again!'); }
+    finally { setLoading(false); }
   };
 
   const handleSave = async () => {
     if (!guideName.trim()) return;
     setSaving(true);
     try {
-      await supabase.from('study_guides').insert({
-        student_id:      'brynne',
-        title:           guideName.trim(),
-        content:         studyGuide,
-        source_filename: sourceFiles.join(', ') || 'Custom',
-        folder_id:       folderId || null,
-      });
+      await supabase.from('study_guides').insert({ student_id: 'brynne', title: guideName.trim(), content: studyGuide, source_filename: sourceFiles.join(', ') || 'Custom', folder_id: folderId || null });
       const today = new Date();
-      await supabase.from('tasks').insert([1, 3, 7].map(days => ({
-        student_id: 'brynne',
-        title:      `Review: ${guideName.trim()}`,
-        due_date:   addDays(today, days),
-        task_type:  'review',
-        completed:  false,
-      })));
-      setSaved(true);
-      setShowNamePrompt(false);
-    } catch {
-      setError('Could not save. Please try again.');
-    } finally {
-      setSaving(false);
-    }
+      await supabase.from('tasks').insert([1, 3, 7].map(days => ({ student_id: 'brynne', title: `Review: ${guideName.trim()}`, due_date: addDays(today, days), task_type: 'review', completed: false })));
+      setSaved(true); setShowNamePrompt(false);
+    } catch { setError('Could not save. Please try again!'); }
+    finally { setSaving(false); }
   };
 
   const handlePrint    = useReactToPrint({ contentRef: printRef, documentTitle: guideName || 'Ascend Study Guide' });
@@ -181,17 +167,15 @@ function BrynneStudyInner() {
   const handleShare    = async () => { if (navigator.share) { await navigator.share({ title: guideName || 'Ascend Study Guide', text: studyGuide }); } else handleCopy(); };
   const handleDownload = async () => {
     const { jsPDF } = await import('jspdf');
-    const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const lines = doc.splitTextToSize(studyGuide.replace(/[#*`]/g, ''), 170);
-    let y = 20;
-    doc.setFontSize(11);
+    let y = 20; doc.setFontSize(11);
     lines.forEach((line: string) => { if (y > 270) { doc.addPage(); y = 20; } doc.text(line, 20, y); y += 6; });
     doc.save(`${guideName || 'Ascend Study Guide'}.pdf`);
   };
 
-  const canGenerate = files.length > 0 || customInstructions.trim().length > 0;
-  const color = '#E8956D';
-  const light = '#FFF3E8';
+  const canGenerate   = selectedIds.size > 0 || newFiles.length > 0 || customInstructions.trim().length > 0;
+  const totalSelected = selectedIds.size + newFiles.length;
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAF8' }}>
@@ -206,45 +190,116 @@ function BrynneStudyInner() {
       <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Brynne</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Generate Study Guide ✨</div>
-          <div style={{ fontSize: 13, color: '#9E9BB0' }}>Upload your notes and Ascend will build your study guide!</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Study Guide 📖</div>
+          <div style={{ fontSize: 13, color: '#9E9BB0' }}>Pick your materials and Ascend will make you an awesome study guide!</div>
         </div>
-
-        {folderId && (
-          <div style={{ background: light, border: `1.5px solid rgba(232,149,109,0.2)`, borderRadius: 14, padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 18 }}>📁</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color }}>{folderLoading ? 'Loading folder resources...' : folderLabel || folderName}</div>
-              <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 2 }}>{folderLoading ? 'Fetching your uploaded PDFs...' : `${files.length} PDF${files.length !== 1 ? 's' : ''} loaded from this folder`}</div>
-            </div>
-            {folderLoading && <div style={{ width: 18, height: 18, border: '2px solid #E8E5F0', borderTopColor: color, borderRadius: '50%', animation: 'spin 0.75s linear infinite' }} />}
-          </div>
-        )}
 
         {!studyGuide ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 12 }}>Upload Materials</div>
-              <div onDrop={handleDrop} onDragOver={e => e.preventDefault()} onClick={() => document.getElementById('pdf-upload-brynne')?.click()} style={{ padding: '32px 20px', borderRadius: 12, border: `2px dashed ${files.length > 0 ? color : '#E8E5F0'}`, background: '#FAFAF8', textAlign: 'center', cursor: 'pointer' }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>📄</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>{files.length > 0 ? `${files.length} file${files.length > 1 ? 's' : ''} selected` : 'Upload PDFs'}</div>
-                <div style={{ fontSize: 11, color: '#9E9BB0' }}>Click or drag and drop · Multiple files supported</div>
-                <input id="pdf-upload-brynne" type="file" accept=".pdf" multiple style={{ display: 'none' }} onChange={handleFileInput} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Pick Your Materials</div>
+                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>{totalSelected > 0 ? `${totalSelected} file${totalSelected !== 1 ? 's' : ''} selected! 🎉` : 'Choose from your uploaded files or add new ones'}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {totalSelected > 0 && <button onClick={() => { setSelectedIds(new Set()); setNewFiles([]); }} style={{ padding: '6px 12px', borderRadius: 999, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#9E9BB0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear</button>}
+                  <input ref={fileInputRef} type="file" accept=".pdf" multiple onChange={handleNewFileInput} style={{ display: 'none' }} />
+                  <button onClick={() => fileInputRef.current?.click()} style={{ padding: '6px 14px', borderRadius: 999, background: light, border: 'none', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Upload</button>
+                </div>
               </div>
-              {files.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
-                  {files.map((f, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 10, background: light }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {f.name}</span>
-                      <button onClick={() => removeFile(i)} style={{ marginLeft: 8, fontSize: 13, color: '#9E9BB0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, flexShrink: 0 }}>✕</button>
+
+              {newFiles.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6 }}>New Files</div>
+                  {newFiles.map((f, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: light, marginBottom: 4 }}>
+                      <span style={{ fontSize: 14 }}>📄</span>
+                      <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                      <button onClick={() => setNewFiles(prev => prev.filter((_, idx) => idx !== i))} style={{ fontSize: 12, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {libLoading ? (
+                <div style={{ textAlign: 'center', padding: '20px 0', color: '#9E9BB0', fontSize: 13 }}>Loading your files...</div>
+              ) : library.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px 0', border: '2px dashed #E8E5F0', borderRadius: 12 }}>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>No files uploaded yet!</div>
+                  <div style={{ fontSize: 12, color: '#9E9BB0' }}>Upload files to your class folders, or use the button above to add files now.</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {library.map(cls => {
+                    const clsIds     = cls.folders.flatMap(f => f.resources.map(r => r.id));
+                    const clsAllSel  = clsIds.length > 0 && clsIds.every(id => selectedIds.has(id));
+                    const clsSomeSel = clsIds.some(id => selectedIds.has(id));
+                    const clsExp     = expandedClasses.has(cls.id);
+                    return (
+                      <div key={cls.id} style={{ border: '1.5px solid #E8E5F0', borderRadius: 12, overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#FAFAF8', cursor: 'pointer' }} onClick={() => setExpandedClasses(prev => { const n = new Set(prev); n.has(cls.id) ? n.delete(cls.id) : n.add(cls.id); return n; })}>
+                          <span style={{ fontSize: 11, color: '#9E9BB0', width: 12 }}>{clsExp ? '▾' : '▸'}</span>
+                          <span style={{ flex: 1, fontSize: 13, fontWeight: 800, color: '#1D1B26' }}>{cls.name}</span>
+                          <button onClick={e => { e.stopPropagation(); toggleClass(cls); }} style={{ fontSize: 10, fontWeight: 700, color: clsAllSel || clsSomeSel ? color : '#9E9BB0', background: clsAllSel || clsSomeSel ? light : '#F3F1EC', border: 'none', borderRadius: 999, padding: '3px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                            {clsAllSel ? 'Deselect all' : 'Select all'}
+                          </button>
+                        </div>
+                        {clsExp && (
+                          <div style={{ padding: '0 14px 10px' }}>
+                            {cls.folders.map(folder => {
+                              const fIds     = folder.resources.map(r => r.id);
+                              const fAllSel  = fIds.every(id => selectedIds.has(id));
+                              const fSomeSel = fIds.some(id => selectedIds.has(id));
+                              const fExp     = expandedFolders.has(folder.id);
+                              return (
+                                <div key={folder.id} style={{ marginTop: 8 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: '#F3F1EC', cursor: 'pointer', marginBottom: 4 }} onClick={() => setExpandedFolders(prev => { const n = new Set(prev); n.has(folder.id) ? n.delete(folder.id) : n.add(folder.id); return n; })}>
+                                    <span style={{ fontSize: 10, color: '#9E9BB0', width: 10 }}>{fExp ? '▾' : '▸'}</span>
+                                    <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: '#1D1B26' }}>📁 {folder.name}</span>
+                                    <span style={{ fontSize: 10, color: '#9E9BB0' }}>{folder.resources.length} file{folder.resources.length !== 1 ? 's' : ''}</span>
+                                    <button onClick={e => { e.stopPropagation(); toggleFolder(folder); }} style={{ fontSize: 10, fontWeight: 700, color: fAllSel || fSomeSel ? color : '#9E9BB0', background: fAllSel || fSomeSel ? light : '#FFFFFF', border: `1px solid ${fAllSel || fSomeSel ? color : '#E8E5F0'}`, borderRadius: 999, padding: '2px 8px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                                      {fAllSel ? 'Deselect' : 'Select all'}
+                                    </button>
+                                  </div>
+                                  {fExp && (
+                                    <div style={{ paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                      {folder.resources.map(r => {
+                                        const isSel = selectedIds.has(r.id);
+                                        return (
+                                          <div key={r.id} onClick={() => toggleResource(r.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, border: `1.5px solid ${isSel ? color : '#E8E5F0'}`, background: isSel ? light : '#FFFFFF', cursor: 'pointer', transition: 'all 0.15s' }}>
+                                            <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${isSel ? color : '#C4C1D4'}`, background: isSel ? color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                              {isSel && <span style={{ color: 'white', fontSize: 10 }}>✓</span>}
+                                            </div>
+                                            <span style={{ fontSize: 12, fontWeight: isSel ? 700 : 500, color: isSel ? color : '#1D1B26', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {r.file_name}</span>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {totalSelected > 0 && (
+                <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 10, background: color, color: 'white', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 13 }}>📚</span>
+                  <span style={{ fontSize: 12, fontWeight: 700 }}>{totalSelected} file{totalSelected !== 1 ? 's' : ''} selected{totalSelected > 1 ? ' — Ascend will find what shows up most! 🌟' : ''}</span>
                 </div>
               )}
             </div>
 
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 12 }}>Level of Detail</div>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 12 }}>How Much Detail?</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 {LEVELS.map(l => (
                   <div key={l.id} onClick={() => setLevel(level === l.id ? '' : l.id)} style={{ padding: '12px 14px', borderRadius: 12, border: `2px solid ${level === l.id ? color : '#E8E5F0'}`, background: level === l.id ? light : '#FAFAF8', cursor: 'pointer' }}>
@@ -256,16 +311,16 @@ function BrynneStudyInner() {
             </div>
 
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 4 }}>Custom Instructions</div>
-              <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 10 }}>Tell Ascend exactly what you need!</div>
-              <textarea value={customInstructions} onChange={e => setCustomInstructions(e.target.value)} placeholder='e.g. "Focus on chapter 4" or "Make it really simple"' rows={3} style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.6 }} />
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 4 }}>Special Instructions</div>
+              <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 10 }}>Tell Ascend anything special you want it to focus on!</div>
+              <textarea value={customInstructions} onChange={e => setCustomInstructions(e.target.value)} placeholder='e.g. "Focus on chapter 3" or "Make it easy to understand"' rows={3} style={{ width: '100%', padding: '11px 13px', border: `1.5px solid ${color}20`, borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.6 }} />
             </div>
 
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: addQuestions ? 16 : 0 }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Add Practice Questions</div>
-                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>Add questions at the end to test yourself!</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Add Practice Questions? 📝</div>
+                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>Add some questions to test yourself!</div>
                 </div>
                 <button onClick={() => setAddQuestions(q => !q)} style={{ width: 44, height: 26, borderRadius: 999, border: 'none', background: addQuestions ? color : '#E8E5F0', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
                   <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'white', position: 'absolute', top: 3, left: addQuestions ? 21 : 3, transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />
@@ -274,7 +329,7 @@ function BrynneStudyInner() {
               {addQuestions && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div>
-                    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 8 }}>Format</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 8 }}>Question Type</div>
                     <div style={{ display: 'flex', gap: 8 }}>
                       {QUESTION_FORMATS.map(f => (
                         <button key={f} onClick={() => setQuestionFormat(f)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: `1.5px solid ${questionFormat === f ? color : '#E8E5F0'}`, background: questionFormat === f ? color : '#FAFAF8', color: questionFormat === f ? 'white' : '#9E9BB0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{f}</button>
@@ -283,8 +338,8 @@ function BrynneStudyInner() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 2 }}>Include Answers</div>
-                      <div style={{ fontSize: 11, color: '#9E9BB0' }}>Show answers after each question</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 2 }}>Show Answers</div>
+                      <div style={{ fontSize: 11, color: '#9E9BB0' }}>See the answers right away</div>
                     </div>
                     <button onClick={() => setShowAnswers(a => !a)} style={{ width: 44, height: 26, borderRadius: 999, border: 'none', background: showAnswers ? color : '#E8E5F0', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
                       <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'white', position: 'absolute', top: 3, left: showAnswers ? 21 : 3, transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />
@@ -299,12 +354,12 @@ function BrynneStudyInner() {
             {loading ? (
               <div style={{ textAlign: 'center', padding: '24px 0' }}>
                 <div style={{ width: 32, height: 32, border: '2.5px solid #E8E5F0', borderTopColor: color, borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.75s linear infinite' }} />
-                <div style={{ fontSize: 13, color: '#9E9BB0' }}>Building your study guide... 🌟</div>
+                <div style={{ fontSize: 13, color: '#9E9BB0' }}>{totalSelected > 1 ? `Looking through ${totalSelected} files for the best stuff... 🌟` : 'Making your study guide...'}</div>
                 <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
               </div>
             ) : (
-              <button onClick={handleGenerate} disabled={!canGenerate || folderLoading} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: color, color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: canGenerate && !folderLoading ? 1 : 0.4 }}>
-                {folderLoading ? 'Loading folder files...' : canGenerate ? 'Generate Study Guide ✨' : 'Upload files or add instructions to begin'}
+              <button onClick={handleGenerate} disabled={!canGenerate} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: canGenerate ? color : '#F3F1EC', color: canGenerate ? 'white' : '#C4C1D4', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                {canGenerate ? (totalSelected > 1 ? `Make Study Guide from ${totalSelected} Files 🌟` : 'Make My Study Guide! 🌟') : 'Pick some files or add instructions to start'}
               </button>
             )}
           </div>
@@ -312,8 +367,8 @@ function BrynneStudyInner() {
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '24px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
             {showNamePrompt && (
               <div style={{ background: light, borderRadius: 14, padding: '18px', marginBottom: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color, marginBottom: 10 }}>What should we call this study guide? 📖</div>
-                <input type="text" value={guideName} onChange={e => setGuideName(e.target.value)} placeholder='e.g. "Chapter 4 - Fractions"' style={{ width: '100%', padding: '10px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FFFFFF', outline: 'none', marginBottom: 10 }} />
+                <div style={{ fontSize: 13, fontWeight: 700, color: color, marginBottom: 10 }}>What should we call this study guide? 📖</div>
+                <input type="text" value={guideName} onChange={e => setGuideName(e.target.value)} placeholder='e.g. "Chapter 4 Math Study Guide"' style={{ width: '100%', padding: '10px 13px', border: `1.5px solid ${color}`, borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FFFFFF', outline: 'none', marginBottom: 10 }} />
                 <button onClick={handleSave} disabled={!guideName.trim() || saving} style={{ width: '100%', padding: '11px', borderRadius: 11, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !guideName.trim() || saving ? 0.4 : 1 }}>
                   {saving ? 'Saving...' : 'Save to Ascend 🌟'}
                 </button>
@@ -329,7 +384,7 @@ function BrynneStudyInner() {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: '#9E9BB0', letterSpacing: 1, textTransform: 'uppercase', alignSelf: 'center', marginRight: 2 }}>From</span>
                 {sourceFiles.map((name, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 999, background: light, border: `1px solid rgba(232,149,109,0.2)` }}>
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 999, background: light, border: `1px solid ${color}30` }}>
                     <span style={{ fontSize: 10 }}>📄</span>
                     <span style={{ fontSize: 11, fontWeight: 600, color }}>{name}</span>
                   </div>
@@ -338,18 +393,18 @@ function BrynneStudyInner() {
             )}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26' }}>{guideName || 'Your Study Guide'}</div>
-              <button onClick={() => { setStudyGuide(''); setFiles([]); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); }} style={{ fontSize: 12, fontWeight: 700, color, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate Another</button>
+              <button onClick={() => { setStudyGuide(''); setSelectedIds(new Set()); setNewFiles([]); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); }} style={{ fontSize: 12, fontWeight: 700, color, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Make Another</button>
             </div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
               <button onClick={handlePrint}    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>🖨️ Print</button>
               <button onClick={handleShare}    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>📤 Share</button>
               <button onClick={handleCopy}     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: `1.5px solid ${copied ? '#5FAD8E' : '#E8E5F0'}`, background: copied ? '#EDF7F2' : '#FAFAF8', color: copied ? '#5FAD8E' : '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{copied ? '✅ Copied!' : '📋 Copy'}</button>
-              <button onClick={handleDownload} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>⬇️ Download PDF</button>
+              <button onClick={handleDownload} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>⬇️ PDF</button>
             </div>
             <div ref={printRef} style={{ padding: '4px' }}>
               <ReactMarkdown components={{
-                h1: ({children}) => <h1 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.4rem', fontWeight: 800, color, marginTop: '1.5rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: `2px solid ${light}` }}>{children}</h1>,
-                h2: ({children}) => <h2 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.1rem', fontWeight: 800, color, marginTop: '1.25rem', marginBottom: '0.5rem' }}>{children}</h2>,
+                h1: ({children}) => <h1 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.4rem', fontWeight: 800, color: color, marginTop: '1.5rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: `2px solid ${light}` }}>{children}</h1>,
+                h2: ({children}) => <h2 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.1rem', fontWeight: 800, color: color, marginTop: '1.25rem', marginBottom: '0.5rem' }}>{children}</h2>,
                 h3: ({children}) => <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1D1B26', marginTop: '1rem', marginBottom: '0.25rem' }}>{children}</h3>,
                 p:  ({children}) => <p  style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: '0.75rem' }}>{children}</p>,
                 strong: ({children}) => <strong style={{ fontWeight: 700, color: '#1D1B26' }}>{children}</strong>,
