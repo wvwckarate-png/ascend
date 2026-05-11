@@ -25,7 +25,7 @@ type Task = {
   task_type: string;
 };
 
-type ClassRow  = { id: string; name: string; semester: string; professor: string | null; };
+type ClassRow = { id: string; name: string; semester: string; professor: string | null; };
 type ExamEvent = { id: string; name: string; exam_date: string; class_name: string; };
 
 const color = '#7B6FA0';
@@ -73,7 +73,7 @@ function formatDue(dateStr: string): string {
   if (due.getTime() === today.getTime())    return 'Today';
   if (due.getTime() === tomorrow.getTime()) return 'Tomorrow';
   const diff = Math.ceil((due.getTime() - today.getTime()) / 86400000);
-  if (diff < 0)  return 'Overdue';
+  if (diff < 0) return 'Overdue';
   if (diff <= 7) return `${diff}d`;
   return due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
@@ -87,25 +87,25 @@ function formatTime(t: string | null) {
 const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-export default function MichaelDashboard() {
+export default function MatthewDashboard() {
   const router   = useRouter();
   const today    = new Date();
   const todayStr = today.toISOString().split('T')[0];
 
-  const [student,  setStudent]  = useState<{ name: string; grade: string; focus: string } | null>(null);
-  const [classes,  setClasses]  = useState<ClassRow[]>([]);
-  const [tasks,    setTasks]    = useState<Task[]>([]);
-  const [exams,    setExams]    = useState<ExamEvent[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [calView,  setCalView]  = useState<'week' | 'month'>('week');
-  const [showDone, setShowDone] = useState(false);
+  const [student,   setStudent]   = useState<{ name: string; grade: string; focus: string } | null>(null);
+  const [classes,   setClasses]   = useState<ClassRow[]>([]);
+  const [tasks,     setTasks]     = useState<Task[]>([]);
+  const [exams,     setExams]     = useState<ExamEvent[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [calView,   setCalView]   = useState<'week' | 'month'>('week');
+  const [showDone,  setShowDone]  = useState(false);
 
   useEffect(() => {
     const load = async () => {
       const [{ data: studentData }, { data: classData }, { data: taskData }, { data: folderData }] = await Promise.all([
-        supabase.from('students').select('name, grade, focus').eq('id', 'michael').single(),
-        supabase.from('classes').select('id, name, semester, professor').eq('student_id', 'michael').eq('is_active', true).order('created_at', { ascending: false }),
-        supabase.from('tasks').select('*').eq('student_id', 'michael').order('due_date', { ascending: true }),
+        supabase.from('students').select('name, grade, focus').eq('id', 'matthew').single(),
+        supabase.from('classes').select('id, name, semester, professor').eq('student_id', 'matthew').eq('is_active', true).order('created_at', { ascending: false }),
+        supabase.from('tasks').select('*').eq('student_id', 'matthew').order('due_date', { ascending: true }),
         supabase.from('exam_folders').select('id, name, exam_date, class_id').not('exam_date', 'is', null),
       ]);
 
@@ -131,13 +131,17 @@ export default function MichaelDashboard() {
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: updated } : t));
   };
 
+  // Task feed — upcoming incomplete + optionally completed
   const upcomingTasks  = tasks.filter(t => !t.completed && t.due_date >= todayStr).slice(0, 8);
   const overdueTasks   = tasks.filter(t => !t.completed && t.due_date < todayStr);
   const completedTasks = tasks.filter(t => t.completed).slice(0, 5);
   const todayExams     = exams.filter(e => e.exam_date === todayStr);
-  const reviewTasks    = tasks.filter(t => t.task_type === 'review' && !t.completed && t.due_date >= todayStr).slice(0, 3);
-  const nudgeTasks     = tasks.filter(t => t.task_type === 'nudge'  && !t.completed && t.due_date >= todayStr).slice(0, 3);
 
+  // Spaced repetition — review tasks due today or upcoming
+  const reviewTasks = tasks.filter(t => t.task_type === 'review' && !t.completed && t.due_date >= todayStr).slice(0, 3);
+  const nudgeTasks  = tasks.filter(t => t.task_type === 'nudge'  && !t.completed && t.due_date >= todayStr).slice(0, 3);
+
+  // Week calendar
   const weekStart = new Date(today);
   weekStart.setDate(today.getDate() - today.getDay());
   const weekDays = Array.from({ length: 7 }, (_, i) => {
@@ -146,17 +150,20 @@ export default function MichaelDashboard() {
     return d;
   });
 
+  // Month calendar
   const year      = today.getFullYear();
   const month     = today.getMonth();
   const firstDay  = new Date(year, month, 1).getDay();
   const daysInMon = new Date(year, month + 1, 0).getDate();
 
-  const tasksForDate = (d: string) => tasks.filter(t => t.due_date === d && !t.completed);
-  const examsForDate = (d: string) => exams.filter(e => e.exam_date === d);
-  const hasActivity  = (d: string) => tasksForDate(d).length > 0 || examsForDate(d).length > 0;
+  const tasksForDate  = (d: string) => tasks.filter(t => t.due_date === d && !t.completed);
+  const examsForDate  = (d: string) => exams.filter(e => e.exam_date === d);
+  const hasActivity   = (d: string) => tasksForDate(d).length > 0 || examsForDate(d).length > 0;
 
   const TaskRow = ({ task }: { task: Task }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: '1px solid #F3F1EC', opacity: task.completed ? 0.45 : 1, transition: 'opacity 0.2s' }}>
+    <div
+      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: '1px solid #F3F1EC', opacity: task.completed ? 0.45 : 1, transition: 'opacity 0.2s' }}
+    >
       <button
         onClick={() => toggleTask(task)}
         style={{ width: 22, height: 22, borderRadius: '50%', border: `2px solid ${task.completed ? '#5FAD8E' : '#C4C1D4'}`, background: task.completed ? '#5FAD8E' : 'transparent', cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -193,6 +200,7 @@ export default function MichaelDashboard() {
 
       <main style={{ maxWidth: 720, margin: '0 auto', padding: '24px 20px 80px' }}>
 
+        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 3 }}>
@@ -203,13 +211,14 @@ export default function MichaelDashboard() {
             </div>
             {student?.focus && <div style={{ fontSize: 12, color: '#9E9BB0', marginTop: 2 }}>{student.focus}</div>}
           </div>
-          <Link href="/michael/profile" style={{ textDecoration: 'none' }}>
+          <Link href="/matthew/profile" style={{ textDecoration: 'none' }}>
             <div style={{ width: 42, height: 42, borderRadius: '50%', background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${color}30` }}>
-              <span style={{ fontSize: 20 }}>🦁</span>
+              <span style={{ fontSize: 20 }}>🦅</span>
             </div>
           </Link>
         </div>
 
+        {/* Today's exam alerts */}
         {todayExams.map(e => (
           <div key={e.id} style={{ background: 'linear-gradient(135deg, #C47878, #A05050)', borderRadius: 14, padding: '14px 18px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12, color: 'white' }}>
             <span style={{ fontSize: 22 }}>📅</span>
@@ -220,12 +229,13 @@ export default function MichaelDashboard() {
           </div>
         ))}
 
+        {/* Study Tools */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 20 }}>
           {[
-            { label: 'Study Guide',   emoji: '📖', path: '/michael/study' },
-            { label: 'Flashcards',    emoji: '🗂️', path: '/michael/flashcards' },
-            { label: 'Practice Exam', emoji: '📝', path: '/michael/practice-exam' },
-            { label: 'Classes',       emoji: '📚', path: '/michael/classes' },
+            { label: 'Study Guide', emoji: '📖', path: '/matthew/study' },
+            { label: 'Flashcards',  emoji: '🗂️', path: '/matthew/flashcards' },
+            { label: 'Practice Exam', emoji: '📝', path: '/matthew/practice-exam' },
+            { label: 'Classes',     emoji: '📚', path: '/matthew/classes' },
           ].map(tool => (
             <div
               key={tool.label}
@@ -240,11 +250,12 @@ export default function MichaelDashboard() {
           ))}
         </div>
 
+        {/* Classes */}
         {classes.length > 0 && (
           <div style={{ marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4' }}>My Classes</div>
-              <Link href="/michael/classes" style={{ fontSize: 11, fontWeight: 700, color, textDecoration: 'none' }}>See all</Link>
+              <Link href="/matthew/classes" style={{ fontSize: 11, fontWeight: 700, color, textDecoration: 'none' }}>See all</Link>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8 }}>
               {classes.slice(0, 4).map((cls, i) => {
@@ -252,7 +263,7 @@ export default function MichaelDashboard() {
                 return (
                   <div
                     key={cls.id}
-                    onClick={() => router.push(`/michael/classes/${cls.id}`)}
+                    onClick={() => router.push(`/matthew/classes/${cls.id}`)}
                     style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '14px', cursor: 'pointer', boxShadow: '0 1px 4px rgba(29,27,38,0.06)', transition: 'transform 0.15s' }}
                     onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'}
                     onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}
@@ -269,6 +280,7 @@ export default function MichaelDashboard() {
           </div>
         )}
 
+        {/* Task Feed */}
         <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '18px 20px', marginBottom: 16, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4' }}>Tasks</div>
@@ -276,7 +288,7 @@ export default function MichaelDashboard() {
               <button onClick={() => setShowDone(s => !s)} style={{ fontSize: 10, fontWeight: 700, color: showDone ? color : '#9E9BB0', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
                 {showDone ? 'Hide done' : 'Show done'}
               </button>
-              <Link href="/michael/calendar" style={{ fontSize: 10, fontWeight: 700, color, textDecoration: 'none' }}>Calendar →</Link>
+              <Link href="/matthew/calendar" style={{ fontSize: 10, fontWeight: 700, color, textDecoration: 'none' }}>Calendar →</Link>
             </div>
           </div>
 
@@ -284,6 +296,7 @@ export default function MichaelDashboard() {
             <div style={{ textAlign: 'center', padding: '24px 0', color: '#9E9BB0', fontSize: 13 }}>Loading...</div>
           ) : (
             <>
+              {/* Overdue */}
               {overdueTasks.length > 0 && (
                 <div style={{ background: '#FDF2F2', borderRadius: 10, padding: '8px 12px', marginBottom: 8, marginTop: 8 }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: '#C47878', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Overdue</div>
@@ -291,6 +304,7 @@ export default function MichaelDashboard() {
                 </div>
               )}
 
+              {/* Upcoming */}
               {upcomingTasks.length === 0 && overdueTasks.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '24px 0' }}>
                   <div style={{ fontSize: 28, marginBottom: 8 }}>✅</div>
@@ -301,6 +315,7 @@ export default function MichaelDashboard() {
                 upcomingTasks.map(task => <TaskRow key={task.id} task={task} />)
               )}
 
+              {/* Completed */}
               {showDone && completedTasks.length > 0 && (
                 <div style={{ marginTop: 8 }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: '#C4C1D4', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Completed</div>
@@ -311,6 +326,7 @@ export default function MichaelDashboard() {
           )}
         </div>
 
+        {/* Spaced Repetition Band */}
         {(reviewTasks.length > 0 || nudgeTasks.length > 0) && (
           <div style={{ background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', borderRadius: 18, padding: '18px 20px', marginBottom: 16 }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', marginBottom: 10 }}>
@@ -318,7 +334,10 @@ export default function MichaelDashboard() {
             </div>
             {[...nudgeTasks, ...reviewTasks].map(task => (
               <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <button onClick={() => toggleTask(task)} style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.4)', background: task.completed ? '#5FAD8E' : 'transparent', cursor: 'pointer', flexShrink: 0 }} />
+                <button
+                  onClick={() => toggleTask(task)}
+                  style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.4)', background: task.completed ? '#5FAD8E' : 'transparent', cursor: 'pointer', flexShrink: 0 }}
+                />
                 <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: 'white', textDecoration: task.completed ? 'line-through' : 'none', opacity: task.completed ? 0.5 : 1 }}>{task.title}</div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.6)' }}>{formatDue(task.due_date)}</div>
               </div>
@@ -326,6 +345,7 @@ export default function MichaelDashboard() {
           </div>
         )}
 
+        {/* Mini Calendar */}
         <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '18px 20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4' }}>Calendar</div>
@@ -333,7 +353,7 @@ export default function MichaelDashboard() {
               {(['week', 'month'] as const).map(v => (
                 <button key={v} onClick={() => setCalView(v)} style={{ padding: '4px 10px', borderRadius: 999, border: 'none', background: calView === v ? color : 'transparent', color: calView === v ? 'white' : '#9E9BB0', fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', textTransform: 'capitalize' }}>{v}</button>
               ))}
-              <Link href="/michael/calendar" style={{ padding: '4px 10px', borderRadius: 999, background: light, color, fontSize: 10, fontWeight: 700, textDecoration: 'none', marginLeft: 4 }}>Open</Link>
+              <Link href="/matthew/calendar" style={{ padding: '4px 10px', borderRadius: 999, background: light, color, fontSize: 10, fontWeight: 700, textDecoration: 'none', marginLeft: 4 }}>Open</Link>
             </div>
           </div>
 
@@ -344,7 +364,7 @@ export default function MichaelDashboard() {
                 const isToday = ds === todayStr;
                 const active  = hasActivity(ds);
                 return (
-                  <div key={i} onClick={() => router.push('/michael/calendar')} style={{ textAlign: 'center', cursor: 'pointer', padding: '6px 2px', borderRadius: 10, background: isToday ? color : 'transparent' }}>
+                  <div key={i} onClick={() => router.push('/matthew/calendar')} style={{ textAlign: 'center', cursor: 'pointer', padding: '6px 2px', borderRadius: 10, background: isToday ? color : 'transparent' }}>
                     <div style={{ fontSize: 9, fontWeight: 600, color: isToday ? 'rgba(255,255,255,0.7)' : '#C4C1D4', marginBottom: 4 }}>{DAYS[i].slice(0, 1)}</div>
                     <div style={{ fontSize: 13, fontWeight: isToday ? 800 : 500, color: isToday ? 'white' : '#1D1B26', marginBottom: 4 }}>{d.getDate()}</div>
                     {active && <div style={{ width: 5, height: 5, borderRadius: '50%', background: isToday ? 'rgba(255,255,255,0.7)' : color, margin: '0 auto' }} />}
@@ -371,12 +391,12 @@ export default function MichaelDashboard() {
                   const active  = hasActivity(ds);
                   const hasExam = examsForDate(ds).length > 0;
                   return (
-                    <div key={day} onClick={() => router.push('/michael/calendar')} style={{ textAlign: 'center', padding: '4px 2px', borderRadius: 8, cursor: 'pointer', background: isToday ? color : 'transparent' }}>
+                    <div key={day} onClick={() => router.push('/matthew/calendar')} style={{ textAlign: 'center', padding: '4px 2px', borderRadius: 8, cursor: 'pointer', background: isToday ? color : 'transparent', position: 'relative' }}>
                       <div style={{ fontSize: 11, fontWeight: isToday ? 800 : 400, color: isToday ? 'white' : '#1D1B26' }}>{day}</div>
                       {(active || hasExam) && (
                         <div style={{ display: 'flex', justifyContent: 'center', gap: 2, marginTop: 1 }}>
-                          {active  && <div style={{ width: 3, height: 3, borderRadius: '50%', background: isToday ? 'rgba(255,255,255,0.7)' : color }} />}
-                          {hasExam && <div style={{ width: 3, height: 3, borderRadius: '50%', background: isToday ? 'rgba(255,255,255,0.7)' : '#C47878' }} />}
+                          {active   && <div style={{ width: 3, height: 3, borderRadius: '50%', background: isToday ? 'rgba(255,255,255,0.7)' : color }} />}
+                          {hasExam  && <div style={{ width: 3, height: 3, borderRadius: '50%', background: isToday ? 'rgba(255,255,255,0.7)' : '#C47878' }} />}
                         </div>
                       )}
                     </div>
@@ -388,7 +408,7 @@ export default function MichaelDashboard() {
         </div>
 
       </main>
-      <TabBar student="michael" />
+      <TabBar student="matthew" />
     </div>
   );
 }
