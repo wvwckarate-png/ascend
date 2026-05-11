@@ -1,15 +1,9 @@
 'use client';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '../../lib/supabase';
 import TabBar from '../components/TabBar';
-import UploadResourceModal from '../components/UploadResourceModal';
-
-type Class = { id: string; name: string; semester: string; professor: string | null; class_time: string | null; class_format: string | null; };
-type StudyGuide = { id: string; title: string; source_filename: string; created_at: string; };
-type Task = { id: string; title: string; due_date: string; due_time: string | null; completed: boolean; class_name: string | null; task_type: string; };
+import { supabase } from '../../lib/supabase';
 
 function Mountain() {
   return (
@@ -21,51 +15,21 @@ function Mountain() {
   );
 }
 
-function IconStudyGuide() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-      <rect x="5" y="3" width="14" height="19" rx="2" stroke="#7B6FA0" strokeWidth="1.6" fill="none"/>
-      <line x1="8" y1="8"  x2="16" y2="8"  stroke="#7B6FA0" strokeWidth="1.2"/>
-      <line x1="8" y1="12" x2="16" y2="12" stroke="#7B6FA0" strokeWidth="1.2"/>
-      <line x1="8" y1="16" x2="13" y2="16" stroke="#7B6FA0" strokeWidth="1.2"/>
-      <circle cx="20" cy="20" r="5" stroke="#7B6FA0" strokeWidth="1.4" fill="none"/>
-      <path d="M18.5 20c0-1 .7-1.8 1.5-1.8s1.5.8 1.5 1.8c0 .7-.4 1.2-1.5 1.8v.7" stroke="#7B6FA0" strokeWidth="1.3" strokeLinecap="round"/>
-      <circle cx="20" cy="23.5" r=".6" fill="#7B6FA0"/>
-    </svg>
-  );
-}
+type Task = {
+  id: string;
+  title: string;
+  due_date: string;
+  due_time: string | null;
+  completed: boolean;
+  class_name: string | null;
+  task_type: string;
+};
 
-function IconCards() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-      <rect x="5" y="8" width="16" height="12" rx="2" stroke="#7B6FA0" strokeWidth="1.6" fill="none"/>
-      <rect x="8" y="5" width="16" height="12" rx="2" stroke="#7B6FA0" strokeWidth="1.6" fill="#F3F1EC" strokeOpacity="0.7"/>
-      <line x1="11" y1="11" x2="21" y2="11" stroke="#7B6FA0" strokeWidth="1.2" strokeOpacity="0.5"/>
-    </svg>
-  );
-}
+type ClassRow  = { id: string; name: string; semester: string; professor: string | null; };
+type ExamEvent = { id: string; name: string; exam_date: string; class_name: string; };
 
-function IconExam() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-      <rect x="7" y="3" width="14" height="22" rx="2" stroke="#C8965A" strokeWidth="1.6" fill="none"/>
-      <line x1="10" y1="9"  x2="18" y2="9"  stroke="#C8965A" strokeWidth="1.2"/>
-      <line x1="10" y1="13" x2="18" y2="13" stroke="#C8965A" strokeWidth="1.2"/>
-      <line x1="10" y1="17" x2="15" y2="17" stroke="#C8965A" strokeWidth="1.2"/>
-      <path d="M16 19l1.5 1.5 3-3" stroke="#C8965A" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
-}
-
-function IconUpload() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-      <path d="M14 5v14" stroke="#E8956D" strokeWidth="1.8" strokeLinecap="round"/>
-      <path d="M9 10l5-5 5 5" stroke="#E8956D" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M5 20h18" stroke="#E8956D" strokeWidth="1.8" strokeLinecap="round"/>
-    </svg>
-  );
-}
+const color = '#7B6FA0';
+const light = '#EDE9F7';
 
 const CLASS_COLORS = ['#9B8EC4', '#7B6FA0', '#A89EC4', '#6B7FA0', '#8E9BC4', '#7B8FA0'];
 
@@ -77,137 +41,142 @@ function classLabel(name: string) {
   if (n.includes('algebra') || n.includes('math')) return 'MTH';
   if (n.includes('english'))   return 'ENG';
   if (n.includes('science'))   return 'SCI';
-  if (n.includes('sat') || n.includes('act')) return 'SAT';
   if (n.includes('history'))   return 'HIS';
-  if (n.includes('spanish') || n.includes('french') || n.includes('latin')) return 'LNG';
+  if (n.includes('sat') || n.includes('act')) return 'SAT';
   return name.slice(0, 3).toUpperCase();
 }
 
-function typeColor(type: string) {
-  if (type === 'review')     return '#7B6FA0';
+function taskColor(type: string) {
   if (type === 'exam')       return '#C47878';
   if (type === 'quiz')       return '#C8965A';
   if (type === 'assignment') return '#5FAD8E';
+  if (type === 'review')     return '#7B6FA0';
+  if (type === 'nudge')      return '#7B6FA0';
   if (type === 'reading')    return '#6B7FA0';
-  if (type === 'paper')      return '#9B8EC4';
-  if (type === 'project')    return '#C8965A';
   return '#9E9BB0';
+}
+
+function taskBg(type: string) {
+  if (type === 'exam')       return '#FDF2F2';
+  if (type === 'quiz')       return '#FFF3E8';
+  if (type === 'assignment') return '#EDF7F2';
+  if (type === 'review')     return '#EDE9F7';
+  if (type === 'nudge')      return '#EDE9F7';
+  if (type === 'reading')    return '#EEF1F7';
+  return '#F3F1EC';
+}
+
+function formatDue(dateStr: string): string {
+  const today    = new Date(); today.setHours(0,0,0,0);
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+  const due      = new Date(dateStr + 'T00:00:00');
+  if (due.getTime() === today.getTime())    return 'Today';
+  if (due.getTime() === tomorrow.getTime()) return 'Tomorrow';
+  const diff = Math.ceil((due.getTime() - today.getTime()) / 86400000);
+  if (diff < 0)  return 'Overdue';
+  if (diff <= 7) return `${diff}d`;
+  return due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 function formatTime(t: string | null) {
   if (!t) return null;
   const [h, m] = t.split(':').map(Number);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const hour = h % 12 || 12;
-  return `${hour}:${String(m).padStart(2, '0')} ${ampm}`;
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
 }
 
-function formatDate(d: string) {
-  return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
+const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-const DAYS_SHORT = ['S','M','T','W','T','F','S'];
-const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-
-function getDaysInMonth(year: number, month: number) { return new Date(year, month + 1, 0).getDate(); }
-function getFirstDayOfMonth(year: number, month: number) { return new Date(year, month, 1).getDay(); }
-
-export default function MatthewDashboard() {
+export default function MichaelDashboard() {
   const router   = useRouter();
   const today    = new Date();
   const todayStr = today.toISOString().split('T')[0];
 
-  const [classes,    setClasses]    = useState<Class[]>([]);
-  const [guides,     setGuides]     = useState<StudyGuide[]>([]);
-  const [tasks,      setTasks]      = useState<Task[]>([]);
-  const [loading,    setLoading]    = useState(true);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [calView,    setCalView]    = useState<'week' | 'month'>('week');
-  const [calMonth,   setCalMonth]   = useState(today.getMonth());
-  const [calYear,    setCalYear]    = useState(today.getFullYear());
-  const [showUpload, setShowUpload] = useState(false);
-
-  const weekDays = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() - today.getDay() + i);
-    return d;
-  });
+  const [student,  setStudent]  = useState<{ name: string; grade: string; focus: string } | null>(null);
+  const [classes,  setClasses]  = useState<ClassRow[]>([]);
+  const [tasks,    setTasks]    = useState<Task[]>([]);
+  const [exams,    setExams]    = useState<ExamEvent[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [calView,  setCalView]  = useState<'week' | 'month'>('week');
+  const [showDone, setShowDone] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
-      const [{ data: classData }, { data: guideData }, { data: taskData }] = await Promise.all([
-        supabase.from('classes').select('*').eq('student_id', 'matthew').eq('is_active', true).order('created_at', { ascending: false }),
-        supabase.from('study_guides').select('*').eq('student_id', 'matthew').order('created_at', { ascending: false }).limit(5),
-        supabase.from('tasks').select('*').eq('student_id', 'matthew').order('due_date', { ascending: true }),
+    const load = async () => {
+      const [{ data: studentData }, { data: classData }, { data: taskData }, { data: folderData }] = await Promise.all([
+        supabase.from('students').select('name, grade, focus').eq('id', 'michael').single(),
+        supabase.from('classes').select('id, name, semester, professor').eq('student_id', 'michael').eq('is_active', true).order('created_at', { ascending: false }),
+        supabase.from('tasks').select('*').eq('student_id', 'michael').order('due_date', { ascending: true }),
+        supabase.from('exam_folders').select('id, name, exam_date, class_id').not('exam_date', 'is', null),
       ]);
-      if (classData) setClasses(classData);
-      if (guideData) setGuides(guideData);
-      if (taskData)  setTasks(taskData);
+
+      if (studentData) setStudent(studentData);
+      if (classData)   setClasses(classData);
+      if (taskData)    setTasks(taskData);
+
+      if (folderData && classData) {
+        const classMap: Record<string, string> = {};
+        (classData || []).forEach(c => { classMap[c.id] = c.name; });
+        setExams(folderData.filter(f => f.exam_date).map(f => ({
+          id: f.id, name: f.name, exam_date: f.exam_date, class_name: classMap[f.class_id] || ''
+        })));
+      }
       setLoading(false);
     };
-    fetchData();
+    load();
   }, []);
 
   const toggleTask = async (task: Task) => {
-    await supabase.from('tasks').update({ completed: !task.completed }).eq('id', task.id);
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: !t.completed } : t));
+    const updated = !task.completed;
+    await supabase.from('tasks').update({ completed: updated }).eq('id', task.id);
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: updated } : t));
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this study guide?')) return;
-    setDeletingId(id);
-    await supabase.from('study_guides').delete().eq('id', id);
-    setGuides(guides.filter(g => g.id !== id));
-    setDeletingId(null);
-  };
+  const upcomingTasks  = tasks.filter(t => !t.completed && t.due_date >= todayStr).slice(0, 8);
+  const overdueTasks   = tasks.filter(t => !t.completed && t.due_date < todayStr);
+  const completedTasks = tasks.filter(t => t.completed).slice(0, 5);
+  const todayExams     = exams.filter(e => e.exam_date === todayStr);
+  const reviewTasks    = tasks.filter(t => t.task_type === 'review' && !t.completed && t.due_date >= todayStr).slice(0, 3);
+  const nudgeTasks     = tasks.filter(t => t.task_type === 'nudge'  && !t.completed && t.due_date >= todayStr).slice(0, 3);
 
-  const tasksForDate  = (dateStr: string) => tasks.filter(t => t.due_date === dateStr);
-  const daysInMonth   = getDaysInMonth(calYear, calMonth);
-  const firstDay      = getFirstDayOfMonth(calYear, calMonth);
-  const prevMonth     = () => { if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1); } else setCalMonth(m => m - 1); };
-  const nextMonth     = () => { if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); } else setCalMonth(m => m + 1); };
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - today.getDay());
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    return d;
+  });
 
-  const reviewsToday  = tasks.filter(t => t.task_type === 'review' && t.due_date === todayStr && !t.completed);
-  const upcomingTasks = tasks.filter(t => t.task_type !== 'review' && !t.completed).slice(0, 6);
-  const recentlyDone  = tasks.filter(t => t.completed).slice(0, 3);
+  const year      = today.getFullYear();
+  const month     = today.getMonth();
+  const firstDay  = new Date(year, month, 1).getDay();
+  const daysInMon = new Date(year, month + 1, 0).getDate();
 
-  const DayCell = ({ dateStr, label, isToday }: { dateStr: string; label: string | number; isToday: boolean; }) => {
-    const dayTasks      = tasksForDate(dateStr);
-    const hasIncomplete = dayTasks.some(t => !t.completed);
-    const hasCompleted  = dayTasks.some(t => t.completed);
-    return (
-      <div onClick={() => router.push('/matthew/calendar')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer' }}>
-        <div style={{ width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isToday ? '#7B6FA0' : 'transparent' }}>
-          <span style={{ fontSize: 12, fontWeight: isToday ? 800 : 400, color: isToday ? 'white' : '#1D1B26' }}>{label}</span>
-        </div>
-        <div style={{ display: 'flex', gap: 2, minHeight: 6 }}>
-          {hasIncomplete && <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#7B6FA0' }} />}
-          {hasCompleted  && <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#5FAD8E' }} />}
-        </div>
-      </div>
-    );
-  };
+  const tasksForDate = (d: string) => tasks.filter(t => t.due_date === d && !t.completed);
+  const examsForDate = (d: string) => exams.filter(e => e.exam_date === d);
+  const hasActivity  = (d: string) => tasksForDate(d).length > 0 || examsForDate(d).length > 0;
 
   const TaskRow = ({ task }: { task: Task }) => (
-    <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '13px 16px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', display: 'flex', alignItems: 'center', gap: 12, opacity: task.completed ? 0.5 : 1, transition: 'opacity 0.2s' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: '1px solid #F3F1EC', opacity: task.completed ? 0.45 : 1, transition: 'opacity 0.2s' }}>
       <button
         onClick={() => toggleTask(task)}
-        style={{ width: 22, height: 22, borderRadius: '50%', border: `2px solid ${task.completed ? '#5FAD8E' : '#C4C1D4'}`, background: task.completed ? '#5FAD8E' : 'transparent', cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s' }}
+        style={{ width: 22, height: 22, borderRadius: '50%', border: `2px solid ${task.completed ? '#5FAD8E' : '#C4C1D4'}`, background: task.completed ? '#5FAD8E' : 'transparent', cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: task.completed ? '#9E9BB0' : '#1D1B26', textDecoration: task.completed ? 'line-through' : 'none', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: task.completed ? '#9E9BB0' : '#1D1B26', textDecoration: task.completed ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 2 }}>
           {task.title}
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-          {task.class_name && <span style={{ fontSize: 11, color: '#7B6FA0', fontWeight: 600 }}>{task.class_name}</span>}
-          {task.due_time   && <span style={{ fontSize: 11, color: '#9E9BB0' }}>{formatTime(task.due_time)}</span>}
-          <span style={{ fontSize: 10, fontWeight: 700, color: typeColor(task.task_type), background: typeColor(task.task_type) + '18', padding: '2px 8px', borderRadius: 999 }}>
+          {task.class_name && <span style={{ fontSize: 10, color, fontWeight: 600 }}>{task.class_name}</span>}
+          <span style={{ fontSize: 10, fontWeight: 700, color: taskColor(task.task_type), background: taskBg(task.task_type), padding: '1px 7px', borderRadius: 999 }}>
             {task.task_type.charAt(0).toUpperCase() + task.task_type.slice(1)}
           </span>
         </div>
       </div>
-      <div style={{ fontSize: 11, fontWeight: 700, color: '#C8965A', flexShrink: 0 }}>
-        {formatDate(task.due_date)}
+      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: task.due_date < todayStr ? '#C47878' : task.due_date === todayStr ? color : '#9E9BB0' }}>
+          {formatDue(task.due_date)}
+        </div>
+        {task.due_time && <div style={{ fontSize: 10, color: '#C4C1D4' }}>{formatTime(task.due_time)}</div>}
       </div>
     </div>
   );
@@ -220,211 +189,206 @@ export default function MatthewDashboard() {
           <span style={{ fontSize: 18, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.5px' }}>Ascend</span>
           <span style={{ fontSize: 9, fontWeight: 700, color: '#C4C1D4', letterSpacing: 1.5, textTransform: 'uppercase', fontStyle: 'italic', marginLeft: 4 }}>Forged in Focus</span>
         </Link>
-        <div style={{ flex: 1 }} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px 4px 6px', borderRadius: 999, background: '#EDE9F7' }}>
-          <Image src="/eagle.png" alt="Matthew" width={24} height={24} style={{ objectFit: 'contain' }} />
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#7B6FA0' }}>Matthew</span>
-        </div>
       </nav>
 
-      <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
+      <main style={{ maxWidth: 720, margin: '0 auto', padding: '24px 20px 80px' }}>
 
-        {/* Header */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Welcome back</div>
-          <div style={{ fontSize: 32, fontWeight: 800, color: '#1D1B26', letterSpacing: '-1px', marginBottom: 4 }}>Hey, Matthew.</div>
-          <div style={{ fontSize: 13, color: '#9E9BB0' }}>Pre-Dental · WVU School of Dentistry</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 3 }}>
+              {today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.6px' }}>
+              {student ? `Hey, ${student.name.split(' ')[0]}` : 'Dashboard'}
+            </div>
+            {student?.focus && <div style={{ fontSize: 12, color: '#9E9BB0', marginTop: 2 }}>{student.focus}</div>}
+          </div>
+          <Link href="/michael/profile" style={{ textDecoration: 'none' }}>
+            <div style={{ width: 42, height: 42, borderRadius: '50%', background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${color}30` }}>
+              <span style={{ fontSize: 20 }}>🦁</span>
+            </div>
+          </Link>
         </div>
 
-        {/* Mini Calendar */}
-        <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '16px', marginBottom: 16, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {calView === 'month' && (
-                <>
-                  <button onClick={prevMonth} style={{ width: 24, height: 24, borderRadius: '50%', border: '1px solid #E8E5F0', background: '#FAFAF8', cursor: 'pointer', fontSize: 12, color: '#9E9BB0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26' }}>{MONTHS[calMonth]} {calYear}</span>
-                  <button onClick={nextMonth} style={{ width: 24, height: 24, borderRadius: '50%', border: '1px solid #E8E5F0', background: '#FAFAF8', cursor: 'pointer', fontSize: 12, color: '#9E9BB0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
-                </>
-              )}
-              {calView === 'week' && <span style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26' }}>This Week</span>}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ display: 'flex', background: '#F3F1EC', borderRadius: 8, padding: 2, gap: 2 }}>
-                {(['week', 'month'] as const).map(v => (
-                  <button key={v} onClick={() => setCalView(v)} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: calView === v ? '#FFFFFF' : 'transparent', color: calView === v ? '#7B6FA0' : '#9E9BB0', fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', boxShadow: calView === v ? '0 1px 3px rgba(29,27,38,0.08)' : 'none', textTransform: 'capitalize' }}>{v}</button>
-                ))}
-              </div>
-              <Link href="/matthew/calendar" style={{ textDecoration: 'none', fontSize: 11, fontWeight: 700, color: '#7B6FA0' }}>Open →</Link>
+        {todayExams.map(e => (
+          <div key={e.id} style={{ background: 'linear-gradient(135deg, #C47878, #A05050)', borderRadius: 14, padding: '14px 18px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12, color: 'white' }}>
+            <span style={{ fontSize: 22 }}>📅</span>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 2 }}>{e.name} — Today</div>
+              <div style={{ fontSize: 11, opacity: 0.8 }}>{e.class_name}</div>
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 6 }}>
-            {DAYS_SHORT.map((d, i) => <div key={i} style={{ textAlign: 'center', fontSize: 9, fontWeight: 700, color: '#C4C1D4', letterSpacing: 0.5 }}>{d}</div>)}
-          </div>
-          {calView === 'week' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
-              {weekDays.map((d, i) => <DayCell key={i} dateStr={d.toISOString().split('T')[0]} label={d.getDate()} isToday={d.toISOString().split('T')[0] === todayStr} />)}
+        ))}
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 20 }}>
+          {[
+            { label: 'Study Guide',   emoji: '📖', path: '/michael/study' },
+            { label: 'Flashcards',    emoji: '🗂️', path: '/michael/flashcards' },
+            { label: 'Practice Exam', emoji: '📝', path: '/michael/practice-exam' },
+            { label: 'Classes',       emoji: '📚', path: '/michael/classes' },
+          ].map(tool => (
+            <div
+              key={tool.label}
+              onClick={() => router.push(tool.path)}
+              style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '14px 8px', textAlign: 'center', cursor: 'pointer', boxShadow: '0 1px 4px rgba(29,27,38,0.06)', transition: 'transform 0.15s' }}
+              onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'}
+              onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}
+            >
+              <div style={{ fontSize: 22, marginBottom: 6 }}>{tool.emoji}</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#1D1B26', lineHeight: 1.3 }}>{tool.label}</div>
             </div>
-          )}
-          {calView === 'month' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
-              {Array.from({ length: firstDay }).map((_, i) => <div key={`e-${i}`} />)}
-              {Array.from({ length: daysInMonth }).map((_, i) => {
-                const day     = i + 1;
-                const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                return <DayCell key={day} dateStr={dateStr} label={day} isToday={dateStr === todayStr} />;
+          ))}
+        </div>
+
+        {classes.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4' }}>My Classes</div>
+              <Link href="/michael/classes" style={{ fontSize: 11, fontWeight: 700, color, textDecoration: 'none' }}>See all</Link>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8 }}>
+              {classes.slice(0, 4).map((cls, i) => {
+                const c = CLASS_COLORS[i % CLASS_COLORS.length];
+                return (
+                  <div
+                    key={cls.id}
+                    onClick={() => router.push(`/michael/classes/${cls.id}`)}
+                    style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '14px', cursor: 'pointer', boxShadow: '0 1px 4px rgba(29,27,38,0.06)', transition: 'transform 0.15s' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}
+                  >
+                    <div style={{ width: 32, height: 32, borderRadius: 9, background: c + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: c, marginBottom: 8 }}>
+                      {classLabel(cls.name)}
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: '#1D1B26', lineHeight: 1.3, marginBottom: 2 }}>{cls.name}</div>
+                    <div style={{ fontSize: 10, color: '#9E9BB0' }}>{cls.semester || ''}</div>
+                  </div>
+                );
               })}
             </div>
-          )}
-        </div>
-
-        {/* Spaced Repetition Band */}
-        {reviewsToday.length > 0 && (
-          <div style={{ borderRadius: 18, padding: '20px 22px', marginBottom: 16, color: 'white', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', boxShadow: '0 6px 28px rgba(123,111,160,0.28)' }}>
-            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', opacity: 0.6, marginBottom: 5 }}>Spaced Repetition — Due Today</div>
-            <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 13 }}>
-              {reviewsToday.length} review session{reviewsToday.length !== 1 ? 's' : ''} scheduled
-            </div>
-            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-              {reviewsToday.map(r => (
-                <div
-                  key={r.id}
-                  onClick={() => toggleTask(r)}
-                  style={{ background: 'rgba(255,255,255,0.13)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 999, padding: '6px 13px', fontSize: 11, fontWeight: 600, cursor: 'pointer', textDecoration: r.completed ? 'line-through' : 'none', opacity: r.completed ? 0.5 : 1 }}
-                >
-                  {r.title}
-                </div>
-              ))}
-            </div>
           </div>
         )}
 
-        {/* My Classes — tiled grid */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4' }}>My Classes</div>
-          <Link href="/matthew/add-class" style={{ textDecoration: 'none' }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#7B6FA0', background: '#EDE9F7', padding: '4px 12px', borderRadius: 999 }}>+ Add Class</span>
-          </Link>
-        </div>
-        {loading ? (
-          <p style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 16 }}>Loading...</p>
-        ) : classes.length === 0 ? (
-          <p style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 16 }}>No classes added yet.</p>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(155px, 1fr))', gap: 10, marginBottom: 20 }}>
-            {classes.map((cls, i) => {
-              const color = CLASS_COLORS[i % CLASS_COLORS.length];
-              return (
-                <div
-                  key={cls.id}
-                  onClick={() => router.push(`/matthew/classes/${cls.id}`)}
-                  style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '16px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', cursor: 'pointer', transition: 'transform 0.15s, box-shadow 0.15s' }}
-                  onMouseEnter={e => {
-                    (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)';
-                    (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 20px rgba(123,111,160,0.12)';
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)';
-                    (e.currentTarget as HTMLDivElement).style.boxShadow = '0 1px 6px rgba(29,27,38,0.06)';
-                  }}
-                >
-                  <div style={{ width: 34, height: 34, borderRadius: 10, background: color + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color, marginBottom: 10 }}>
-                    {classLabel(cls.name)}
-                  </div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 3, lineHeight: 1.3 }}>{cls.name}</div>
-                  <div style={{ fontSize: 10, color: '#9E9BB0' }}>{cls.semester || cls.professor || ''}</div>
-                  <div style={{ height: 2, borderRadius: 99, background: '#F3F1EC', marginTop: 10 }} />
-                </div>
-              );
-            })}
-            {/* Add a Class tile */}
-            <div
-              onClick={() => router.push('/matthew/add-class')}
-              style={{ background: '#FFFFFF', border: '1.5px dashed #C4C1D4', borderRadius: 16, padding: '16px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', opacity: 0.5, minHeight: 100 }}
-              onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.opacity = '1'}
-              onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.opacity = '0.5'}
-            >
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: '#F3F1EC', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#C4C1D4', marginBottom: 8 }}>+</div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: '#1D1B26' }}>Add a Class</div>
+        <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '18px 20px', marginBottom: 16, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4' }}>Tasks</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button onClick={() => setShowDone(s => !s)} style={{ fontSize: 10, fontWeight: 700, color: showDone ? color : '#9E9BB0', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                {showDone ? 'Hide done' : 'Show done'}
+              </button>
+              <Link href="/michael/calendar" style={{ fontSize: 10, fontWeight: 700, color, textDecoration: 'none' }}>Calendar →</Link>
             </div>
           </div>
-        )}
 
-        {/* Tasks */}
-        {(upcomingTasks.length > 0 || recentlyDone.length > 0) && (
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4' }}>Upcoming Tasks</div>
-              <Link href="/matthew/calendar" style={{ textDecoration: 'none', fontSize: 11, fontWeight: 700, color: '#7B6FA0' }}>View All →</Link>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {upcomingTasks.map(task => <TaskRow key={task.id} task={task} />)}
-              {recentlyDone.map(task  => <TaskRow key={task.id} task={task} />)}
-            </div>
-          </div>
-        )}
-
-        {/* Study Tools — 4 across */}
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 12 }}>Study Tools</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>
-          <Link href="/matthew/study" style={{ textDecoration: 'none' }}>
-            <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '16px 12px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', cursor: 'pointer', textAlign: 'center' }}>
-              <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}><IconStudyGuide /></div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Study Guide</div>
-              <div style={{ fontSize: 10, color: '#9E9BB0' }}>Generate</div>
-            </div>
-          </Link>
-          <Link href="/matthew/flashcards" style={{ textDecoration: 'none' }}>
-            <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '16px 12px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', cursor: 'pointer', textAlign: 'center' }}>
-              <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}><IconCards /></div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Flashcards</div>
-              <div style={{ fontSize: 10, color: '#9E9BB0' }}>Study a deck</div>
-            </div>
-          </Link>
-          <Link href="/matthew/practice-exam" style={{ textDecoration: 'none' }}>
-            <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '16px 12px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', cursor: 'pointer', textAlign: 'center' }}>
-              <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}><IconExam /></div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Practice Exam</div>
-              <div style={{ fontSize: 10, color: '#9E9BB0' }}>3 modes</div>
-            </div>
-          </Link>
-          <div onClick={() => setShowUpload(true)} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '16px 12px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', cursor: 'pointer', textAlign: 'center' }}>
-            <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}><IconUpload /></div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Upload</div>
-            <div style={{ fontSize: 10, color: '#9E9BB0' }}>Resources</div>
-          </div>
-        </div>
-
-        {/* Recent Study Guides */}
-        <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-          <h2 style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26', marginBottom: 16, marginTop: 0 }}>Recent Study Guides</h2>
           {loading ? (
-            <p style={{ fontSize: 13, color: '#9E9BB0', margin: 0 }}>Loading...</p>
-          ) : guides.length === 0 ? (
-            <p style={{ fontSize: 13, color: '#9E9BB0', margin: 0 }}>Your study guides will appear here once you generate them.</p>
+            <div style={{ textAlign: 'center', padding: '24px 0', color: '#9E9BB0', fontSize: 13 }}>Loading...</div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {guides.map((guide) => (
-                <div key={guide.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 12, background: '#FAFAF8', border: '1px solid #E8E5F0' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{guide.title}</div>
-                    <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 2 }}>{new Date(guide.created_at).toLocaleDateString()}</div>
-                  </div>
-                  <button onClick={() => handleDelete(guide.id)} disabled={deletingId === guide.id} style={{ marginLeft: 12, fontSize: 11, fontWeight: 700, color: '#9E9BB0', background: '#E8E5F0', border: 'none', padding: '4px 10px', borderRadius: 8, cursor: 'pointer', opacity: deletingId === guide.id ? 0.3 : 1 }}>
-                    {deletingId === guide.id ? '...' : 'Delete'}
-                  </button>
+            <>
+              {overdueTasks.length > 0 && (
+                <div style={{ background: '#FDF2F2', borderRadius: 10, padding: '8px 12px', marginBottom: 8, marginTop: 8 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#C47878', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Overdue</div>
+                  {overdueTasks.map(task => <TaskRow key={task.id} task={task} />)}
                 </div>
+              )}
+
+              {upcomingTasks.length === 0 && overdueTasks.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>✅</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>All clear</div>
+                  <div style={{ fontSize: 12, color: '#9E9BB0' }}>No upcoming tasks. Add one from the calendar.</div>
+                </div>
+              ) : (
+                upcomingTasks.map(task => <TaskRow key={task.id} task={task} />)
+              )}
+
+              {showDone && completedTasks.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#C4C1D4', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Completed</div>
+                  {completedTasks.map(task => <TaskRow key={task.id} task={task} />)}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {(reviewTasks.length > 0 || nudgeTasks.length > 0) && (
+          <div style={{ background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', borderRadius: 18, padding: '18px 20px', marginBottom: 16 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', marginBottom: 10 }}>
+              {reviewTasks.length > 0 ? 'Spaced Repetition' : 'Upcoming Exams'}
+            </div>
+            {[...nudgeTasks, ...reviewTasks].map(task => (
+              <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <button onClick={() => toggleTask(task)} style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.4)', background: task.completed ? '#5FAD8E' : 'transparent', cursor: 'pointer', flexShrink: 0 }} />
+                <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: 'white', textDecoration: task.completed ? 'line-through' : 'none', opacity: task.completed ? 0.5 : 1 }}>{task.title}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.6)' }}>{formatDue(task.due_date)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '18px 20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4' }}>Calendar</div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {(['week', 'month'] as const).map(v => (
+                <button key={v} onClick={() => setCalView(v)} style={{ padding: '4px 10px', borderRadius: 999, border: 'none', background: calView === v ? color : 'transparent', color: calView === v ? 'white' : '#9E9BB0', fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', textTransform: 'capitalize' }}>{v}</button>
               ))}
+              <Link href="/michael/calendar" style={{ padding: '4px 10px', borderRadius: 999, background: light, color, fontSize: 10, fontWeight: 700, textDecoration: 'none', marginLeft: 4 }}>Open</Link>
+            </div>
+          </div>
+
+          {calView === 'week' ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+              {weekDays.map((d, i) => {
+                const ds      = d.toISOString().split('T')[0];
+                const isToday = ds === todayStr;
+                const active  = hasActivity(ds);
+                return (
+                  <div key={i} onClick={() => router.push('/michael/calendar')} style={{ textAlign: 'center', cursor: 'pointer', padding: '6px 2px', borderRadius: 10, background: isToday ? color : 'transparent' }}>
+                    <div style={{ fontSize: 9, fontWeight: 600, color: isToday ? 'rgba(255,255,255,0.7)' : '#C4C1D4', marginBottom: 4 }}>{DAYS[i].slice(0, 1)}</div>
+                    <div style={{ fontSize: 13, fontWeight: isToday ? 800 : 500, color: isToday ? 'white' : '#1D1B26', marginBottom: 4 }}>{d.getDate()}</div>
+                    {active && <div style={{ width: 5, height: 5, borderRadius: '50%', background: isToday ? 'rgba(255,255,255,0.7)' : color, margin: '0 auto' }} />}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div>
+              <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 800, color: '#1D1B26', marginBottom: 10 }}>
+                {MONTHS[month]} {year}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
+                {['S','M','T','W','T','F','S'].map((d, i) => (
+                  <div key={i} style={{ textAlign: 'center', fontSize: 9, fontWeight: 700, color: '#C4C1D4' }}>{d}</div>
+                ))}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+                {Array.from({ length: firstDay }).map((_, i) => <div key={`e-${i}`} />)}
+                {Array.from({ length: daysInMon }).map((_, i) => {
+                  const day     = i + 1;
+                  const ds      = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                  const isToday = ds === todayStr;
+                  const active  = hasActivity(ds);
+                  const hasExam = examsForDate(ds).length > 0;
+                  return (
+                    <div key={day} onClick={() => router.push('/michael/calendar')} style={{ textAlign: 'center', padding: '4px 2px', borderRadius: 8, cursor: 'pointer', background: isToday ? color : 'transparent' }}>
+                      <div style={{ fontSize: 11, fontWeight: isToday ? 800 : 400, color: isToday ? 'white' : '#1D1B26' }}>{day}</div>
+                      {(active || hasExam) && (
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: 2, marginTop: 1 }}>
+                          {active  && <div style={{ width: 3, height: 3, borderRadius: '50%', background: isToday ? 'rgba(255,255,255,0.7)' : color }} />}
+                          {hasExam && <div style={{ width: 3, height: 3, borderRadius: '50%', background: isToday ? 'rgba(255,255,255,0.7)' : '#C47878' }} />}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
+
       </main>
-
-      {showUpload && (
-        <UploadResourceModal student="matthew" onClose={() => setShowUpload(false)} />
-      )}
-
-      <TabBar student="matthew" />
+      <TabBar student="michael" />
     </div>
   );
 }
