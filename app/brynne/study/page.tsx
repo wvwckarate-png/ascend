@@ -17,6 +17,82 @@ function Mountain() {
   );
 }
 
+function IconFolder({ c, size = 16 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <path d="M3 9a2 2 0 012-2h5l2 2h11a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke={c} strokeWidth="1.6" strokeLinejoin="round" fill="none"/>
+    </svg>
+  );
+}
+
+function IconFile({ c, size = 16 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <path d="M6 4h10l6 6v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke={c} strokeWidth="1.6" strokeLinejoin="round" fill="none"/>
+      <path d="M16 4v6h6" stroke={c} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function IconEmptyFolder({ size = 36 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 36 36" fill="none">
+      <path d="M4 11a2 2 0 012-2h6l3 3h14a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V11z" stroke="#C4C1D4" strokeWidth="1.6" strokeLinejoin="round" fill="none"/>
+      <line x1="12" y1="20" x2="24" y2="20" stroke="#E8E5F0" strokeWidth="1.4" strokeLinecap="round"/>
+      <line x1="12" y1="24" x2="19" y2="24" stroke="#E8E5F0" strokeWidth="1.4" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function IconPrint({ c = '#6B6880', size = 16 }: { c?: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="6" y="3" width="16" height="8" rx="1" stroke={c} strokeWidth="1.5" fill="none"/>
+      <path d="M6 11H4a2 2 0 00-2 2v7a2 2 0 002 2h2v-4h16v4h2a2 2 0 002-2v-7a2 2 0 00-2-2H6z" stroke={c} strokeWidth="1.5" fill="none"/>
+      <rect x="6" y="18" width="16" height="7" rx="1" stroke={c} strokeWidth="1.5" fill="none"/>
+    </svg>
+  );
+}
+
+function IconShare({ c = '#6B6880', size = 16 }: { c?: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <path d="M14 4v14" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
+      <path d="M9 9l5-5 5 5" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M5 16v6a2 2 0 002 2h14a2 2 0 002-2v-6" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function IconCopy({ c = '#6B6880', size = 16 }: { c?: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="9" y="9" width="15" height="16" rx="2" stroke={c} strokeWidth="1.5" fill="none"/>
+      <path d="M5 19V6a2 2 0 012-2h13" stroke={c} strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function IconDownload({ c = '#6B6880', size = 16 }: { c?: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <path d="M14 4v14" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
+      <path d="M9 13l5 5 5-5" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M4 22h20" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function IconStack({ c, size = 16 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="4" y="14" width="20" height="10" rx="2" stroke={c} strokeWidth="1.5" fill="none"/>
+      <rect x="6" y="9"  width="16" height="8"  rx="2" stroke={c} strokeWidth="1.4" fill="none" opacity="0.6"/>
+      <rect x="8" y="4"  width="12" height="8"  rx="2" stroke={c} strokeWidth="1.3" fill="none" opacity="0.35"/>
+    </svg>
+  );
+}
+
 const LEVELS = [
   { id: 'outline',  label: 'Outline',  desc: 'Headers and bullets only. Quick overview!' },
   { id: 'basic',    label: 'Basic',    desc: 'Short explanations. Good for review.' },
@@ -190,13 +266,14 @@ function BrynneStudyInner() {
       <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Brynne</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Study Guide 📖</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Study Guide</div>
           <div style={{ fontSize: 13, color: '#9E9BB0' }}>Pick your materials and Ascend will make you an awesome study guide!</div>
         </div>
 
         {!studyGuide ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
+            {/* Resource Library */}
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                 <div>
@@ -215,7 +292,7 @@ function BrynneStudyInner() {
                   <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6 }}>New Files</div>
                   {newFiles.map((f, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: light, marginBottom: 4 }}>
-                      <span style={{ fontSize: 14 }}>📄</span>
+                      <IconFile c={color} size={14} />
                       <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
                       <button onClick={() => setNewFiles(prev => prev.filter((_, idx) => idx !== i))} style={{ fontSize: 12, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
                     </div>
@@ -227,7 +304,9 @@ function BrynneStudyInner() {
                 <div style={{ textAlign: 'center', padding: '20px 0', color: '#9E9BB0', fontSize: 13 }}>Loading your files...</div>
               ) : library.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '24px 0', border: '2px dashed #E8E5F0', borderRadius: 12 }}>
-                  <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+                    <IconEmptyFolder size={40} />
+                  </div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>No files uploaded yet!</div>
                   <div style={{ fontSize: 12, color: '#9E9BB0' }}>Upload files to your class folders, or use the button above to add files now.</div>
                 </div>
@@ -258,7 +337,8 @@ function BrynneStudyInner() {
                                 <div key={folder.id} style={{ marginTop: 8 }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: '#F3F1EC', cursor: 'pointer', marginBottom: 4 }} onClick={() => setExpandedFolders(prev => { const n = new Set(prev); n.has(folder.id) ? n.delete(folder.id) : n.add(folder.id); return n; })}>
                                     <span style={{ fontSize: 10, color: '#9E9BB0', width: 10 }}>{fExp ? '▾' : '▸'}</span>
-                                    <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: '#1D1B26' }}>📁 {folder.name}</span>
+                                    <IconFolder c="#9E9BB0" size={13} />
+                                    <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: '#1D1B26' }}>{folder.name}</span>
                                     <span style={{ fontSize: 10, color: '#9E9BB0' }}>{folder.resources.length} file{folder.resources.length !== 1 ? 's' : ''}</span>
                                     <button onClick={e => { e.stopPropagation(); toggleFolder(folder); }} style={{ fontSize: 10, fontWeight: 700, color: fAllSel || fSomeSel ? color : '#9E9BB0', background: fAllSel || fSomeSel ? light : '#FFFFFF', border: `1px solid ${fAllSel || fSomeSel ? color : '#E8E5F0'}`, borderRadius: 999, padding: '2px 8px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
                                       {fAllSel ? 'Deselect' : 'Select all'}
@@ -273,7 +353,8 @@ function BrynneStudyInner() {
                                             <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${isSel ? color : '#C4C1D4'}`, background: isSel ? color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                               {isSel && <span style={{ color: 'white', fontSize: 10 }}>✓</span>}
                                             </div>
-                                            <span style={{ fontSize: 12, fontWeight: isSel ? 700 : 500, color: isSel ? color : '#1D1B26', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {r.file_name}</span>
+                                            <IconFile c={isSel ? color : '#9E9BB0'} size={13} />
+                                            <span style={{ fontSize: 12, fontWeight: isSel ? 700 : 500, color: isSel ? color : '#1D1B26', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.file_name}</span>
                                           </div>
                                         );
                                       })}
@@ -292,12 +373,13 @@ function BrynneStudyInner() {
 
               {totalSelected > 0 && (
                 <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 10, background: color, color: 'white', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 13 }}>📚</span>
+                  <IconStack c="rgba(255,255,255,0.8)" size={15} />
                   <span style={{ fontSize: 12, fontWeight: 700 }}>{totalSelected} file{totalSelected !== 1 ? 's' : ''} selected{totalSelected > 1 ? ' — Ascend will find what shows up most! 🌟' : ''}</span>
                 </div>
               )}
             </div>
 
+            {/* Level selector */}
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 12 }}>How Much Detail?</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -310,16 +392,18 @@ function BrynneStudyInner() {
               </div>
             </div>
 
+            {/* Custom instructions */}
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 4 }}>Special Instructions</div>
               <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 10 }}>Tell Ascend anything special you want it to focus on!</div>
               <textarea value={customInstructions} onChange={e => setCustomInstructions(e.target.value)} placeholder='e.g. "Focus on chapter 3" or "Make it easy to understand"' rows={3} style={{ width: '100%', padding: '11px 13px', border: `1.5px solid ${color}20`, borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.6 }} />
             </div>
 
+            {/* Practice questions toggle */}
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: addQuestions ? 16 : 0 }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Add Practice Questions? 📝</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Add Practice Questions?</div>
                   <div style={{ fontSize: 11, color: '#9E9BB0' }}>Add some questions to test yourself!</div>
                 </div>
                 <button onClick={() => setAddQuestions(q => !q)} style={{ width: 44, height: 26, borderRadius: 999, border: 'none', background: addQuestions ? color : '#E8E5F0', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
@@ -367,7 +451,7 @@ function BrynneStudyInner() {
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '24px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
             {showNamePrompt && (
               <div style={{ background: light, borderRadius: 14, padding: '18px', marginBottom: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: color, marginBottom: 10 }}>What should we call this study guide? 📖</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color, marginBottom: 10 }}>What should we call this study guide?</div>
                 <input type="text" value={guideName} onChange={e => setGuideName(e.target.value)} placeholder='e.g. "Chapter 4 Math Study Guide"' style={{ width: '100%', padding: '10px 13px', border: `1.5px solid ${color}`, borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FFFFFF', outline: 'none', marginBottom: 10 }} />
                 <button onClick={handleSave} disabled={!guideName.trim() || saving} style={{ width: '100%', padding: '11px', borderRadius: 11, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !guideName.trim() || saving ? 0.4 : 1 }}>
                   {saving ? 'Saving...' : 'Save to Ascend 🌟'}
@@ -377,7 +461,7 @@ function BrynneStudyInner() {
             {saved && (
               <div style={{ background: '#EDF7F2', borderRadius: 12, padding: '12px 16px', marginBottom: 20 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#5FAD8E', marginBottom: 4 }}>✅ Saved to your Ascend dashboard!</div>
-                <div style={{ fontSize: 11, color: '#9E9BB0' }}>📅 Review reminders set for Day 1, Day 3, and Day 7!</div>
+                <div style={{ fontSize: 11, color: '#9E9BB0' }}>Review reminders set for Day 1, Day 3, and Day 7!</div>
               </div>
             )}
             {sourceFiles.length > 0 && (
@@ -385,7 +469,7 @@ function BrynneStudyInner() {
                 <span style={{ fontSize: 10, fontWeight: 700, color: '#9E9BB0', letterSpacing: 1, textTransform: 'uppercase', alignSelf: 'center', marginRight: 2 }}>From</span>
                 {sourceFiles.map((name, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 999, background: light, border: `1px solid ${color}30` }}>
-                    <span style={{ fontSize: 10 }}>📄</span>
+                    <IconFile c={color} size={11} />
                     <span style={{ fontSize: 11, fontWeight: 600, color }}>{name}</span>
                   </div>
                 ))}
@@ -396,15 +480,23 @@ function BrynneStudyInner() {
               <button onClick={() => { setStudyGuide(''); setSelectedIds(new Set()); setNewFiles([]); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); }} style={{ fontSize: 12, fontWeight: 700, color, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Make Another</button>
             </div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
-              <button onClick={handlePrint}    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>🖨️ Print</button>
-              <button onClick={handleShare}    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>📤 Share</button>
-              <button onClick={handleCopy}     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: `1.5px solid ${copied ? '#5FAD8E' : '#E8E5F0'}`, background: copied ? '#EDF7F2' : '#FAFAF8', color: copied ? '#5FAD8E' : '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{copied ? '✅ Copied!' : '📋 Copy'}</button>
-              <button onClick={handleDownload} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>⬇️ PDF</button>
+              <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                <IconPrint size={14} /> Print
+              </button>
+              <button onClick={handleShare} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                <IconShare size={14} /> Share
+              </button>
+              <button onClick={handleCopy} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: `1.5px solid ${copied ? '#5FAD8E' : '#E8E5F0'}`, background: copied ? '#EDF7F2' : '#FAFAF8', color: copied ? '#5FAD8E' : '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                <IconCopy c={copied ? '#5FAD8E' : '#6B6880'} size={14} /> {copied ? 'Copied!' : 'Copy'}
+              </button>
+              <button onClick={handleDownload} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                <IconDownload size={14} /> PDF
+              </button>
             </div>
             <div ref={printRef} style={{ padding: '4px' }}>
               <ReactMarkdown components={{
-                h1: ({children}) => <h1 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.4rem', fontWeight: 800, color: color, marginTop: '1.5rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: `2px solid ${light}` }}>{children}</h1>,
-                h2: ({children}) => <h2 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.1rem', fontWeight: 800, color: color, marginTop: '1.25rem', marginBottom: '0.5rem' }}>{children}</h2>,
+                h1: ({children}) => <h1 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.4rem', fontWeight: 800, color, marginTop: '1.5rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: `2px solid ${light}` }}>{children}</h1>,
+                h2: ({children}) => <h2 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.1rem', fontWeight: 800, color, marginTop: '1.25rem', marginBottom: '0.5rem' }}>{children}</h2>,
                 h3: ({children}) => <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1D1B26', marginTop: '1rem', marginBottom: '0.25rem' }}>{children}</h3>,
                 p:  ({children}) => <p  style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: '0.75rem' }}>{children}</p>,
                 strong: ({children}) => <strong style={{ fontWeight: 700, color: '#1D1B26' }}>{children}</strong>,
