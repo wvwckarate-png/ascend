@@ -15,6 +15,130 @@ function Mountain() {
   );
 }
 
+function IconBrain({ c, size = 28 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <path d="M4 6c5 0 8 2 10 4C16 8 19 6 24 6v16c-5 0-8 2-10 4C12 24 9 22 4 22V6z"
+        stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      <line x1="14" y1="10" x2="14" y2="24" stroke={c} strokeWidth="1.4" strokeLinecap="round"/>
+      <path d="M19 11l-2 3h3l-2 3" stroke={c} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function IconCards({ c, size = 28 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="5" y="8" width="16" height="12" rx="2" stroke={c} strokeWidth="1.6" fill="none"/>
+      <rect x="8" y="5" width="16" height="12" rx="2" stroke={c} strokeWidth="1.6" fill="#EDE9F7" strokeOpacity="0.7"/>
+      <line x1="11" y1="11" x2="21" y2="11" stroke={c} strokeWidth="1.2" strokeOpacity="0.5"/>
+    </svg>
+  );
+}
+
+function IconExam({ c, size = 28 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="7" y="3" width="14" height="22" rx="2" stroke={c} strokeWidth="1.6" fill="none"/>
+      <line x1="10" y1="9"  x2="18" y2="9"  stroke={c} strokeWidth="1.2"/>
+      <line x1="10" y1="13" x2="18" y2="13" stroke={c} strokeWidth="1.2"/>
+      <line x1="10" y1="17" x2="15" y2="17" stroke={c} strokeWidth="1.2"/>
+      <path d="M16 19l1.5 1.5 3-3" stroke={c} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function IconFolder({ c, size = 28 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <path d="M3 9a2 2 0 012-2h5l2 2h11a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+        stroke={c} strokeWidth="1.6" strokeLinejoin="round" fill="none"/>
+    </svg>
+  );
+}
+
+function IconMic({ c, size = 28 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="10" y="3" width="8" height="13" rx="4" stroke={c} strokeWidth="1.6" fill="none"/>
+      <path d="M6 15a8 8 0 0016 0" stroke={c} strokeWidth="1.6" strokeLinecap="round" fill="none"/>
+      <line x1="14" y1="23" x2="14" y2="26" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
+      <line x1="10" y1="26" x2="18" y2="26" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function IconPhoto({ c, size = 28 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="3" y="6" width="22" height="16" rx="2" stroke={c} strokeWidth="1.6" fill="none"/>
+      <circle cx="9" cy="12" r="2" stroke={c} strokeWidth="1.4" fill="none"/>
+      <path d="M3 20l6-5 4 4 3-3 6 5" stroke={c} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function IconLink({ c, size = 28 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <path d="M11 17l6-6" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
+      <path d="M8 13l-2 2a4 4 0 005.7 5.7l2-2" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      <path d="M14 10l2-2a4 4 0 015.7 5.7l-2 2" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    </svg>
+  );
+}
+
+function IconFilePDF({ c, size = 28 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <path d="M6 4h10l6 6v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z"
+        stroke={c} strokeWidth="1.6" strokeLinejoin="round" fill="none"/>
+      <path d="M16 4v6h6" stroke={c} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+      <line x1="9" y1="15" x2="19" y2="15" stroke={c} strokeWidth="1.2" strokeLinecap="round"/>
+      <line x1="9" y1="19" x2="15" y2="19" stroke={c} strokeWidth="1.2" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function IconSlides({ c, size = 28 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="2" y="5" width="24" height="16" rx="2" stroke={c} strokeWidth="1.6" fill="none"/>
+      <line x1="14" y1="21" x2="14" y2="25" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
+      <line x1="10" y1="25" x2="18" y2="25" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
+      <path d="M11 10l5 3-5 3V10z" stroke={c} strokeWidth="1.4" strokeLinejoin="round" fill="none"/>
+    </svg>
+  );
+}
+
+function IconCloudUpload({ c, size = 28 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <path d="M20 19a5 5 0 10-1-9.9A7 7 0 104 17" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      <path d="M14 15v8" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
+      <path d="M11 18l3-3 3 3" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function FileTypeIcon({ type, c, size = 20 }: { type: string; c: string; size?: number }) {
+  if (type === 'pdf')   return <IconFilePDF c={c} size={size} />;
+  if (type === 'pptx')  return <IconSlides  c={c} size={size} />;
+  if (type === 'audio') return <IconMic     c={c} size={size} />;
+  if (type === 'image') return <IconPhoto   c={c} size={size} />;
+  if (type === 'gdoc')  return <IconLink    c={c} size={size} />;
+  return <IconFilePDF c={c} size={size} />;
+}
+
+function TabIcon({ tabKey, active }: { tabKey: string; active: boolean }) {
+  const c = active ? '#7B6FA0' : '#C4C1D4';
+  if (tabKey === 'resources') return <IconFolder c={c} size={15} />;
+  if (tabKey === 'cards')     return <IconCards  c={c} size={15} />;
+  if (tabKey === 'exam')      return <IconExam   c={c} size={15} />;
+  if (tabKey === 'guide')     return <IconBrain  c={c} size={15} />;
+  return null;
+}
+
 function classLabel(name: string) {
   const n = (name || '').toLowerCase();
   if (n.includes('physics'))   return 'PHY';
@@ -33,23 +157,19 @@ type Folder   = { id: string; name: string; exam_date: string | null; };
 type Resource = { id: string; file_name: string; file_type: string; storage_url: string | null; created_at: string; };
 
 const TABS = [
-  { key: 'resources', label: 'Resources',     icon: '📂' },
-  { key: 'cards',     label: 'Flashcards',    icon: '🃏' },
-  { key: 'exam',      label: 'Practice Exam', icon: '📝' },
-  { key: 'guide',     label: 'Study Guide',   icon: '📖' },
+  { key: 'resources', label: 'Resources' },
+  { key: 'cards',     label: 'Flashcards' },
+  { key: 'exam',      label: 'Practice Exam' },
+  { key: 'guide',     label: 'Study Guide' },
 ];
 
 const FILE_TYPES = [
-  { key: 'pdf',      label: 'PDF',        icon: '📄', accept: '.pdf' },
-  { key: 'pptx',     label: 'Slides',     icon: '📊', accept: '.pptx,.ppt' },
-  { key: 'audio',    label: 'Audio',      icon: '🎙️', accept: '.mp3,.m4a,.wav,.ogg' },
-  { key: 'image',    label: 'Image',      icon: '🖼️', accept: '.png,.jpg,.jpeg,.webp' },
-  { key: 'gdoc',     label: 'Google Doc', icon: '🔗', accept: '' },
+  { key: 'pdf',   label: 'PDF',        accept: '.pdf' },
+  { key: 'pptx',  label: 'Slides',     accept: '.pptx,.ppt' },
+  { key: 'audio', label: 'Audio',      accept: '.mp3,.m4a,.wav,.ogg' },
+  { key: 'image', label: 'Image',      accept: '.png,.jpg,.jpeg,.webp' },
+  { key: 'gdoc',  label: 'Google Doc', accept: '' },
 ];
-
-function fileIcon(type: string) {
-  return FILE_TYPES.find(f => f.key === type)?.icon || '📎';
-}
 
 function formatDate(d: string | null) {
   if (!d) return null;
@@ -225,7 +345,8 @@ export default function MatthewBinder() {
               <div style={{ display: 'flex', borderBottom: '1.5px solid #E8E5F0', marginLeft: -24, marginRight: -24, paddingLeft: 24 }}>
                 {TABS.map(t => (
                   <button key={t.key} onClick={() => setTab(t.key)} style={{ padding: '10px 18px', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none', background: 'transparent', borderBottom: `2.5px solid ${tab === t.key ? '#7B6FA0' : 'transparent'}`, marginBottom: -1.5, color: tab === t.key ? '#7B6FA0' : '#9E9BB0', whiteSpace: 'nowrap', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ fontSize: 13 }}>{t.icon}</span>{t.label}
+                    <TabIcon tabKey={t.key} active={tab === t.key} />
+                    {t.label}
                   </button>
                 ))}
               </div>
@@ -245,7 +366,9 @@ export default function MatthewBinder() {
                   </div>
                   {resources.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
-                      <div style={{ fontSize: 40, marginBottom: 12 }}>📂</div>
+                      <div style={{ width: 64, height: 64, borderRadius: 18, background: '#EDE9F7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                        <IconFolder c="#7B6FA0" size={32} />
+                      </div>
                       <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No resources yet</div>
                       <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>Upload PDFs, slides, audio recordings, old exams, or Google Doc links.</div>
                       <button onClick={() => setShowUpload(true)} style={{ padding: '11px 24px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Upload First Resource</button>
@@ -254,7 +377,9 @@ export default function MatthewBinder() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {resources.map(r => (
                         <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', background: '#FAFAF8', borderRadius: 12, border: '1.5px solid #E8E5F0' }}>
-                          <div style={{ width: 36, height: 36, borderRadius: 10, background: '#EDE9F7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{fileIcon(r.file_type)}</div>
+                          <div style={{ width: 36, height: 36, borderRadius: 10, background: '#EDE9F7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <FileTypeIcon type={r.file_type} c="#7B6FA0" size={18} />
+                          </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.file_name}</div>
                             <div style={{ fontSize: 11, color: '#9E9BB0', textTransform: 'capitalize', marginTop: 2 }}>{r.file_type}</div>
@@ -276,9 +401,12 @@ export default function MatthewBinder() {
                       <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Flashcards</div>
                       <div style={{ fontSize: 12, color: '#9E9BB0' }}>Generate a deck from this folder's material</div>
                     </div>
-{hasResources && <button onClick={() => router.push(`/matthew/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate</button>}                  </div>
+                    {hasResources && <button onClick={() => router.push(`/matthew/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate</button>}
+                  </div>
                   <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
-                    <div style={{ fontSize: 40, marginBottom: 12 }}>🃏</div>
+                    <div style={{ width: 64, height: 64, borderRadius: 18, background: '#EDE9F7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                      <IconCards c="#7B6FA0" size={32} />
+                    </div>
                     <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No flashcard deck yet</div>
                     <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Generate a Smart or Basic deck from the resources in this folder.' : 'Upload resources first, then generate a flashcard deck.'}</div>
                     <button onClick={() => hasResources ? router.push('/matthew/flashcards') : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? '#7B6FA0' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
@@ -295,9 +423,12 @@ export default function MatthewBinder() {
                       <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Practice Exam</div>
                       <div style={{ fontSize: 12, color: '#9E9BB0' }}>Generate a practice exam from this folder</div>
                     </div>
-{hasResources && <button onClick={() => router.push(`/matthew/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: '#C8965A', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>Generate</button>}                  </div>
+                    {hasResources && <button onClick={() => router.push(`/matthew/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: '#C8965A', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>Generate</button>}
+                  </div>
                   <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
-                    <div style={{ fontSize: 40, marginBottom: 12 }}>📝</div>
+                    <div style={{ width: 64, height: 64, borderRadius: 18, background: '#FFF3E8', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                      <IconExam c="#C8965A" size={32} />
+                    </div>
                     <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No practice exam yet</div>
                     <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Generate a practice exam weighted to your weak areas.' : 'Upload resources first, then generate a practice exam.'}</div>
                     <button onClick={() => hasResources ? router.push('/matthew/practice-exam') : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? '#C8965A' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
@@ -314,9 +445,12 @@ export default function MatthewBinder() {
                       <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Study Guide</div>
                       <div style={{ fontSize: 12, color: '#9E9BB0' }}>Generate a full study guide from this folder</div>
                     </div>
-{hasResources && <button onClick={() => router.push(`/matthew/study?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate</button>}                  </div>
+                    {hasResources && <button onClick={() => router.push(`/matthew/study?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate</button>}
+                  </div>
                   <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
-                    <div style={{ fontSize: 40, marginBottom: 12 }}>📖</div>
+                    <div style={{ width: 64, height: 64, borderRadius: 18, background: '#EDE9F7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                      <IconBrain c="#7B6FA0" size={32} />
+                    </div>
                     <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No study guide yet</div>
                     <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Ascend builds a full outline and active recall guide from your uploaded material.' : 'Upload resources first — Ascend builds the study guide from your material.'}</div>
                     <button onClick={() => hasResources ? router.push('/matthew/study') : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? '#7B6FA0' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
@@ -350,7 +484,9 @@ export default function MatthewBinder() {
                   onClick={() => { setUpType(ft.key); setUpFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
                   style={{ padding: '12px 6px', borderRadius: 12, border: `1.5px solid ${upType === ft.key ? '#7B6FA0' : '#E8E5F0'}`, background: upType === ft.key ? '#EDE9F7' : '#FAFAF8', cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s' }}
                 >
-                  <div style={{ fontSize: 22, marginBottom: 5 }}>{ft.icon}</div>
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 5 }}>
+                    <FileTypeIcon type={ft.key} c={upType === ft.key ? '#7B6FA0' : '#C4C1D4'} size={22} />
+                  </div>
                   <div style={{ fontSize: 10, fontWeight: 700, color: upType === ft.key ? '#7B6FA0' : '#9E9BB0' }}>{ft.label}</div>
                 </div>
               ))}
@@ -394,7 +530,9 @@ export default function MatthewBinder() {
                 />
                 {upFile ? (
                   <div style={{ padding: '14px 16px', borderRadius: 12, border: '1.5px solid #7B6FA0', background: '#EDE9F7', display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ fontSize: 24 }}>{selectedType?.icon}</span>
+                    <div style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <FileTypeIcon type={upType} c="#7B6FA0" size={24} />
+                    </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{upFile.name}</div>
                       <div style={{ fontSize: 11, color: '#9E9BB0' }}>{(upFile.size / 1024 / 1024).toFixed(1)} MB</div>
@@ -408,7 +546,9 @@ export default function MatthewBinder() {
                     onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.borderColor = '#7B6FA0'}
                     onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.borderColor = '#E8E5F0'}
                   >
-                    <div style={{ fontSize: 32, marginBottom: 8 }}>☁️</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+                      <IconCloudUpload c="#C4C1D4" size={40} />
+                    </div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>Tap to choose file</div>
                     <div style={{ fontSize: 11, color: '#9E9BB0' }}>{selectedType?.accept?.replace(/\./g, '').toUpperCase().replace(/,/g, ', ')}</div>
                   </div>
@@ -449,7 +589,7 @@ export default function MatthewBinder() {
                 disabled={!upName.trim() || !upType || uploading || upSaved || (upType === 'gdoc' ? !upLink.trim() : false)}
                 style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: upSaved ? '#5FAD8E' : !upName.trim() || !upType ? '#F3F1EC' : 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: !upName.trim() || !upType ? '#C4C1D4' : 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: uploading ? 0.7 : 1 }}
               >
-                {upSaved ? '✅ Saved!' : uploading ? 'Uploading...' : upFile ? 'Upload & Save' : 'Save Resource'}
+                {upSaved ? 'Saved!' : uploading ? 'Uploading...' : upFile ? 'Upload & Save' : 'Save Resource'}
               </button>
             </div>
           </div>

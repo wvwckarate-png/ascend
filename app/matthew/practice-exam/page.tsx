@@ -15,6 +15,44 @@ function Mountain() {
   );
 }
 
+function IconFolder({ c, size = 22 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <path d="M3 9a2 2 0 012-2h5l2 2h11a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+        stroke={c} strokeWidth="1.6" strokeLinejoin="round" fill="none"/>
+    </svg>
+  );
+}
+
+function IconScoreHigh({ size = 52 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 52 52" fill="none">
+      <circle cx="26" cy="26" r="22" stroke="#5FAD8E" strokeWidth="2" fill="#EDF7F2"/>
+      <path d="M16 27l7 7 13-14" stroke="#5FAD8E" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function IconScoreMid({ size = 52 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 52 52" fill="none">
+      <circle cx="26" cy="26" r="22" stroke="#C8965A" strokeWidth="2" fill="#FFF3E8"/>
+      <path d="M18 32l4-8 4 5 4-6 4 5" stroke="#C8965A" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function IconScoreLow({ size = 52 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 52 52" fill="none">
+      <circle cx="26" cy="26" r="22" stroke="#7B6FA0" strokeWidth="2" fill="#EDE9F7"/>
+      <path d="M20 20l4 6 4-6" stroke="#7B6FA0" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M20 30h12" stroke="#7B6FA0" strokeWidth="2.4" strokeLinecap="round"/>
+      <circle cx="26" cy="38" r="1.5" fill="#7B6FA0"/>
+    </svg>
+  );
+}
+
 type Question = { front: string; back: string; };
 
 function MatthewPracticeExamInner() {
@@ -36,7 +74,6 @@ function MatthewPracticeExamInner() {
   const [scores,        setScores]        = useState<Record<number, boolean>>({});
   const [screen,        setScreen]        = useState<'setup' | 'exam' | 'done'>('setup');
 
-  // Load folder PDFs if folderId in URL
   useEffect(() => {
     if (!folderId) return;
     if (folderName) setTopic(folderName);
@@ -169,7 +206,9 @@ function MatthewPracticeExamInner() {
           {/* Folder context banner */}
           {folderId && (
             <div style={{ background: '#EDE9F7', border: '1.5px solid rgba(123,111,160,0.2)', borderRadius: 14, padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 18 }}>📁</span>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(123,111,160,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <IconFolder c="#7B6FA0" size={20} />
+              </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#5A5078' }}>
                   {folderLoading ? 'Loading folder resources...' : folderLabel || folderName}
@@ -273,7 +312,9 @@ function MatthewPracticeExamInner() {
 
       {screen === 'done' && (
         <main style={{ maxWidth: 500, margin: '0 auto', padding: '40px 20px 80px', textAlign: 'center' }}>
-          <div style={{ fontSize: 52, marginBottom: 14 }}>{score >= 80 ? '🎯' : score >= 60 ? '📈' : '💪'}</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+            {score >= 80 ? <IconScoreHigh size={64} /> : score >= 60 ? <IconScoreMid size={64} /> : <IconScoreLow size={64} />}
+          </div>
           <div style={{ fontSize: 26, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.5px', marginBottom: 8 }}>Exam Complete!</div>
           <div style={{ fontSize: 48, fontWeight: 800, color: score >= 80 ? '#5FAD8E' : score >= 60 ? '#C8965A' : '#C47878', marginBottom: 4 }}>{score}%</div>
           <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 28 }}>{correct} correct · {incorrect} incorrect · {total} questions</div>

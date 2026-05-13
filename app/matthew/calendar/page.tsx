@@ -15,6 +15,31 @@ function Mountain() {
   );
 }
 
+function IconCalendarEvent({ c, size = 20 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="3" y="5" width="22" height="20" rx="3" stroke={c} strokeWidth="1.6" fill="none"/>
+      <line x1="3" y1="11" x2="25" y2="11" stroke={c} strokeWidth="1.4"/>
+      <line x1="9" y1="3" x2="9" y2="8" stroke={c} strokeWidth="1.8" strokeLinecap="round"/>
+      <line x1="19" y1="3" x2="19" y2="8" stroke={c} strokeWidth="1.8" strokeLinecap="round"/>
+      <rect x="8" y="15" width="4" height="4" rx="1" fill={c} opacity="0.7"/>
+    </svg>
+  );
+}
+
+function IconEmptyDay({ size = 48 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+      <rect x="6" y="10" width="36" height="32" rx="4" stroke="#C4C1D4" strokeWidth="1.8" fill="none"/>
+      <line x1="6" y1="18" x2="42" y2="18" stroke="#C4C1D4" strokeWidth="1.4"/>
+      <line x1="15" y1="6" x2="15" y2="14" stroke="#C4C1D4" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="33" y1="6" x2="33" y2="14" stroke="#C4C1D4" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="14" y1="27" x2="34" y2="27" stroke="#E8E5F0" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="14" y1="33" x2="26" y2="33" stroke="#E8E5F0" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
 type Task = {
   id: string;
   title: string;
@@ -136,18 +161,13 @@ export default function MatthewCalendar() {
     setShowAdd(false); setSaving(false);
   };
 
-  // Helpers
   const tasksForDate  = (d: string) => tasks.filter(t => t.due_date === d);
   const examsForDate  = (d: string) => exams.filter(e => e.exam_date === d);
   const allForDate    = (d: string) => ({ tasks: tasksForDate(d), exams: examsForDate(d) });
 
-  // Week helpers
-  const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() - today.getDay());
   const selectedDate = new Date(curYear, curMonth, curDay);
   const selStr       = selectedDate.toISOString().split('T')[0];
 
-  // Navigation
   const prevMonth = () => { if (curMonth === 0) { setCurMonth(11); setCurYear(y => y - 1); } else setCurMonth(m => m - 1); };
   const nextMonth = () => { if (curMonth === 11) { setCurMonth(0); setCurYear(y => y + 1); } else setCurMonth(m => m + 1); };
   const prevWeek  = () => { const d = new Date(curYear, curMonth, curDay - 7); setCurYear(d.getFullYear()); setCurMonth(d.getMonth()); setCurDay(d.getDate()); };
@@ -158,7 +178,6 @@ export default function MatthewCalendar() {
   const daysInMonth = getDaysInMonth(curYear, curMonth);
   const firstDay    = getFirstDay(curYear, curMonth);
 
-  // Week days for current view
   const viewWeekStart = new Date(curYear, curMonth, curDay);
   viewWeekStart.setDate(viewWeekStart.getDate() - viewWeekStart.getDay());
   const weekDays = Array.from({ length: 7 }, (_, i) => {
@@ -177,8 +196,9 @@ export default function MatthewCalendar() {
   );
 
   const ExamChip = ({ name, className }: { name: string; className: string; }) => (
-    <div style={{ padding: '3px 7px', borderRadius: 6, background: '#FDF2F2', fontSize: 10, fontWeight: 700, color: '#C47878', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 2 }}>
-      📅 {name}
+    <div style={{ padding: '3px 7px', borderRadius: 6, background: '#FDF2F2', fontSize: 10, fontWeight: 700, color: '#C47878', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+      <IconCalendarEvent c="#C47878" size={10} />
+      {name}
     </div>
   );
 
@@ -238,19 +258,16 @@ export default function MatthewCalendar() {
         {/* ── MONTH VIEW ── */}
         {view === 'month' && (
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, overflow: 'hidden', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-            {/* Month nav */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #E8E5F0' }}>
               <button onClick={prevMonth} style={{ width: 32, height: 32, borderRadius: '50%', border: '1.5px solid #E8E5F0', background: '#FAFAF8', cursor: 'pointer', fontSize: 16, color: '#9E9BB0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
               <span style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26' }}>{MONTHS[curMonth]} {curYear}</span>
               <button onClick={nextMonth} style={{ width: 32, height: 32, borderRadius: '50%', border: '1.5px solid #E8E5F0', background: '#FAFAF8', cursor: 'pointer', fontSize: 16, color: '#9E9BB0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
             </div>
-            {/* Day headers */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid #E8E5F0' }}>
               {DAYS_LETTER.map((d, i) => (
                 <div key={i} style={{ textAlign: 'center', padding: '8px 0', fontSize: 10, fontWeight: 700, color: '#C4C1D4', letterSpacing: 0.5 }}>{d}</div>
               ))}
             </div>
-            {/* Day cells */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
               {Array.from({ length: firstDay }).map((_, i) => (
                 <div key={`empty-${i}`} style={{ minHeight: 90, borderRight: '1px solid #F3F1EC', borderBottom: '1px solid #F3F1EC', background: '#FAFAF8' }} />
@@ -344,7 +361,9 @@ export default function MatthewCalendar() {
             {/* Exam events for this day */}
             {examsForDate(selStr).map(e => (
               <div key={e.id} style={{ background: '#FDF2F2', border: '1.5px solid rgba(196,120,120,0.2)', borderRadius: 14, padding: '14px 16px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 24 }}>📅</span>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(196,120,120,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <IconCalendarEvent c="#C47878" size={22} />
+                </div>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#C47878', marginBottom: 2 }}>{e.name}</div>
                   <div style={{ fontSize: 11, color: '#9E9BB0' }}>{e.class_name} · Exam Day</div>
@@ -355,7 +374,11 @@ export default function MatthewCalendar() {
             {/* Tasks for this day */}
             {tasksForDate(selStr).length === 0 && examsForDate(selStr).length === 0 ? (
               <div style={{ background: '#FFFFFF', border: '1.5px dashed #E8E5F0', borderRadius: 18, padding: '40px 20px', textAlign: 'center' }}>
-                <div style={{ fontSize: 32, marginBottom: 12 }}>📭</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                  <div style={{ width: 72, height: 72, borderRadius: 20, background: '#F3F1EC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <IconEmptyDay size={40} />
+                  </div>
+                </div>
                 <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>Nothing scheduled</div>
                 <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>A clear day — add a task or enjoy the break.</div>
                 <button onClick={() => { setNewDate(selStr); setShowAdd(true); }} style={{ padding: '10px 22px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>

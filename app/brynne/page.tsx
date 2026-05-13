@@ -247,8 +247,15 @@ export default function BrynneDashboard() {
         {/* Exam alert */}
         {todayExams.map(e => (
           <div key={e.id} style={{ background: `linear-gradient(135deg, ${color}, #C4A882)`, borderRadius: 14, padding: '14px 18px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12, color: 'white' }}>
-            <span style={{ fontSize: 22 }}>📅</span>
-            <div>
+<div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+  <svg width="20" height="20" viewBox="0 0 28 28" fill="none">
+    <rect x="3" y="5" width="22" height="20" rx="3" stroke="white" strokeWidth="1.6" fill="none"/>
+    <line x1="3" y1="11" x2="25" y2="11" stroke="white" strokeWidth="1.4"/>
+    <line x1="9" y1="3" x2="9" y2="8" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
+    <line x1="19" y1="3" x2="19" y2="8" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
+    <rect x="8" y="15" width="4" height="4" rx="1" fill="white" opacity="0.7"/>
+  </svg>
+</div>            <div>
               <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 2 }}>{e.name} — Today! 🌟</div>
               <div style={{ fontSize: 11, opacity: 0.85 }}>{e.class_name} · You've got this!</div>
             </div>
@@ -424,7 +431,6 @@ export default function BrynneDashboard() {
 
       </main>
 
-<UploadResourceModal student="brynne" onClose={() => setShowUpload(false)} />      <TabBar student="brynne" />
-    </div>
+{showUpload && <UploadResourceModal student="brynne" onClose={() => setShowUpload(false)} />}    </div>
   );
 }
