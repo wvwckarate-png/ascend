@@ -14,6 +14,31 @@ function Mountain() {
   );
 }
 
+function IconCalendarEvent({ c, size = 20 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="3" y="5" width="22" height="20" rx="3" stroke={c} strokeWidth="1.6" fill="none"/>
+      <line x1="3" y1="11" x2="25" y2="11" stroke={c} strokeWidth="1.4"/>
+      <line x1="9" y1="3" x2="9" y2="8" stroke={c} strokeWidth="1.8" strokeLinecap="round"/>
+      <line x1="19" y1="3" x2="19" y2="8" stroke={c} strokeWidth="1.8" strokeLinecap="round"/>
+      <rect x="8" y="15" width="4" height="4" rx="1" fill={c} opacity="0.7"/>
+    </svg>
+  );
+}
+
+function IconEmptyDay({ size = 48 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+      <rect x="6" y="10" width="36" height="32" rx="4" stroke="#C4C1D4" strokeWidth="1.8" fill="none"/>
+      <line x1="6" y1="18" x2="42" y2="18" stroke="#C4C1D4" strokeWidth="1.4"/>
+      <line x1="15" y1="6" x2="15" y2="14" stroke="#C4C1D4" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="33" y1="6" x2="33" y2="14" stroke="#C4C1D4" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="14" y1="27" x2="34" y2="27" stroke="#E8E5F0" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="14" y1="33" x2="26" y2="33" stroke="#E8E5F0" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
 type Task = { id: string; title: string; due_date: string; due_time: string | null; completed: boolean; class_name: string | null; task_type: string; };
 type ExamEvent = { id: string; name: string; exam_date: string; class_name: string; };
 
@@ -116,7 +141,10 @@ export default function BrynneCalendar() {
   );
 
   const ExamChip = ({ name }: { name: string }) => (
-    <div style={{ padding: '3px 7px', borderRadius: 6, background: '#FDF2F2', fontSize: 10, fontWeight: 700, color: '#C47878', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 2 }}>📅 {name}</div>
+    <div style={{ padding: '3px 7px', borderRadius: 6, background: '#FDF2F2', fontSize: 10, fontWeight: 700, color: '#C47878', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+      <IconCalendarEvent c="#C47878" size={10} />
+      {name}
+    </div>
   );
 
   const TaskRow = ({ task }: { task: Task }) => (
@@ -145,7 +173,7 @@ export default function BrynneCalendar() {
 
       <main style={{ maxWidth: 720, margin: '0 auto', padding: '20px 20px 80px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div style={{ fontSize: 24, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.6px' }}>Calendar 📅</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.6px' }}>Calendar</div>
           <button onClick={() => setShowAdd(true)} style={{ padding: '8px 16px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Add Task</button>
         </div>
 
@@ -232,7 +260,9 @@ export default function BrynneCalendar() {
             </div>
             {examsForDate(selStr).map(e => (
               <div key={e.id} style={{ background: '#FDF2F2', border: '1.5px solid rgba(196,120,120,0.2)', borderRadius: 14, padding: '14px 16px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 24 }}>📅</span>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(196,120,120,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <IconCalendarEvent c="#C47878" size={22} />
+                </div>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#C47878', marginBottom: 2 }}>{e.name}</div>
                   <div style={{ fontSize: 11, color: '#9E9BB0' }}>{e.class_name} · Test Day!</div>
@@ -267,7 +297,7 @@ export default function BrynneCalendar() {
         <div onClick={e => { if (e.target === e.currentTarget) setShowAdd(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
           <div style={{ background: '#FFFFFF', borderRadius: '22px 22px 0 0', padding: '24px 20px 44px', width: '100%', maxWidth: 580, boxShadow: '0 -8px 40px rgba(29,27,38,0.15)', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 20px' }} />
-            <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 20 }}>Add Task 📝</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 20 }}>Add Task</div>
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>What is it?</label>
               <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newTitle.trim()) handleAddTask(); }} placeholder='e.g. "Math worksheet"' style={{ width: '100%', padding: '11px 14px', border: `1.5px solid ${color}`, borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
