@@ -424,8 +424,7 @@ export default function BrynneDashboard() {
 
       </main>
 
-      {showUpload && <UploadResourceModal studentId="brynne" onClose={() => setShowUpload(false)} />}
-      <TabBar student="brynne" />
+<UploadResourceModal student="brynne" onClose={() => setShowUpload(false)} />      <TabBar student="brynne" />
     </div>
   );
 }

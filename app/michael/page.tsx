@@ -425,8 +425,7 @@ export default function MichaelDashboard() {
 
       </main>
 
-      {showUpload && <UploadResourceModal studentId="michael" onClose={() => setShowUpload(false)} />}
-      <TabBar student="michael" />
+{showUpload && <UploadResourceModal student="michael" onClose={() => setShowUpload(false)} />}      <TabBar student="michael" />
     </div>
   );
 }
