@@ -1,7 +1,6 @@
 'use client';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import TabBar from '../../components/TabBar';
 import { supabase } from '../../../lib/supabase';
 
@@ -11,6 +10,31 @@ function Mountain() {
       <path d="M4 52L22 10L40 52" stroke="#7B6FA0" strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round"/>
       <path d="M31 52L42 28L53 52" stroke="#7B6FA0" strokeWidth="2.8" strokeLinejoin="round" strokeLinecap="round"/>
       <line x1="2" y1="52" x2="56" y2="52" stroke="#7B6FA0" strokeWidth="2.5" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function IconCalendarEvent({ c, size = 20 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="3" y="5" width="22" height="20" rx="3" stroke={c} strokeWidth="1.6" fill="none"/>
+      <line x1="3" y1="11" x2="25" y2="11" stroke={c} strokeWidth="1.4"/>
+      <line x1="9" y1="3" x2="9" y2="8" stroke={c} strokeWidth="1.8" strokeLinecap="round"/>
+      <line x1="19" y1="3" x2="19" y2="8" stroke={c} strokeWidth="1.8" strokeLinecap="round"/>
+      <rect x="8" y="15" width="4" height="4" rx="1" fill={c} opacity="0.7"/>
+    </svg>
+  );
+}
+
+function IconEmptyDay({ size = 48 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+      <rect x="6" y="10" width="36" height="32" rx="4" stroke="#C4C1D4" strokeWidth="1.8" fill="none"/>
+      <line x1="6" y1="18" x2="42" y2="18" stroke="#C4C1D4" strokeWidth="1.4"/>
+      <line x1="15" y1="6" x2="15" y2="14" stroke="#C4C1D4" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="33" y1="6" x2="33" y2="14" stroke="#C4C1D4" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="14" y1="27" x2="34" y2="27" stroke="#E8E5F0" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="14" y1="33" x2="26" y2="33" stroke="#E8E5F0" strokeWidth="2" strokeLinecap="round"/>
     </svg>
   );
 }
@@ -84,13 +108,13 @@ export default function MichaelCalendar() {
     load();
   }, []);
 
-  const toggleTask    = async (task: Task) => { await supabase.from('tasks').update({ completed: !task.completed }).eq('id', task.id); setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: !t.completed } : t)); };
-  const tasksForDate  = (d: string) => tasks.filter(t => t.due_date === d);
-  const examsForDate  = (d: string) => exams.filter(e => e.exam_date === d);
-  const daysInMonth   = getDaysInMonth(curYear, curMonth);
-  const firstDay      = getFirstDay(curYear, curMonth);
-  const selectedDate  = new Date(curYear, curMonth, curDay);
-  const selStr        = selectedDate.toISOString().split('T')[0];
+  const toggleTask   = async (task: Task) => { await supabase.from('tasks').update({ completed: !task.completed }).eq('id', task.id); setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: !t.completed } : t)); };
+  const tasksForDate = (d: string) => tasks.filter(t => t.due_date === d);
+  const examsForDate = (d: string) => exams.filter(e => e.exam_date === d);
+  const daysInMonth  = getDaysInMonth(curYear, curMonth);
+  const firstDay     = getFirstDay(curYear, curMonth);
+  const selectedDate = new Date(curYear, curMonth, curDay);
+  const selStr       = selectedDate.toISOString().split('T')[0];
 
   const prevMonth = () => { if (curMonth === 0) { setCurMonth(11); setCurYear(y => y - 1); } else setCurMonth(m => m - 1); };
   const nextMonth = () => { if (curMonth === 11) { setCurMonth(0); setCurYear(y => y + 1); } else setCurMonth(m => m + 1); };
@@ -117,7 +141,10 @@ export default function MichaelCalendar() {
   );
 
   const ExamChip = ({ name }: { name: string }) => (
-    <div style={{ padding: '3px 7px', borderRadius: 6, background: '#FDF2F2', fontSize: 10, fontWeight: 700, color: '#C47878', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 2 }}>📅 {name}</div>
+    <div style={{ padding: '3px 7px', borderRadius: 6, background: '#FDF2F2', fontSize: 10, fontWeight: 700, color: '#C47878', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+      <IconCalendarEvent c="#C47878" size={10} />
+      {name}
+    </div>
   );
 
   const TaskRow = ({ task }: { task: Task }) => (
@@ -233,7 +260,9 @@ export default function MichaelCalendar() {
             </div>
             {examsForDate(selStr).map(e => (
               <div key={e.id} style={{ background: '#FDF2F2', border: '1.5px solid rgba(196,120,120,0.2)', borderRadius: 14, padding: '14px 16px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 24 }}>📅</span>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(196,120,120,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <IconCalendarEvent c="#C47878" size={22} />
+                </div>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#C47878', marginBottom: 2 }}>{e.name}</div>
                   <div style={{ fontSize: 11, color: '#9E9BB0' }}>{e.class_name} · Exam Day</div>
@@ -242,7 +271,11 @@ export default function MichaelCalendar() {
             ))}
             {tasksForDate(selStr).length === 0 && examsForDate(selStr).length === 0 ? (
               <div style={{ background: '#FFFFFF', border: '1.5px dashed #E8E5F0', borderRadius: 18, padding: '40px 20px', textAlign: 'center' }}>
-                <div style={{ fontSize: 32, marginBottom: 12 }}>📭</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                  <div style={{ width: 72, height: 72, borderRadius: 20, background: '#F3F1EC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <IconEmptyDay size={40} />
+                  </div>
+                </div>
                 <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>Nothing scheduled</div>
                 <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>A clear day — add a task or enjoy the break.</div>
                 <button onClick={() => { setNewDate(selStr); setShowAdd(true); }} style={{ padding: '10px 22px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Add Task</button>

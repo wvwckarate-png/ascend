@@ -271,9 +271,12 @@ export default function BrynneCalendar() {
             ))}
             {tasksForDate(selStr).length === 0 && examsForDate(selStr).length === 0 ? (
               <div style={{ background: '#FFFFFF', border: '1.5px dashed #E8E5F0', borderRadius: 18, padding: '40px 20px', textAlign: 'center' }}>
-                <div style={{ fontSize: 32, marginBottom: 12 }}>🌟</div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>Nothing today!</div>
-                <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>Free day! You can add something if you want.</div>
+<div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                  <div style={{ width: 72, height: 72, borderRadius: 20, background: '#F3F1EC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <IconEmptyDay size={40} />
+                  </div>
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>Nothing today!</div>                <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>Free day! You can add something if you want.</div>
                 <button onClick={() => { setNewDate(selStr); setShowAdd(true); }} style={{ padding: '10px 22px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Add Task</button>
               </div>
             ) : (
