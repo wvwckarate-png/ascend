@@ -134,9 +134,8 @@ export default function MatthewDashboard() {
   const [showDone,   setShowDone]   = useState(false);
   const [showUpload, setShowUpload] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      const { data: studentData } = await supabase.from('students').select('name, grade, focus').eq('id', 'matthew').single();
+useEffect(() => {
+    const load = async () => {      const { data: studentData } = await supabase.from('students').select('name, grade, focus').eq('id', 'matthew').single();
       const { data: classData }   = await supabase.from('classes').select('id, name, semester, professor').eq('student_id', 'matthew').eq('is_active', true).order('created_at', { ascending: false });
       const { data: taskData }    = await supabase.from('tasks').select('*').eq('student_id', 'matthew').order('due_date', { ascending: true });
       const { data: folderData }  = await supabase.from('exam_folders').select('id, name, exam_date, class_id').not('exam_date', 'is', null);
@@ -154,11 +153,12 @@ export default function MatthewDashboard() {
             .map(f => ({ id: f.id, name: f.name, exam_date: f.exam_date, class_name: classMap[f.class_id] || '' }))
         );
       }
-      setLoading(false);
+setLoading(false);
     };
     load();
+    window.addEventListener('focus', load);
+    return () => window.removeEventListener('focus', load);
   }, []);
-
   const toggleTask = async (task: Task) => {
     const updated = !task.completed;
     await supabase.from('tasks').update({ completed: updated }).eq('id', task.id);

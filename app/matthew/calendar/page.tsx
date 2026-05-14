@@ -157,10 +157,10 @@ export default function MatthewCalendar() {
       completed:  false,
     }).select().single();
     if (data) setTasks(prev => [...prev, data].sort((a, b) => a.due_date.localeCompare(b.due_date)));
-    setNewTitle(''); setNewDate(todayStr); setNewTime(''); setNewType('assignment'); setNewClass('');
+setNewTitle(''); setNewDate(todayStr); setNewTime(''); setNewType('assignment'); setNewClass('');
     setShowAdd(false); setSaving(false);
+    router.refresh();
   };
-
   const tasksForDate  = (d: string) => tasks.filter(t => t.due_date === d);
   const examsForDate  = (d: string) => exams.filter(e => e.exam_date === d);
   const allForDate    = (d: string) => ({ tasks: tasksForDate(d), exams: examsForDate(d) });

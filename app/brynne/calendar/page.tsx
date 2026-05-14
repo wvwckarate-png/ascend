@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import TabBar from '../../components/TabBar';
+import { useRouter } from 'next/navigation';import TabBar from '../../components/TabBar';
 import { supabase } from '../../../lib/supabase';
 
 function Mountain() {
@@ -72,8 +72,8 @@ const color = '#E8956D';
 const light = '#FFF3E8';
 
 export default function BrynneCalendar() {
-  const today    = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+const router   = useRouter();
+  const today    = new Date();  const todayStr = today.toISOString().split('T')[0];
 
   const [view,     setView]     = useState<'month' | 'week' | 'day'>('month');
   const [curYear,  setCurYear]  = useState(today.getFullYear());
@@ -132,10 +132,10 @@ export default function BrynneCalendar() {
     setSaving(true);
     const { data } = await supabase.from('tasks').insert({ student_id: 'brynne', title: newTitle.trim(), due_date: newDate, due_time: newTime || null, task_type: newType, class_name: newClass || null, completed: false }).select().single();
     if (data) setTasks(prev => [...prev, data].sort((a, b) => a.due_date.localeCompare(b.due_date)));
-    setNewTitle(''); setNewDate(todayStr); setNewTime(''); setNewType('assignment'); setNewClass('');
+setNewTitle(''); setNewDate(todayStr); setNewTime(''); setNewType('assignment'); setNewClass('');
     setShowAdd(false); setSaving(false);
+    router.refresh();
   };
-
   const EventChip = ({ title, type, completed, onClick }: { title: string; type: string; completed: boolean; onClick: () => void }) => (
     <div onClick={e => { e.stopPropagation(); onClick(); }} style={{ padding: '3px 7px', borderRadius: 6, background: completed ? '#F3F1EC' : taskBg(type), fontSize: 10, fontWeight: 600, color: completed ? '#C4C1D4' : taskColor(type), cursor: 'pointer', textDecoration: completed ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 2 }}>{title}</div>
   );
