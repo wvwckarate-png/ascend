@@ -15,6 +15,62 @@ function Mountain() {
   );
 }
 
+function IconFile({ c, size = 14 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <path d="M6 4h10l6 6v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke={c} strokeWidth="1.6" strokeLinejoin="round" fill="none"/>
+      <path d="M16 4v6h6" stroke={c} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function IconFolder({ c, size = 14 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <path d="M3 9a2 2 0 012-2h5l2 2h11a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke={c} strokeWidth="1.6" strokeLinejoin="round" fill="none"/>
+    </svg>
+  );
+}
+
+function IconEmptyFolder({ size = 36 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 36 36" fill="none">
+      <path d="M4 11a2 2 0 012-2h6l3 3h14a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V11z" stroke="#C4C1D4" strokeWidth="1.6" strokeLinejoin="round" fill="none"/>
+      <line x1="12" y1="20" x2="24" y2="20" stroke="#E8E5F0" strokeWidth="1.4" strokeLinecap="round"/>
+      <line x1="12" y1="24" x2="19" y2="24" stroke="#E8E5F0" strokeWidth="1.4" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function IconCards({ c, size = 40 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="5" y="8" width="16" height="12" rx="2" stroke={c} strokeWidth="1.6" fill="none"/>
+      <rect x="8" y="5" width="16" height="12" rx="2" stroke={c} strokeWidth="1.6" fill="#EDE9F7" strokeOpacity="0.7"/>
+      <line x1="11" y1="11" x2="21" y2="11" stroke={c} strokeWidth="1.2" strokeOpacity="0.5"/>
+    </svg>
+  );
+}
+
+function IconStack({ c, size = 14 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="4" y="14" width="20" height="10" rx="2" stroke={c} strokeWidth="1.5" fill="none"/>
+      <rect x="6" y="9"  width="16" height="8"  rx="2" stroke={c} strokeWidth="1.4" fill="none" opacity="0.6"/>
+      <rect x="8" y="4"  width="12" height="8"  rx="2" stroke={c} strokeWidth="1.3" fill="none" opacity="0.35"/>
+    </svg>
+  );
+}
+
+function IconDone({ size = 64 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+      <circle cx="32" cy="32" r="28" stroke="#7B6FA0" strokeWidth="2" fill="#EDE9F7"/>
+      <path d="M20 33l8 8 16-16" stroke="#7B6FA0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
 type Card        = { id?: string; front: string; back: string; };
 type Deck        = { id: string; title: string; source_files: string | null; card_count: number; created_at: string; class_name: string | null; };
 type LibResource = { id: string; file_name: string; storage_url: string; folder_id: string; };
@@ -38,24 +94,20 @@ function MatthewFlashcardsInner() {
   const folderId   = searchParams.get('folderId');
   const folderName = searchParams.get('folderName');
 
-  // Screen: 'decks' | 'generate' | 'study' | 'done' | 'deck-detail'
   const [screen, setScreen] = useState<'decks' | 'generate' | 'study' | 'done' | 'deck-detail'>('decks');
 
-  // Saved decks
   const [decks,        setDecks]        = useState<Deck[]>([]);
   const [decksLoading, setDecksLoading] = useState(true);
   const [activeDeck,   setActiveDeck]   = useState<Deck | null>(null);
   const [deckCards,    setDeckCards]    = useState<Card[]>([]);
   const [deckLoading,  setDeckLoading]  = useState(false);
 
-  // Custom card editor
-  const [showAddCard,  setShowAddCard]  = useState(false);
-  const [editCardId,   setEditCardId]   = useState<string | null>(null);
-  const [newFront,     setNewFront]     = useState('');
-  const [newBack,      setNewBack]      = useState('');
-  const [cardSaving,   setCardSaving]   = useState(false);
+  const [showAddCard, setShowAddCard] = useState(false);
+  const [editCardId,  setEditCardId]  = useState<string | null>(null);
+  const [newFront,    setNewFront]    = useState('');
+  const [newBack,     setNewBack]     = useState('');
+  const [cardSaving,  setCardSaving]  = useState(false);
 
-  // Library
   const [library,         setLibrary]         = useState<LibClass[]>([]);
   const [libLoading,      setLibLoading]       = useState(true);
   const [selectedIds,     setSelectedIds]      = useState<Set<string>>(new Set());
@@ -64,44 +116,31 @@ function MatthewFlashcardsInner() {
   const [newFiles,        setNewFiles]         = useState<File[]>([]);
   const [fileInputRef,    setFileInputRef]     = useState<HTMLInputElement | null>(null);
 
-  // Generate config
   const [topic,              setTopic]              = useState('');
   const [count,              setCount]              = useState(15);
+  const [autoCount,          setAutoCount]          = useState(false);
   const [mode,               setMode]               = useState<'basic' | 'smart'>('smart');
   const [customInstructions, setCustomInstructions] = useState('');
 
-  // Study state
-  const [loading,   setLoading]   = useState(false);
-  const [saving,    setSaving]    = useState(false);
-  const [error,     setError]     = useState('');
-  const [cards,     setCards]     = useState<Card[]>([]);
-  const [queue,     setQueue]     = useState<Card[]>([]);
-  const [qi,        setQi]        = useState(0);
-  const [flipped,   setFlipped]   = useState(false);
-  const [ratings,   setRatings]   = useState<Record<number, number>>({});
-  const [deckName,  setDeckName]  = useState('');
-  const [showSave,  setShowSave]  = useState(false);
-  const [saved,     setSaved]     = useState(false);
+  const [loading,     setLoading]     = useState(false);
+  const [saving,      setSaving]      = useState(false);
+  const [error,       setError]       = useState('');
+  const [cards,       setCards]       = useState<Card[]>([]);
+  const [queue,       setQueue]       = useState<Card[]>([]);
+  const [qi,          setQi]          = useState(0);
+  const [flipped,     setFlipped]     = useState(false);
+  const [ratings,     setRatings]     = useState<Record<number, number>>({});
+  const [deckName,    setDeckName]    = useState('');
+  const [showSave,    setShowSave]    = useState(false);
+  const [saved,       setSaved]       = useState(false);
   const [savedDeckId, setSavedDeckId] = useState<string | null>(null);
 
-  // Load decks on mount
-  useEffect(() => {
-    loadDecks();
-    loadLibrary();
-  }, []);
-
-  // If coming from binder, go straight to generate
-  useEffect(() => {
-    if (folderId) setScreen('generate');
-  }, [folderId]);
+  useEffect(() => { loadDecks(); loadLibrary(); }, []);
+  useEffect(() => { if (folderId) setScreen('generate'); }, [folderId]);
 
   const loadDecks = async () => {
     setDecksLoading(true);
-    const { data } = await supabase
-      .from('flashcard_decks')
-      .select('*')
-      .eq('student_id', 'matthew')
-      .order('created_at', { ascending: false });
+    const { data } = await supabase.from('flashcard_decks').select('*').eq('student_id', 'matthew').order('created_at', { ascending: false });
     if (data) setDecks(data);
     setDecksLoading(false);
   };
@@ -140,18 +179,13 @@ function MatthewFlashcardsInner() {
     setActiveDeck(deck);
     setDeckLoading(true);
     setScreen('deck-detail');
-    const { data } = await supabase
-      .from('flashcard_cards')
-      .select('*')
-      .eq('deck_id', deck.id)
-      .order('position', { ascending: true });
+    const { data } = await supabase.from('flashcard_cards').select('*').eq('deck_id', deck.id).order('position', { ascending: true });
     if (data) setDeckCards(data);
     setDeckLoading(false);
   };
 
   const studyDeck = (deck: Deck, cards: Card[]) => {
-    setCards(cards);
-    setQueue([...cards]);
+    setCards(cards); setQueue([...cards]);
     setQi(0); setFlipped(false); setRatings({});
     setSaved(true); setSavedDeckId(deck.id); setShowSave(false);
     setScreen('study');
@@ -198,7 +232,6 @@ function MatthewFlashcardsInner() {
     setShowAddCard(true);
   };
 
-  // Library toggles
   const toggleResource = (id: string) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleFolder   = (folder: LibFolder) => { const ids = folder.resources.map(r => r.id); const allSel = ids.length > 0 && ids.every(id => selectedIds.has(id)); setSelectedIds(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; }); };
   const toggleClass    = (cls: LibClass)    => { const ids = cls.folders.flatMap(f => f.resources.map(r => r.id)); const allSel = ids.length > 0 && ids.every(id => selectedIds.has(id)); setSelectedIds(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; }); };
@@ -206,6 +239,7 @@ function MatthewFlashcardsInner() {
 
   const totalSelected = selectedIds.size + newFiles.length;
   const canGenerate   = totalSelected > 0 || topic.trim().length > 0;
+  const countLabel    = autoCount ? 'Auto' : String(count);
 
   const generate = async () => {
     if (!canGenerate) return;
@@ -219,9 +253,12 @@ function MatthewFlashcardsInner() {
         try { const res = await fetch(r.storage_url); const blob = await res.blob(); fetchedFiles.push(new File([blob], r.file_name + '.pdf', { type: 'application/pdf' })); } catch { /* skip */ }
       }
       const allFiles = [...fetchedFiles, ...newFiles];
+      const countPhrase = autoCount
+        ? 'as many flashcards as needed to comprehensively cover all key concepts (determine the ideal number yourself)'
+        : `${count} flashcards`;
       const baseInstruction = totalSelected > 1
-        ? `You are Ascend analyzing ${allFiles.length} documents for Matthew, a pre-dental high school junior. Perform CROSS-DOCUMENT ANALYSIS: identify concepts recurring across multiple documents, find overlapping themes and high-yield topics. Generate ${count} flashcards focused on these high-frequency cross-document concepts.${topic.trim() ? ` Additional focus: ${topic.trim()}.` : ''}`
-        : `Generate ${count} flashcards${topic.trim() ? ` for: ${topic.trim()}` : ' from the uploaded study material'}. Pre-dental high school level.`;
+        ? `You are Ascend analyzing ${allFiles.length} documents for Matthew, a pre-dental high school junior. Perform CROSS-DOCUMENT ANALYSIS: identify concepts recurring across multiple documents, find overlapping themes and high-yield topics. Generate ${countPhrase} focused on these high-frequency cross-document concepts.${topic.trim() ? ` Additional focus: ${topic.trim()}.` : ''}`
+        : `Generate ${countPhrase}${topic.trim() ? ` for: ${topic.trim()}` : ' from the uploaded study material'}. Pre-dental high school level.`;
       const custom = customInstructions.trim() ? ` Additional instructions: ${customInstructions.trim()}` : '';
       const prompt = baseInstruction + custom + ' Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]';
       let raw = '';
@@ -252,15 +289,10 @@ function MatthewFlashcardsInner() {
     if (!deckName.trim() || saved) return;
     setSaving(true);
     try {
-      const { data: deck } = await supabase
-        .from('flashcard_decks')
-        .insert({ student_id: 'matthew', title: deckName.trim(), card_count: cards.length, folder_id: folderId || null })
-        .select().single();
+      const { data: deck } = await supabase.from('flashcard_decks').insert({ student_id: 'matthew', title: deckName.trim(), card_count: cards.length, folder_id: folderId || null }).select().single();
       if (deck) {
         setSavedDeckId(deck.id);
-        await supabase.from('flashcard_cards').insert(
-          cards.map((c, i) => ({ deck_id: deck.id, front: c.front, back: c.back, position: i }))
-        );
+        await supabase.from('flashcard_cards').insert(cards.map((c, i) => ({ deck_id: deck.id, front: c.front, back: c.back, position: i })));
         setDecks(prev => [deck, ...prev]);
         setSaved(true); setShowSave(false);
       }
@@ -311,21 +343,21 @@ function MatthewFlashcardsInner() {
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Matthew</div>
               <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px' }}>Flashcard Decks</div>
             </div>
-            <button onClick={() => setScreen('generate')} style={{ padding: '10px 18px', borderRadius: 999, background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-              + New Deck
-            </button>
+            <button onClick={() => setScreen('generate')} style={{ padding: '10px 18px', borderRadius: 999, background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ New Deck</button>
           </div>
 
           {decksLoading ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: '#9E9BB0', fontSize: 13 }}>Loading decks...</div>
           ) : decks.length === 0 ? (
             <div style={{ background: '#FFFFFF', border: '1.5px dashed #C4C1D4', borderRadius: 18, padding: '48px 20px', textAlign: 'center' }}>
-              <div style={{ fontSize: 40, marginBottom: 14 }}>🃏</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                <div style={{ width: 72, height: 72, borderRadius: 20, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <IconCards c={color} size={40} />
+                </div>
+              </div>
               <div style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26', marginBottom: 8 }}>No decks yet</div>
               <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 24 }}>Generate a deck from your uploaded materials to get started.</div>
-              <button onClick={() => setScreen('generate')} style={{ padding: '12px 24px', borderRadius: 999, background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                Generate First Deck
-              </button>
+              <button onClick={() => setScreen('generate')} style={{ padding: '12px 24px', borderRadius: 999, background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate First Deck</button>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -338,14 +370,7 @@ function MatthewFlashcardsInner() {
                       <span style={{ fontSize: 11, color: '#9E9BB0' }}>{formatDate(deck.created_at)}</span>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                    <button
-                      onClick={() => openDeck(deck)}
-                      style={{ padding: '8px 14px', borderRadius: 10, background: light, border: 'none', color, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}
-                    >
-                      Study
-                    </button>
-                  </div>
+                  <button onClick={() => openDeck(deck)} style={{ padding: '8px 14px', borderRadius: 10, background: light, border: 'none', color, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>Study</button>
                 </div>
               ))}
             </div>
@@ -356,33 +381,18 @@ function MatthewFlashcardsInner() {
       {/* ── DECK DETAIL SCREEN ── */}
       {screen === 'deck-detail' && activeDeck && (
         <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
-          <button onClick={() => setScreen('decks')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>
-            ← Decks
-          </button>
+          <button onClick={() => setScreen('decks')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Decks</button>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 24, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.6px', marginBottom: 4 }}>{activeDeck.title}</div>
               <div style={{ fontSize: 12, color: '#9E9BB0' }}>{activeDeck.card_count} cards · Created {formatDate(activeDeck.created_at)}</div>
             </div>
-            <button onClick={() => { if (confirm('Delete this deck?')) deleteDeck(activeDeck.id); }} style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0, marginLeft: 12 }}>
-              Delete
-            </button>
+            <button onClick={() => { if (confirm('Delete this deck?')) deleteDeck(activeDeck.id); }} style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0, marginLeft: 12 }}>Delete</button>
           </div>
 
           <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
-            <button
-              onClick={() => { if (deckCards.length > 0) studyDeck(activeDeck, deckCards); }}
-              disabled={deckCards.length === 0}
-              style={{ flex: 1, padding: '13px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: deckCards.length === 0 ? 0.4 : 1 }}
-            >
-              Study This Deck
-            </button>
-            <button
-              onClick={() => { setShowAddCard(true); setEditCardId(null); setNewFront(''); setNewBack(''); }}
-              style={{ padding: '13px 18px', borderRadius: 14, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}
-            >
-              + Add Card
-            </button>
+            <button onClick={() => { if (deckCards.length > 0) studyDeck(activeDeck, deckCards); }} disabled={deckCards.length === 0} style={{ flex: 1, padding: '13px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: deckCards.length === 0 ? 0.4 : 1 }}>Study This Deck</button>
+            <button onClick={() => { setShowAddCard(true); setEditCardId(null); setNewFront(''); setNewBack(''); }} style={{ padding: '13px 18px', borderRadius: 14, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Add Card</button>
           </div>
 
           {deckLoading ? (
@@ -412,11 +422,10 @@ function MatthewFlashcardsInner() {
             </div>
           )}
 
-          {/* Add/Edit Card Modal */}
+          {/* Add/Edit Card Modal — centered */}
           {showAddCard && (
-            <div onClick={e => { if (e.target === e.currentTarget) { setShowAddCard(false); setEditCardId(null); setNewFront(''); setNewBack(''); }}} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-              <div style={{ background: '#FFFFFF', borderRadius: '22px 22px 0 0', padding: '24px 20px 44px', width: '100%', maxWidth: 580, boxShadow: '0 -8px 40px rgba(29,27,38,0.15)' }}>
-                <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 20px' }} />
+            <div onClick={e => { if (e.target === e.currentTarget) { setShowAddCard(false); setEditCardId(null); setNewFront(''); setNewBack(''); }}} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+              <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '28px 24px', width: '100%', maxWidth: 540, boxShadow: '0 8px 40px rgba(29,27,38,0.18)' }}>
                 <div style={{ fontSize: 18, fontWeight: 800, color: '#1D1B26', marginBottom: 16 }}>{editCardId ? 'Edit Card' : 'Add Card'}</div>
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Front (Question)</label>
@@ -441,9 +450,7 @@ function MatthewFlashcardsInner() {
       {/* ── GENERATE SCREEN ── */}
       {screen === 'generate' && (
         <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
-          <button onClick={() => setScreen('decks')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>
-            ← Decks
-          </button>
+          <button onClick={() => setScreen('decks')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Decks</button>
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Matthew</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Generate Deck</div>
@@ -479,7 +486,7 @@ function MatthewFlashcardsInner() {
               <div style={{ marginBottom: 10 }}>
                 {newFiles.map((f, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: light, marginBottom: 4 }}>
-                    <span style={{ fontSize: 12 }}>📄</span>
+                    <IconFile c={color} size={14} />
                     <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
                     <button onClick={() => setNewFiles(prev => prev.filter((_, idx) => idx !== i))} style={{ fontSize: 11, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
                   </div>
@@ -491,7 +498,7 @@ function MatthewFlashcardsInner() {
               <div style={{ textAlign: 'center', padding: '16px 0', color: '#9E9BB0', fontSize: 12 }}>Loading library...</div>
             ) : library.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '20px', border: '2px dashed #E8E5F0', borderRadius: 10 }}>
-                <div style={{ fontSize: 24, marginBottom: 6 }}>📂</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><IconEmptyFolder size={32} /></div>
                 <div style={{ fontSize: 12, color: '#9E9BB0' }}>No uploaded PDFs yet — upload files to your class folders first.</div>
               </div>
             ) : (
@@ -521,7 +528,8 @@ function MatthewFlashcardsInner() {
                               <div key={folder.id} style={{ marginTop: 6 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderRadius: 7, background: '#F3F1EC', cursor: 'pointer', marginBottom: 3 }} onClick={() => setExpandedFolders(prev => { const n = new Set(prev); n.has(folder.id) ? n.delete(folder.id) : n.add(folder.id); return n; })}>
                                   <span style={{ fontSize: 9, color: '#9E9BB0', width: 8 }}>{fExp ? '▾' : '▸'}</span>
-                                  <span style={{ flex: 1, fontSize: 11, fontWeight: 700, color: '#1D1B26' }}>📁 {folder.name}</span>
+                                  <IconFolder c="#9E9BB0" size={12} />
+                                  <span style={{ flex: 1, fontSize: 11, fontWeight: 700, color: '#1D1B26', marginLeft: 2 }}>{folder.name}</span>
                                   <span style={{ fontSize: 9, color: '#9E9BB0' }}>{folder.resources.length} PDF{folder.resources.length !== 1 ? 's' : ''}</span>
                                   <button onClick={e => { e.stopPropagation(); toggleFolder(folder); }} style={{ fontSize: 9, fontWeight: 700, color: fAllSel || fSomeSel ? color : '#9E9BB0', background: fAllSel || fSomeSel ? light : '#FFFFFF', border: `1px solid ${fAllSel || fSomeSel ? color : '#E8E5F0'}`, borderRadius: 999, padding: '2px 7px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
                                     {fAllSel ? 'Deselect' : 'Select all'}
@@ -536,7 +544,8 @@ function MatthewFlashcardsInner() {
                                           <div style={{ width: 16, height: 16, borderRadius: 3, border: `2px solid ${isSel ? color : '#C4C1D4'}`, background: isSel ? color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                             {isSel && <span style={{ color: 'white', fontSize: 9 }}>✓</span>}
                                           </div>
-                                          <span style={{ fontSize: 11, fontWeight: isSel ? 700 : 400, color: isSel ? color : '#1D1B26', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {r.file_name}</span>
+                                          <IconFile c={isSel ? color : '#9E9BB0'} size={12} />
+                                          <span style={{ fontSize: 11, fontWeight: isSel ? 700 : 400, color: isSel ? color : '#1D1B26', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginLeft: 2 }}>{r.file_name}</span>
                                         </div>
                                       );
                                     })}
@@ -554,8 +563,9 @@ function MatthewFlashcardsInner() {
             )}
 
             {totalSelected > 0 && (
-              <div style={{ marginTop: 10, padding: '9px 12px', borderRadius: 9, background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 11, fontWeight: 700 }}>
-                📚 {totalSelected} file{totalSelected !== 1 ? 's' : ''} selected{totalSelected > 1 ? ' — Ascend will find common themes' : ''}
+              <div style={{ marginTop: 10, padding: '9px 12px', borderRadius: 9, background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <IconStack c="rgba(255,255,255,0.8)" size={14} />
+                {totalSelected} file{totalSelected !== 1 ? 's' : ''} selected{totalSelected > 1 ? ' — Ascend will find common themes' : ''}
               </div>
             )}
           </div>
@@ -569,10 +579,17 @@ function MatthewFlashcardsInner() {
             <textarea value={customInstructions} onChange={e => setCustomInstructions(e.target.value)} placeholder='e.g. "Emphasize definitions" or "Focus on mechanisms"' rows={2} style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.5, marginBottom: 14 }} />
             <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 8, display: 'block' }}>Number of Cards</label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setAutoCount(true)}
+                style={{ padding: '6px 16px', borderRadius: 999, border: `1.5px solid ${autoCount ? color : '#E8E5F0'}`, background: autoCount ? color : '#FAFAF8', color: autoCount ? 'white' : '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}
+              >
+                Auto
+              </button>
               {[10, 15, 20, 30].map(n => (
-                <button key={n} onClick={() => setCount(n)} style={{ padding: '6px 16px', borderRadius: 999, border: `1.5px solid ${count === n ? color : '#E8E5F0'}`, background: count === n ? color : '#FAFAF8', color: count === n ? 'white' : '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{n}</button>
+                <button key={n} onClick={() => { setCount(n); setAutoCount(false); }} style={{ padding: '6px 16px', borderRadius: 999, border: `1.5px solid ${!autoCount && count === n ? color : '#E8E5F0'}`, background: !autoCount && count === n ? color : '#FAFAF8', color: !autoCount && count === n ? 'white' : '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{n}</button>
               ))}
             </div>
+            {autoCount && <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 8 }}>Ascend will decide the ideal number based on your material.</div>}
           </div>
 
           {error && <p style={{ fontSize: 13, color: '#C47878', marginBottom: 12 }}>{error}</p>}
@@ -585,7 +602,11 @@ function MatthewFlashcardsInner() {
             </div>
           ) : (
             <button onClick={generate} disabled={!canGenerate} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: canGenerate ? 1 : 0.4 }}>
-              {canGenerate ? (totalSelected > 1 ? `Generate ${count} Cards from ${totalSelected} Files` : `Generate ${count} Cards`) : 'Select resources or enter a topic'}
+              {canGenerate
+                ? totalSelected > 1
+                  ? `Generate ${autoCount ? 'Auto' : count} Cards from ${totalSelected} Files`
+                  : `Generate ${autoCount ? 'Auto' : count} Cards`
+                : 'Select resources or enter a topic'}
             </button>
           )}
         </main>
@@ -594,8 +615,6 @@ function MatthewFlashcardsInner() {
       {/* ── STUDY SCREEN ── */}
       {screen === 'study' && curCard && (
         <main style={{ maxWidth: 600, margin: '0 auto', padding: '20px 20px 80px' }}>
-
-          {/* Save banner */}
           {showSave && !saved && (
             <div style={{ background: light, border: `1.5px solid ${color}40`, borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ flex: 1 }}>
@@ -673,8 +692,10 @@ function MatthewFlashcardsInner() {
       {/* ── DONE SCREEN ── */}
       {screen === 'done' && (
         <main style={{ maxWidth: 500, margin: '0 auto', padding: '40px 20px 80px', textAlign: 'center' }}>
-          <div style={{ fontSize: 52, marginBottom: 14 }}>🎉</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.5px', marginBottom: 8 }}>Session Complete!</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+            <IconDone size={72} />
+          </div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.5px', marginBottom: 8 }}>Session Complete</div>
           <div style={{ fontSize: 14, color: '#9E9BB0', lineHeight: 1.6, marginBottom: 28 }}>You reviewed <strong>{Object.keys(ratings).length} cards</strong>.</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, maxWidth: 340, margin: '0 auto 28px' }}>
             {[{ n: Object.keys(ratings).length, l: 'Reviewed', c: color }, { n: knewWell, l: 'Knew Well', c: '#5FAD8E' }, { n: needWork, l: 'Needs Work', c: '#C47878' }, { n: cards.length, l: 'Total Cards', c: '#C8965A' }].map((s, i) => (

@@ -15,6 +15,62 @@ function Mountain() {
   );
 }
 
+function IconFile({ c, size = 14 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <path d="M6 4h10l6 6v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke={c} strokeWidth="1.6" strokeLinejoin="round" fill="none"/>
+      <path d="M16 4v6h6" stroke={c} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function IconFolder({ c, size = 14 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <path d="M3 9a2 2 0 012-2h5l2 2h11a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke={c} strokeWidth="1.6" strokeLinejoin="round" fill="none"/>
+    </svg>
+  );
+}
+
+function IconEmptyFolder({ size = 36 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 36 36" fill="none">
+      <path d="M4 11a2 2 0 012-2h6l3 3h14a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V11z" stroke="#C4C1D4" strokeWidth="1.6" strokeLinejoin="round" fill="none"/>
+      <line x1="12" y1="20" x2="24" y2="20" stroke="#E8E5F0" strokeWidth="1.4" strokeLinecap="round"/>
+      <line x1="12" y1="24" x2="19" y2="24" stroke="#E8E5F0" strokeWidth="1.4" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function IconCards({ c, size = 40 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="5" y="8" width="16" height="12" rx="2" stroke={c} strokeWidth="1.6" fill="none"/>
+      <rect x="8" y="5" width="16" height="12" rx="2" stroke={c} strokeWidth="1.6" fill="#EDE9F7" strokeOpacity="0.7"/>
+      <line x1="11" y1="11" x2="21" y2="11" stroke={c} strokeWidth="1.2" strokeOpacity="0.5"/>
+    </svg>
+  );
+}
+
+function IconStack({ c, size = 14 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="4" y="14" width="20" height="10" rx="2" stroke={c} strokeWidth="1.5" fill="none"/>
+      <rect x="6" y="9"  width="16" height="8"  rx="2" stroke={c} strokeWidth="1.4" fill="none" opacity="0.6"/>
+      <rect x="8" y="4"  width="12" height="8"  rx="2" stroke={c} strokeWidth="1.3" fill="none" opacity="0.35"/>
+    </svg>
+  );
+}
+
+function IconDone({ size = 64 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+      <circle cx="32" cy="32" r="28" stroke="#7B6FA0" strokeWidth="2" fill="#EDE9F7"/>
+      <path d="M20 33l8 8 16-16" stroke="#7B6FA0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
 type Card        = { id?: string; front: string; back: string; };
 type Deck        = { id: string; title: string; source_files: string | null; card_count: number; created_at: string; class_name: string | null; };
 type LibResource = { id: string; file_name: string; storage_url: string; folder_id: string; };
@@ -62,6 +118,7 @@ function MichaelFlashcardsInner() {
 
   const [topic,              setTopic]              = useState('');
   const [count,              setCount]              = useState(15);
+  const [autoCount,          setAutoCount]          = useState(false);
   const [mode,               setMode]               = useState<'basic' | 'smart'>('smart');
   const [customInstructions, setCustomInstructions] = useState('');
 
@@ -126,8 +183,10 @@ function MichaelFlashcardsInner() {
   };
 
   const studyDeck = (deck: Deck, cards: Card[]) => {
-    setCards(cards); setQueue([...cards]); setQi(0); setFlipped(false); setRatings({});
-    setSaved(true); setSavedDeckId(deck.id); setShowSave(false); setScreen('study');
+    setCards(cards); setQueue([...cards]);
+    setQi(0); setFlipped(false); setRatings({});
+    setSaved(true); setSavedDeckId(deck.id); setShowSave(false);
+    setScreen('study');
   };
 
   const deleteDeck = async (deckId: string) => {
@@ -150,7 +209,8 @@ function MichaelFlashcardsInner() {
         setDecks(prev => prev.map(d => d.id === activeDeck.id ? { ...d, card_count: deckCards.length + 1 } : d));
       }
     }
-    setNewFront(''); setNewBack(''); setEditCardId(null); setShowAddCard(false); setCardSaving(false);
+    setNewFront(''); setNewBack(''); setEditCardId(null); setShowAddCard(false);
+    setCardSaving(false);
   };
 
   const deleteCard = async (cardId: string) => {
@@ -185,9 +245,12 @@ function MichaelFlashcardsInner() {
         try { const res = await fetch(r.storage_url); const blob = await res.blob(); fetchedFiles.push(new File([blob], r.file_name + '.pdf', { type: 'application/pdf' })); } catch { /* skip */ }
       }
       const allFiles = [...fetchedFiles, ...newFiles];
+      const countPhrase = autoCount
+        ? 'as many flashcards as needed to comprehensively cover all key concepts (determine the ideal number yourself)'
+        : `${count} flashcards`;
       const baseInstruction = totalSelected > 1
-        ? `You are Ascend analyzing ${allFiles.length} documents for Michael, a pre-med high school freshman. Perform CROSS-DOCUMENT ANALYSIS: identify concepts recurring across multiple documents, find overlapping themes and high-yield topics. Generate ${count} flashcards focused on these high-frequency cross-document concepts.${topic.trim() ? ` Additional focus: ${topic.trim()}.` : ''}`
-        : `Generate ${count} flashcards${topic.trim() ? ` for: ${topic.trim()}` : ' from the uploaded study material'}. Pre-med high school level.`;
+        ? `You are Ascend analyzing ${allFiles.length} documents for Michael, a pre-med 9th grader building MCAT foundations. Perform CROSS-DOCUMENT ANALYSIS: identify concepts recurring across multiple documents, find overlapping themes and high-yield topics. Generate ${countPhrase} focused on these high-frequency cross-document concepts.${topic.trim() ? ` Additional focus: ${topic.trim()}.` : ''}`
+        : `Generate ${countPhrase}${topic.trim() ? ` for: ${topic.trim()}` : ' from the uploaded study material'}. Pre-med 9th grade level.`;
       const custom = customInstructions.trim() ? ` Additional instructions: ${customInstructions.trim()}` : '';
       const prompt = baseInstruction + custom + ' Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]';
       let raw = '';
@@ -264,7 +327,6 @@ function MichaelFlashcardsInner() {
         </Link>
       </nav>
 
-      {/* ── DECKS SCREEN ── */}
       {screen === 'decks' && (
         <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
@@ -272,21 +334,20 @@ function MichaelFlashcardsInner() {
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Michael</div>
               <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px' }}>Flashcard Decks</div>
             </div>
-            <button onClick={() => setScreen('generate')} style={{ padding: '10px 18px', borderRadius: 999, background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-              + New Deck
-            </button>
+            <button onClick={() => setScreen('generate')} style={{ padding: '10px 18px', borderRadius: 999, background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ New Deck</button>
           </div>
-
           {decksLoading ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: '#9E9BB0', fontSize: 13 }}>Loading decks...</div>
           ) : decks.length === 0 ? (
             <div style={{ background: '#FFFFFF', border: '1.5px dashed #C4C1D4', borderRadius: 18, padding: '48px 20px', textAlign: 'center' }}>
-              <div style={{ fontSize: 40, marginBottom: 14 }}>🃏</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                <div style={{ width: 72, height: 72, borderRadius: 20, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <IconCards c={color} size={40} />
+                </div>
+              </div>
               <div style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26', marginBottom: 8 }}>No decks yet</div>
               <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 24 }}>Generate a deck from your uploaded materials to get started.</div>
-              <button onClick={() => setScreen('generate')} style={{ padding: '12px 24px', borderRadius: 999, background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                Generate First Deck
-              </button>
+              <button onClick={() => setScreen('generate')} style={{ padding: '12px 24px', borderRadius: 999, background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate First Deck</button>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -299,9 +360,7 @@ function MichaelFlashcardsInner() {
                       <span style={{ fontSize: 11, color: '#9E9BB0' }}>{formatDate(deck.created_at)}</span>
                     </div>
                   </div>
-                  <button onClick={() => openDeck(deck)} style={{ padding: '8px 14px', borderRadius: 10, background: light, border: 'none', color, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>
-                    Study
-                  </button>
+                  <button onClick={() => openDeck(deck)} style={{ padding: '8px 14px', borderRadius: 10, background: light, border: 'none', color, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>Study</button>
                 </div>
               ))}
             </div>
@@ -309,7 +368,6 @@ function MichaelFlashcardsInner() {
         </main>
       )}
 
-      {/* ── DECK DETAIL SCREEN ── */}
       {screen === 'deck-detail' && activeDeck && (
         <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
           <button onClick={() => setScreen('decks')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Decks</button>
@@ -324,7 +382,6 @@ function MichaelFlashcardsInner() {
             <button onClick={() => { if (deckCards.length > 0) studyDeck(activeDeck, deckCards); }} disabled={deckCards.length === 0} style={{ flex: 1, padding: '13px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: deckCards.length === 0 ? 0.4 : 1 }}>Study This Deck</button>
             <button onClick={() => { setShowAddCard(true); setEditCardId(null); setNewFront(''); setNewBack(''); }} style={{ padding: '13px 18px', borderRadius: 14, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Add Card</button>
           </div>
-
           {deckLoading ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: '#9E9BB0', fontSize: 13 }}>Loading cards...</div>
           ) : deckCards.length === 0 ? (
@@ -351,11 +408,9 @@ function MichaelFlashcardsInner() {
               ))}
             </div>
           )}
-
           {showAddCard && (
-            <div onClick={e => { if (e.target === e.currentTarget) { setShowAddCard(false); setEditCardId(null); setNewFront(''); setNewBack(''); }}} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-              <div style={{ background: '#FFFFFF', borderRadius: '22px 22px 0 0', padding: '24px 20px 44px', width: '100%', maxWidth: 580, boxShadow: '0 -8px 40px rgba(29,27,38,0.15)' }}>
-                <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 20px' }} />
+            <div onClick={e => { if (e.target === e.currentTarget) { setShowAddCard(false); setEditCardId(null); setNewFront(''); setNewBack(''); }}} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+              <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '28px 24px', width: '100%', maxWidth: 540, boxShadow: '0 8px 40px rgba(29,27,38,0.18)' }}>
                 <div style={{ fontSize: 18, fontWeight: 800, color: '#1D1B26', marginBottom: 16 }}>{editCardId ? 'Edit Card' : 'Add Card'}</div>
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Front (Question)</label>
@@ -377,7 +432,6 @@ function MichaelFlashcardsInner() {
         </main>
       )}
 
-      {/* ── GENERATE SCREEN ── */}
       {screen === 'generate' && (
         <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
           <button onClick={() => setScreen('decks')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Decks</button>
@@ -386,7 +440,6 @@ function MichaelFlashcardsInner() {
             <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Generate Deck</div>
             <div style={{ fontSize: 13, color: '#9E9BB0' }}>Select materials from your library to generate a deck.</div>
           </div>
-
           <div style={{ background: '#F3F1EC', borderRadius: 12, padding: 3, display: 'flex', gap: 2, marginBottom: 20 }}>
             {(['smart', 'basic'] as const).map(m => (
               <button key={m} onClick={() => setMode(m)} style={{ flex: 1, padding: '9px', borderRadius: 9, border: 'none', fontFamily: 'var(--font-jakarta)', fontSize: 12, fontWeight: 700, cursor: 'pointer', background: mode === m ? '#FFFFFF' : 'transparent', color: mode === m ? color : '#9E9BB0', boxShadow: mode === m ? '0 1px 4px rgba(29,27,38,0.08)' : 'none' }}>
@@ -410,58 +463,53 @@ function MichaelFlashcardsInner() {
                 <button onClick={() => fileInputRef?.click()} style={{ padding: '6px 12px', borderRadius: 999, background: light, border: 'none', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Upload</button>
               </div>
             </div>
-
             {newFiles.length > 0 && (
               <div style={{ marginBottom: 10 }}>
                 {newFiles.map((f, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: light, marginBottom: 4 }}>
-                    <span style={{ fontSize: 12 }}>📄</span>
+                    <IconFile c={color} size={14} />
                     <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
                     <button onClick={() => setNewFiles(prev => prev.filter((_, idx) => idx !== i))} style={{ fontSize: 11, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
                   </div>
                 ))}
               </div>
             )}
-
             {libLoading ? (
               <div style={{ textAlign: 'center', padding: '16px 0', color: '#9E9BB0', fontSize: 12 }}>Loading library...</div>
             ) : library.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '20px', border: '2px dashed #E8E5F0', borderRadius: 10 }}>
-                <div style={{ fontSize: 24, marginBottom: 6 }}>📂</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><IconEmptyFolder size={32} /></div>
                 <div style={{ fontSize: 12, color: '#9E9BB0' }}>No uploaded PDFs yet — upload files to your class folders first.</div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {library.map(cls => {
-                  const clsIds     = cls.folders.flatMap(f => f.resources.map(r => r.id));
-                  const clsAllSel  = clsIds.length > 0 && clsIds.every(id => selectedIds.has(id));
+                  const clsIds = cls.folders.flatMap(f => f.resources.map(r => r.id));
+                  const clsAllSel = clsIds.length > 0 && clsIds.every(id => selectedIds.has(id));
                   const clsSomeSel = clsIds.some(id => selectedIds.has(id));
-                  const clsExp     = expandedClasses.has(cls.id);
+                  const clsExp = expandedClasses.has(cls.id);
                   return (
                     <div key={cls.id} style={{ border: '1.5px solid #E8E5F0', borderRadius: 10, overflow: 'hidden' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', background: '#FAFAF8', cursor: 'pointer' }} onClick={() => setExpandedClasses(prev => { const n = new Set(prev); n.has(cls.id) ? n.delete(cls.id) : n.add(cls.id); return n; })}>
                         <span style={{ fontSize: 10, color: '#9E9BB0', width: 10 }}>{clsExp ? '▾' : '▸'}</span>
                         <span style={{ flex: 1, fontSize: 12, fontWeight: 800, color: '#1D1B26' }}>{cls.name}</span>
-                        <button onClick={e => { e.stopPropagation(); toggleClass(cls); }} style={{ fontSize: 10, fontWeight: 700, color: clsAllSel || clsSomeSel ? color : '#9E9BB0', background: clsAllSel || clsSomeSel ? light : '#F3F1EC', border: 'none', borderRadius: 999, padding: '2px 8px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                          {clsAllSel ? 'Deselect' : 'Select all'}
-                        </button>
+                        <button onClick={e => { e.stopPropagation(); toggleClass(cls); }} style={{ fontSize: 10, fontWeight: 700, color: clsAllSel || clsSomeSel ? color : '#9E9BB0', background: clsAllSel || clsSomeSel ? light : '#F3F1EC', border: 'none', borderRadius: 999, padding: '2px 8px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{clsAllSel ? 'Deselect' : 'Select all'}</button>
                       </div>
                       {clsExp && (
                         <div style={{ padding: '0 12px 8px' }}>
                           {cls.folders.map(folder => {
-                            const fIds     = folder.resources.map(r => r.id);
-                            const fAllSel  = fIds.length > 0 && fIds.every(id => selectedIds.has(id));
+                            const fIds = folder.resources.map(r => r.id);
+                            const fAllSel = fIds.length > 0 && fIds.every(id => selectedIds.has(id));
                             const fSomeSel = fIds.some(id => selectedIds.has(id));
-                            const fExp     = expandedFolders.has(folder.id);
+                            const fExp = expandedFolders.has(folder.id);
                             return (
                               <div key={folder.id} style={{ marginTop: 6 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderRadius: 7, background: '#F3F1EC', cursor: 'pointer', marginBottom: 3 }} onClick={() => setExpandedFolders(prev => { const n = new Set(prev); n.has(folder.id) ? n.delete(folder.id) : n.add(folder.id); return n; })}>
                                   <span style={{ fontSize: 9, color: '#9E9BB0', width: 8 }}>{fExp ? '▾' : '▸'}</span>
-                                  <span style={{ flex: 1, fontSize: 11, fontWeight: 700, color: '#1D1B26' }}>📁 {folder.name}</span>
+                                  <IconFolder c="#9E9BB0" size={12} />
+                                  <span style={{ flex: 1, fontSize: 11, fontWeight: 700, color: '#1D1B26', marginLeft: 2 }}>{folder.name}</span>
                                   <span style={{ fontSize: 9, color: '#9E9BB0' }}>{folder.resources.length} PDF{folder.resources.length !== 1 ? 's' : ''}</span>
-                                  <button onClick={e => { e.stopPropagation(); toggleFolder(folder); }} style={{ fontSize: 9, fontWeight: 700, color: fAllSel || fSomeSel ? color : '#9E9BB0', background: fAllSel || fSomeSel ? light : '#FFFFFF', border: `1px solid ${fAllSel || fSomeSel ? color : '#E8E5F0'}`, borderRadius: 999, padding: '2px 7px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                                    {fAllSel ? 'Deselect' : 'Select all'}
-                                  </button>
+                                  <button onClick={e => { e.stopPropagation(); toggleFolder(folder); }} style={{ fontSize: 9, fontWeight: 700, color: fAllSel || fSomeSel ? color : '#9E9BB0', background: fAllSel || fSomeSel ? light : '#FFFFFF', border: `1px solid ${fAllSel || fSomeSel ? color : '#E8E5F0'}`, borderRadius: 999, padding: '2px 7px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{fAllSel ? 'Deselect' : 'Select all'}</button>
                                 </div>
                                 {fExp && (
                                   <div style={{ paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -472,7 +520,8 @@ function MichaelFlashcardsInner() {
                                           <div style={{ width: 16, height: 16, borderRadius: 3, border: `2px solid ${isSel ? color : '#C4C1D4'}`, background: isSel ? color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                             {isSel && <span style={{ color: 'white', fontSize: 9 }}>✓</span>}
                                           </div>
-                                          <span style={{ fontSize: 11, fontWeight: isSel ? 700 : 400, color: isSel ? color : '#1D1B26', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {r.file_name}</span>
+                                          <IconFile c={isSel ? color : '#9E9BB0'} size={12} />
+                                          <span style={{ fontSize: 11, fontWeight: isSel ? 700 : 400, color: isSel ? color : '#1D1B26', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginLeft: 2 }}>{r.file_name}</span>
                                         </div>
                                       );
                                     })}
@@ -488,31 +537,30 @@ function MichaelFlashcardsInner() {
                 })}
               </div>
             )}
-
             {totalSelected > 0 && (
-              <div style={{ marginTop: 10, padding: '9px 12px', borderRadius: 9, background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 11, fontWeight: 700 }}>
-                📚 {totalSelected} file{totalSelected !== 1 ? 's' : ''} selected{totalSelected > 1 ? ' — Ascend will find common themes' : ''}
+              <div style={{ marginTop: 10, padding: '9px 12px', borderRadius: 9, background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <IconStack c="rgba(255,255,255,0.8)" size={14} />
+                {totalSelected} file{totalSelected !== 1 ? 's' : ''} selected{totalSelected > 1 ? ' — Ascend will find common themes' : ''}
               </div>
             )}
           </div>
 
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>
-              {totalSelected > 0 ? 'Refine Focus (optional)' : 'Topic or Subject'}
-            </label>
-            <input value={topic} onChange={e => setTopic(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && canGenerate && !loading) generate(); }} placeholder={totalSelected > 0 ? 'e.g. "Focus on enzymatic reactions"' : 'e.g. Biology - Cellular Respiration'} style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', marginBottom: 14 }} />
+            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>{totalSelected > 0 ? 'Refine Focus (optional)' : 'Topic or Subject'}</label>
+            <input value={topic} onChange={e => setTopic(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && canGenerate && !loading) generate(); }} placeholder={totalSelected > 0 ? 'e.g. "Focus on cell signaling"' : 'e.g. Biology - Cell Division'} style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', marginBottom: 14 }} />
             <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Custom Instructions (optional)</label>
             <textarea value={customInstructions} onChange={e => setCustomInstructions(e.target.value)} placeholder='e.g. "Emphasize definitions" or "Focus on mechanisms"' rows={2} style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.5, marginBottom: 14 }} />
             <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 8, display: 'block' }}>Number of Cards</label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button onClick={() => setAutoCount(true)} style={{ padding: '6px 16px', borderRadius: 999, border: `1.5px solid ${autoCount ? color : '#E8E5F0'}`, background: autoCount ? color : '#FAFAF8', color: autoCount ? 'white' : '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Auto</button>
               {[10, 15, 20, 30].map(n => (
-                <button key={n} onClick={() => setCount(n)} style={{ padding: '6px 16px', borderRadius: 999, border: `1.5px solid ${count === n ? color : '#E8E5F0'}`, background: count === n ? color : '#FAFAF8', color: count === n ? 'white' : '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{n}</button>
+                <button key={n} onClick={() => { setCount(n); setAutoCount(false); }} style={{ padding: '6px 16px', borderRadius: 999, border: `1.5px solid ${!autoCount && count === n ? color : '#E8E5F0'}`, background: !autoCount && count === n ? color : '#FAFAF8', color: !autoCount && count === n ? 'white' : '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{n}</button>
               ))}
             </div>
+            {autoCount && <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 8 }}>Ascend will decide the ideal number based on your material.</div>}
           </div>
 
           {error && <p style={{ fontSize: 13, color: '#C47878', marginBottom: 12 }}>{error}</p>}
-
           {loading ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
               <div style={{ width: 32, height: 32, border: '2.5px solid #E8E5F0', borderTopColor: color, borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.75s linear infinite' }} />
@@ -521,13 +569,12 @@ function MichaelFlashcardsInner() {
             </div>
           ) : (
             <button onClick={generate} disabled={!canGenerate} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: canGenerate ? 1 : 0.4 }}>
-              {canGenerate ? (totalSelected > 1 ? `Generate ${count} Cards from ${totalSelected} Files` : `Generate ${count} Cards`) : 'Select resources or enter a topic'}
+              {canGenerate ? (totalSelected > 1 ? `Generate ${autoCount ? 'Auto' : count} Cards from ${totalSelected} Files` : `Generate ${autoCount ? 'Auto' : count} Cards`) : 'Select resources or enter a topic'}
             </button>
           )}
         </main>
       )}
 
-      {/* ── STUDY SCREEN ── */}
       {screen === 'study' && curCard && (
         <main style={{ maxWidth: 600, margin: '0 auto', padding: '20px 20px 80px' }}>
           {showSave && !saved && (
@@ -536,40 +583,23 @@ function MichaelFlashcardsInner() {
                 <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 6 }}>Save this deck?</div>
                 <input value={deckName} onChange={e => setDeckName(e.target.value)} placeholder="Deck name..." style={{ width: '100%', padding: '8px 11px', border: '1.5px solid #E8E5F0', borderRadius: 8, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FFFFFF', outline: 'none' }} />
               </div>
-              <button onClick={saveDeck} disabled={!deckName.trim() || saving} style={{ padding: '9px 14px', borderRadius: 10, border: 'none', background: color, color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0, opacity: !deckName.trim() ? 0.4 : 1 }}>
-                {saving ? '...' : 'Save'}
-              </button>
+              <button onClick={saveDeck} disabled={!deckName.trim() || saving} style={{ padding: '9px 14px', borderRadius: 10, border: 'none', background: color, color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0, opacity: !deckName.trim() ? 0.4 : 1 }}>{saving ? '...' : 'Save'}</button>
             </div>
           )}
-          {saved && (
-            <div style={{ background: '#EDF7F2', borderRadius: 12, padding: '10px 14px', marginBottom: 16, fontSize: 12, fontWeight: 700, color: '#5FAD8E' }}>
-              ✅ Deck saved — find it in your deck library
-            </div>
-          )}
-
-          {mode === 'basic' && (
-            <div style={{ height: 3, background: '#E8E5F0', borderRadius: 99, overflow: 'hidden', marginBottom: 16 }}>
-              <div style={{ height: '100%', background: color, width: `${progress}%`, transition: 'width 0.4s' }} />
-            </div>
-          )}
+          {saved && <div style={{ background: '#EDF7F2', borderRadius: 12, padding: '10px 14px', marginBottom: 16, fontSize: 12, fontWeight: 700, color: '#5FAD8E' }}>✅ Deck saved — find it in your deck library</div>}
+          {mode === 'basic' && (<div style={{ height: 3, background: '#E8E5F0', borderRadius: 99, overflow: 'hidden', marginBottom: 16 }}><div style={{ height: '100%', background: color, width: `${progress}%`, transition: 'width 0.4s' }} /></div>)}
           {mode === 'smart' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
               <span style={{ fontSize: 9, fontWeight: 700, color, letterSpacing: 1, textTransform: 'uppercase' }}>Smart</span>
-              <div style={{ flex: 1, display: 'flex', gap: 2 }}>
-                {Array.from({ length: Math.min(total, 20) }).map((_, i) => (
-                  <div key={i} style={{ flex: 1, height: 4, borderRadius: 99, background: i < qi ? '#5FAD8E' : i === qi ? color : '#E8E5F0' }} />
-                ))}
-              </div>
+              <div style={{ flex: 1, display: 'flex', gap: 2 }}>{Array.from({ length: Math.min(total, 20) }).map((_, i) => (<div key={i} style={{ flex: 1, height: 4, borderRadius: 99, background: i < qi ? '#5FAD8E' : i === qi ? color : '#E8E5F0' }} />))}</div>
               <span style={{ fontSize: 12, fontWeight: 700, color: '#9E9BB0' }}>{qi + 1}/{total}</span>
             </div>
           )}
-
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <button onClick={prev} style={{ width: 38, height: 38, borderRadius: '50%', border: '1.5px solid #E8E5F0', background: '#FFFFFF', cursor: 'pointer', fontSize: 16, color: '#9E9BB0' }}>{'<'}</button>
             <span style={{ fontSize: 13, fontWeight: 700, color: '#9E9BB0' }}>{qi + 1} of {total}</span>
             <button onClick={next} style={{ width: 38, height: 38, borderRadius: '50%', border: '1.5px solid #E8E5F0', background: '#FFFFFF', cursor: 'pointer', fontSize: 16, color: '#9E9BB0' }}>{'>'}</button>
           </div>
-
           <div onClick={() => setFlipped(f => !f)} style={{ width: '100%', perspective: 1400, cursor: 'pointer', marginBottom: 20 }}>
             <div style={{ position: 'relative', width: '100%', minHeight: 240, transformStyle: 'preserve-3d', transition: 'transform 0.35s', transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
               <div style={{ position: 'absolute', width: '100%', minHeight: 240, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', borderRadius: 20, padding: '36px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: '#FFFFFF', border: '1.5px solid #E8E5F0', boxShadow: '0 6px 28px rgba(29,27,38,0.08)' }}>
@@ -583,7 +613,6 @@ function MichaelFlashcardsInner() {
               </div>
             </div>
           </div>
-
           <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#C4C1D4', textAlign: 'center', marginBottom: 10 }}>How well did you know this?</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
             {([["Didn't Know", '#C47878'], ['Almost', '#C8965A'], ['Got It', '#5FAD8E'], ['Cold!', color]] as const).map(([label, btnColor], i) => (
@@ -604,11 +633,10 @@ function MichaelFlashcardsInner() {
         </main>
       )}
 
-      {/* ── DONE SCREEN ── */}
       {screen === 'done' && (
         <main style={{ maxWidth: 500, margin: '0 auto', padding: '40px 20px 80px', textAlign: 'center' }}>
-          <div style={{ fontSize: 52, marginBottom: 14 }}>🎉</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.5px', marginBottom: 8 }}>Session Complete!</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}><IconDone size={72} /></div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.5px', marginBottom: 8 }}>Session Complete</div>
           <div style={{ fontSize: 14, color: '#9E9BB0', lineHeight: 1.6, marginBottom: 28 }}>You reviewed <strong>{Object.keys(ratings).length} cards</strong>.</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, maxWidth: 340, margin: '0 auto 28px' }}>
             {[{ n: Object.keys(ratings).length, l: 'Reviewed', c: color }, { n: knewWell, l: 'Knew Well', c: '#5FAD8E' }, { n: needWork, l: 'Needs Work', c: '#C47878' }, { n: cards.length, l: 'Total Cards', c: '#C8965A' }].map((s, i) => (
@@ -622,16 +650,10 @@ function MichaelFlashcardsInner() {
             <div style={{ background: light, borderRadius: 14, padding: '16px', marginBottom: 20, maxWidth: 340, margin: '0 auto 20px' }}>
               <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 8 }}>Save this deck to study again later</div>
               <input value={deckName} onChange={e => setDeckName(e.target.value)} placeholder="Deck name..." style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #E8E5F0', borderRadius: 9, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FFFFFF', outline: 'none', marginBottom: 10 }} />
-              <button onClick={saveDeck} disabled={!deckName.trim() || saving} style={{ width: '100%', padding: '11px', borderRadius: 10, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !deckName.trim() ? 0.4 : 1 }}>
-                {saving ? 'Saving...' : 'Save Deck'}
-              </button>
+              <button onClick={saveDeck} disabled={!deckName.trim() || saving} style={{ width: '100%', padding: '11px', borderRadius: 10, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !deckName.trim() ? 0.4 : 1 }}>{saving ? 'Saving...' : 'Save Deck'}</button>
             </div>
           )}
-          {saved && (
-            <div style={{ background: '#EDF7F2', borderRadius: 12, padding: '12px 16px', marginBottom: 20, maxWidth: 340, margin: '0 auto 20px' }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#5FAD8E' }}>✅ Deck saved to your library</div>
-            </div>
-          )}
+          {saved && <div style={{ background: '#EDF7F2', borderRadius: 12, padding: '12px 16px', marginBottom: 20, maxWidth: 340, margin: '0 auto 20px' }}><div style={{ fontSize: 13, fontWeight: 700, color: '#5FAD8E' }}>✅ Deck saved to your library</div></div>}
           <div style={{ display: 'flex', gap: 10, maxWidth: 340, margin: '0 auto' }}>
             <button onClick={restart} style={{ flex: 1, padding: '13px', borderRadius: 14, border: '1.5px solid #E8E5F0', background: '#F3F1EC', color: '#6B6880', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Study Again</button>
             <button onClick={() => setScreen('decks')} style={{ flex: 1, padding: '13px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>My Decks</button>
