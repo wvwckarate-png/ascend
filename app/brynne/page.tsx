@@ -156,9 +156,8 @@ export default function BrynneDashboard() {
 setLoading(false);
     };
     load();
-    const handleVisibility = () => { if (document.visibilityState === 'visible') load(); };
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
+    const interval = setInterval(load, 15000);
+    return () => clearInterval(interval);
   }, []);
   const toggleTask = async (task: Task) => {
     const updated = !task.completed;

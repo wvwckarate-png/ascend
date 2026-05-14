@@ -1,7 +1,8 @@
 'use client';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';import TabBar from '../../components/TabBar';
+import { useRouter } from 'next/navigation';
+import TabBar from '../../components/TabBar';
 import { supabase } from '../../../lib/supabase';
 
 function Mountain() {
@@ -56,6 +57,7 @@ function taskColor(type: string) {
   if (type === 'assignment') return '#5FAD8E';
   if (type === 'review')     return '#7B6FA0';
   if (type === 'nudge')      return '#7B6FA0';
+  if (type === 'reading')    return '#6B7FA0';
   return '#9E9BB0';
 }
 
@@ -65,6 +67,7 @@ function taskBg(type: string) {
   if (type === 'assignment') return '#EDF7F2';
   if (type === 'review')     return '#EDE9F7';
   if (type === 'nudge')      return '#EDE9F7';
+  if (type === 'reading')    return '#EEF1F7';
   return '#F3F1EC';
 }
 
@@ -72,8 +75,9 @@ const color = '#7B6FA0';
 const light = '#EDE9F7';
 
 export default function MichaelCalendar() {
-const router   = useRouter();
-  const today    = new Date();  const todayStr = today.toISOString().split('T')[0];
+  const router   = useRouter();
+  const today    = new Date();
+  const todayStr = today.toISOString().split('T')[0];
 
   const [view,     setView]     = useState<'month' | 'week' | 'day'>('month');
   const [curYear,  setCurYear]  = useState(today.getFullYear());
@@ -81,6 +85,7 @@ const router   = useRouter();
   const [curDay,   setCurDay]   = useState(today.getDate());
   const [tasks,    setTasks]    = useState<Task[]>([]);
   const [exams,    setExams]    = useState<ExamEvent[]>([]);
+  const [loading,  setLoading]  = useState(true);
   const [showAdd,  setShowAdd]  = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDate,  setNewDate]  = useState(todayStr);
@@ -104,15 +109,35 @@ const router   = useRouter();
         classData.forEach(c => { classMap[c.id] = c.name; });
         setExams(folderData.filter(f => f.exam_date).map(f => ({ id: f.id, name: f.name, exam_date: f.exam_date, class_name: classMap[f.class_id] || '' })));
       }
+      setLoading(false);
     };
     load();
   }, []);
 
-  const toggleTask   = async (task: Task) => { await supabase.from('tasks').update({ completed: !task.completed }).eq('id', task.id); setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: !t.completed } : t)); };
+  const toggleTask = async (task: Task) => {
+    await supabase.from('tasks').update({ completed: !task.completed }).eq('id', task.id);
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: !t.completed } : t));
+  };
+
+  const handleAddTask = async () => {
+    if (!newTitle.trim() || !newDate) return;
+    setSaving(true);
+    const { error } = await supabase.from('tasks').insert({
+      student_id: 'michael', title: newTitle.trim(), due_date: newDate,
+      due_time: newTime || null, task_type: newType, class_name: newClass || null, completed: false
+    });
+    if (!error) {
+      const { data: fresh } = await supabase.from('tasks').select('*').eq('student_id', 'michael').order('due_date', { ascending: true });
+      if (fresh) setTasks(fresh);
+    }
+    setNewTitle(''); setNewDate(todayStr); setNewTime(''); setNewType('assignment'); setNewClass('');
+    setShowAdd(false); setSaving(false);
+  };
+
   const tasksForDate = (d: string) => tasks.filter(t => t.due_date === d);
   const examsForDate = (d: string) => exams.filter(e => e.exam_date === d);
-  const daysInMonth  = getDaysInMonth(curYear, curMonth);
-  const firstDay     = getFirstDay(curYear, curMonth);
+  const allForDate   = (d: string) => ({ tasks: tasksForDate(d), exams: examsForDate(d) });
+
   const selectedDate = new Date(curYear, curMonth, curDay);
   const selStr       = selectedDate.toISOString().split('T')[0];
 
@@ -123,26 +148,20 @@ const router   = useRouter();
   const prevDay   = () => { const d = new Date(curYear, curMonth, curDay - 1); setCurYear(d.getFullYear()); setCurMonth(d.getMonth()); setCurDay(d.getDate()); };
   const nextDay   = () => { const d = new Date(curYear, curMonth, curDay + 1); setCurYear(d.getFullYear()); setCurMonth(d.getMonth()); setCurDay(d.getDate()); };
 
+  const daysInMonth = getDaysInMonth(curYear, curMonth);
+  const firstDay    = getFirstDay(curYear, curMonth);
+
   const viewWeekStart = new Date(curYear, curMonth, curDay);
   viewWeekStart.setDate(viewWeekStart.getDate() - viewWeekStart.getDay());
   const weekDays = Array.from({ length: 7 }, (_, i) => { const d = new Date(viewWeekStart); d.setDate(viewWeekStart.getDate() + i); return d; });
 
-  const handleAddTask = async () => {
-    if (!newTitle.trim() || !newDate) return;
-    setSaving(true);
-    const { data } = await supabase.from('tasks').insert({ student_id: 'michael', title: newTitle.trim(), due_date: newDate, due_time: newTime || null, task_type: newType, class_name: newClass || null, completed: false }).select().single();
-    if (data) setTasks(prev => [...prev, data].sort((a, b) => a.due_date.localeCompare(b.due_date)));
-setNewTitle(''); setNewDate(todayStr); setNewTime(''); setNewType('assignment'); setNewClass('');
-    setShowAdd(false); setSaving(false);
-  };
   const EventChip = ({ title, type, completed, onClick }: { title: string; type: string; completed: boolean; onClick: () => void }) => (
     <div onClick={e => { e.stopPropagation(); onClick(); }} style={{ padding: '3px 7px', borderRadius: 6, background: completed ? '#F3F1EC' : taskBg(type), fontSize: 10, fontWeight: 600, color: completed ? '#C4C1D4' : taskColor(type), cursor: 'pointer', textDecoration: completed ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 2 }}>{title}</div>
   );
 
   const ExamChip = ({ name }: { name: string }) => (
     <div style={{ padding: '3px 7px', borderRadius: 6, background: '#FDF2F2', fontSize: 10, fontWeight: 700, color: '#C47878', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
-      <IconCalendarEvent c="#C47878" size={10} />
-      {name}
+      <IconCalendarEvent c="#C47878" size={10} />{name}
     </div>
   );
 
@@ -195,11 +214,10 @@ setNewTitle(''); setNewDate(todayStr); setNewTime(''); setNewType('assignment');
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
               {Array.from({ length: firstDay }).map((_, i) => <div key={`e-${i}`} style={{ minHeight: 90, borderRight: '1px solid #F3F1EC', borderBottom: '1px solid #F3F1EC', background: '#FAFAF8' }} />)}
               {Array.from({ length: daysInMonth }).map((_, i) => {
-                const day     = i + 1;
+                const day = i + 1;
                 const dateStr = `${curYear}-${String(curMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 const isToday = dateStr === todayStr;
-                const dayTasks = tasksForDate(dateStr);
-                const dayExams = examsForDate(dateStr);
+                const { tasks: dayTasks, exams: dayExams } = allForDate(dateStr);
                 const col = (firstDay + i) % 7;
                 return (
                   <div key={day} onClick={() => { setCurDay(day); setView('day'); }} style={{ minHeight: 90, borderRight: col < 6 ? '1px solid #F3F1EC' : 'none', borderBottom: '1px solid #F3F1EC', padding: '6px 5px', cursor: 'pointer', background: isToday ? '#FAFAF8' : '#FFFFFF' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = light} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = isToday ? '#FAFAF8' : '#FFFFFF'}>
@@ -225,10 +243,9 @@ setNewTitle(''); setNewDate(todayStr); setNewTime(''); setNewType('assignment');
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
               {weekDays.map((d, i) => {
-                const dateStr  = d.toISOString().split('T')[0];
-                const isToday  = dateStr === todayStr;
-                const dayTasks = tasksForDate(dateStr);
-                const dayExams = examsForDate(dateStr);
+                const dateStr = d.toISOString().split('T')[0];
+                const isToday = dateStr === todayStr;
+                const { tasks: dayTasks, exams: dayExams } = allForDate(dateStr);
                 return (
                   <div key={i} onClick={() => { setCurYear(d.getFullYear()); setCurMonth(d.getMonth()); setCurDay(d.getDate()); setView('day'); }} style={{ borderRight: i < 6 ? '1px solid #F3F1EC' : 'none', padding: '10px 6px', minHeight: 120, cursor: 'pointer' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = light} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = 'transparent'}>
                     <div style={{ textAlign: 'center', marginBottom: 8 }}>
@@ -288,7 +305,10 @@ setNewTitle(''); setNewDate(todayStr); setNewTime(''); setNewType('assignment');
         {view !== 'day' && (
           <div style={{ marginTop: 24 }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 12 }}>Upcoming</div>
-            {tasks.filter(t => !t.completed && t.due_date >= todayStr).slice(0, 5).map(task => <TaskRow key={task.id} task={task} />)}
+            {tasks.filter(t => !t.completed && t.due_date >= todayStr).slice(0, 5).length === 0
+              ? <div style={{ fontSize: 13, color: '#9E9BB0', textAlign: 'center', padding: '20px 0' }}>No upcoming tasks</div>
+              : tasks.filter(t => !t.completed && t.due_date >= todayStr).slice(0, 5).map(task => <TaskRow key={task.id} task={task} />)
+            }
           </div>
         )}
       </main>
