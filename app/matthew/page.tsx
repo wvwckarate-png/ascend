@@ -156,8 +156,9 @@ useEffect(() => {
 setLoading(false);
     };
     load();
-    window.addEventListener('focus', load);
-    return () => window.removeEventListener('focus', load);
+    const handleVisibility = () => { if (document.visibilityState === 'visible') load(); };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
   const toggleTask = async (task: Task) => {
     const updated = !task.completed;

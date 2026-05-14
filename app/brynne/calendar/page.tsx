@@ -134,7 +134,6 @@ const router   = useRouter();
     if (data) setTasks(prev => [...prev, data].sort((a, b) => a.due_date.localeCompare(b.due_date)));
 setNewTitle(''); setNewDate(todayStr); setNewTime(''); setNewType('assignment'); setNewClass('');
     setShowAdd(false); setSaving(false);
-    router.refresh();
   };
   const EventChip = ({ title, type, completed, onClick }: { title: string; type: string; completed: boolean; onClick: () => void }) => (
     <div onClick={e => { e.stopPropagation(); onClick(); }} style={{ padding: '3px 7px', borderRadius: 6, background: completed ? '#F3F1EC' : taskBg(type), fontSize: 10, fontWeight: 600, color: completed ? '#C4C1D4' : taskColor(type), cursor: 'pointer', textDecoration: completed ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 2 }}>{title}</div>
