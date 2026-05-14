@@ -169,9 +169,8 @@ export default function MichaelDashboard() {
 setLoading(false);
     };
     load();
-    const handleVisibility = () => { if (document.visibilityState === 'visible') load(); };
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
+    const interval = setInterval(load, 15000);
+    return () => clearInterval(interval);
   }, []);
   const toggleTask = async (task: Task) => {
     const updated = !task.completed;
@@ -179,7 +178,7 @@ setLoading(false);
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: updated } : t));
   };
 
-  const upcomingTasks  = tasks.filter(t => !t.completed && t.due_date >= todayStr).slice(0, 8);
+  const upcomingTasks  = tasks.filter(t => t.due_date >= todayStr).slice(0, 8);
   const overdueTasks   = tasks.filter(t => !t.completed && t.due_date < todayStr);
   const completedTasks = tasks.filter(t => t.completed).slice(0, 5);
   const todayExams     = exams.filter(e => e.exam_date === todayStr);
