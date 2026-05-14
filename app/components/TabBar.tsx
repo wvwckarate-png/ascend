@@ -62,9 +62,9 @@ export default function TabBar({ student }: Props) {
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState('');
-  const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (showModal) {
@@ -72,7 +72,7 @@ export default function TabBar({ student }: Props) {
         if (data) setClasses(data);
       });
     }
-  }, [showModal]);
+  }, [showModal, student]);
 
   const leftTabs = [
     { label: 'Home', href: `/${student}`, icon: IconHome },
@@ -104,27 +104,34 @@ export default function TabBar({ student }: Props) {
 
   const reset = () => {
     setTitle(''); setDate(new Date().toISOString().split('T')[0]);
-    setTime(''); setNotes(''); setCls(''); setType('Assignment');
-    setSaved(false); setSaving(false);
+    setTime(''); setCls(''); setType('Assignment');
+    setSaved(false); setSaving(false); setError('');
   };
 
   const handleSave = async () => {
     if (!title.trim()) return;
     setSaving(true);
-    await supabase.from('tasks').insert({
+    setError('');
+    const { error: insertError } = await supabase.from('tasks').insert({
       student_id: student,
       title: title.trim(),
       due_date: date,
       due_time: time || null,
       class_name: cls || null,
       task_type: type.toLowerCase(),
+      completed: false,
     });
+    if (insertError) {
+      setError('Could not save task. Please try again.');
+      setSaving(false);
+      return;
+    }
     setSaved(true);
     setTimeout(() => {
       setShowModal(false);
       reset();
-      router.refresh();
-    }, 700);
+      window.location.reload();
+    }, 800);
   };
 
   return (
@@ -135,9 +142,7 @@ export default function TabBar({ student }: Props) {
           style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.45)', backdropFilter: 'blur(3px)', zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
         >
           <div style={{ background: '#FFFFFF', borderRadius: '22px 22px 0 0', padding: '20px 18px 36px', width: '100%', maxWidth: 580, boxShadow: '0 -8px 40px rgba(29,27,38,0.12)' }}>
-
             <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 18px' }} />
-
             <div style={{ fontSize: 18, fontWeight: 800, color: '#1D1B26', marginBottom: 16 }}>Quick Add Task</div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
@@ -168,7 +173,7 @@ export default function TabBar({ student }: Props) {
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
               <div>
                 <label style={labelStyle}>Due Date</label>
                 <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
@@ -179,27 +184,7 @@ export default function TabBar({ student }: Props) {
               </div>
             </div>
 
-            <div style={{ marginBottom: 14 }}>
-              <label style={labelStyle}>Notes</label>
-              <div style={{ position: 'relative' }}>
-                <textarea
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  placeholder="Details or instructions..."
-                  rows={3}
-                  style={{ ...inputStyle, resize: 'none', paddingRight: 44, lineHeight: 1.5 }}
-                />
-                <button style={{ position: 'absolute', right: 9, top: 9, width: 28, height: 28, borderRadius: '50%', background: '#EDE9F7', border: 'none', cursor: 'pointer', fontSize: 10, color: '#7B6FA0', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  mic
-                </button>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-              {['Attach File', 'Photo', 'Screenshot'].map(l => (
-                <button key={l} style={{ padding: '7px 12px', borderRadius: 999, border: '1.5px dashed #C4C1D4', background: 'transparent', color: '#9E9BB0', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{l}</button>
-              ))}
-            </div>
+            {error && <div style={{ fontSize: 12, color: '#C47878', marginBottom: 12, fontWeight: 600 }}>{error}</div>}
 
             <div style={{ display: 'flex', gap: 9 }}>
               <button onClick={() => { setShowModal(false); reset(); }} style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
