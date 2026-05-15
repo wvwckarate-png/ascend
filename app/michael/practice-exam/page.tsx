@@ -187,7 +187,7 @@ function MichaelPracticeExamInner() {
       }
       const parsed: Question[] = JSON.parse(raw);
       const title = examNameInput.trim() || topic.trim() || folderName || `Practice Exam — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-      const { data: examData } = await supabase.from('practice_exams').insert({ student_id: 'michael', title, questions: parsed, responses: {}, status: 'in_progress', timer_seconds: timerEnabled ? timerMinutes * 60 : null }).select().single();
+      const { data: examData } = await supabase.from('practice_exams').insert({ student_id: 'michael', title, questions: parsed, responses: {}, status: 'in_progress', timer_seconds: timerEnabled ? timerMinutes * 60 : null, folder_id: folderId || null }).select().single();
       if (examData) { setExamId(examData.id); setActiveExam(examData); }
       setExamTitle(title); setQuestions(parsed); setResponses({}); setReviewed(new Set()); setShowExplanation(new Set());
       if (timerEnabled) { setTimeLeft(timerMinutes * 60); setTimerRunning(true); }

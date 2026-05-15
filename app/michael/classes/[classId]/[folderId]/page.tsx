@@ -176,20 +176,26 @@ export default function MichaelBinder() {
   const [tab,       setTab]       = useState('resources');
   const [loading,   setLoading]   = useState(true);
   const [folderDeck,  setFolderDeck]  = useState<{id:string;title:string;card_count:number} | null>(null);
+  const [folderExam,  setFolderExam]  = useState<{id:string;title:string;status:string;score:number|null;questions:any[]} | null>(null);
+  const [folderGuide, setFolderGuide] = useState<{id:string;title:string;created_at:string} | null>(null);
   const [showUpload, setShowUpload] = useState(false);
 
   useEffect(() => {
     const load = async () => {
-      const [{ data: classData }, { data: folderData }, { data: resourceData }, { data: deckData }] = await Promise.all([
+      const [{ data: classData }, { data: folderData }, { data: resourceData }, { data: deckData }, { data: examData }, { data: guideData }] = await Promise.all([
         supabase.from('classes').select('id, name, semester, professor').eq('id', classId).single(),
         supabase.from('exam_folders').select('id, name, exam_date').eq('id', folderId).single(),
         supabase.from('resources').select('id, file_name, file_type, storage_url, created_at').eq('folder_id', folderId).order('created_at', { ascending: false }),
         supabase.from('flashcard_decks').select('id, title, card_count').eq('folder_id', folderId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('practice_exams').select('id, title, status, score, questions').eq('folder_id', folderId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('study_guides').select('id, title, created_at').eq('folder_id', folderId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
       ]);
       if (classData)    setCls(classData);
       if (folderData)   setFolder(folderData);
       if (resourceData) setResources(resourceData);
       if (deckData)     setFolderDeck(deckData);
+      if (examData)     setFolderExam(examData);
+      if (guideData)    setFolderGuide(guideData);
       setLoading(false);
     };
     load();
@@ -336,20 +342,38 @@ export default function MichaelBinder() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Practice Exam</div>
-                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>Generate a practice exam from this folder</div>
+                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>{folderExam ? `${folderExam.questions?.length || 0} questions · ${folderExam.status === 'completed' ? `Score: ${folderExam.score ?? 'n/a'}%` : 'In progress'}` : 'Generate a practice exam from this folder'}</div>
                     </div>
-                    {hasResources && <button onClick={() => router.push(`/michael/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: '#C8965A', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>Generate</button>}
-                  </div>
-                  <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
-                    <div style={{ width: 64, height: 64, borderRadius: 18, background: '#FFF3E8', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                      <IconExam c="#C8965A" size={32} />
-                    </div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No practice exam yet</div>
-                    <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Generate a practice exam weighted to your weak areas.' : 'Upload resources first, then generate a practice exam.'}</div>
-                    <button onClick={() => hasResources ? router.push('/michael/practice-exam') : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? '#C8965A' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                      {hasResources ? 'Generate Practice Exam' : 'Upload Resources First'}
+                    <button onClick={() => router.push(`/michael/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>
+                      {folderExam ? 'New Exam' : 'Generate'}
                     </button>
                   </div>
+                  {folderExam ? (
+                    <div onClick={() => router.push('/michael/practice-exam')} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '18px 20px', background: '#FAFAF8', borderRadius: 14, border: '1.5px solid #E8E5F0', cursor: 'pointer' }}>
+                      <div style={{ width: 48, height: 48, borderRadius: 13, background: '#EDE9F7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <IconExam c="#7B6FA0" size={26} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{folderExam.title}</div>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: folderExam.status === 'completed' ? '#5FAD8E' : '#7B6FA0', background: folderExam.status === 'completed' ? '#EDF7F2' : '#EDE9F7', padding: '2px 8px', borderRadius: 999 }}>{folderExam.status === 'completed' ? 'Completed' : 'In Progress'}</span>
+                          {folderExam.score !== null && <span style={{ fontSize: 11, fontWeight: 700, color: (folderExam.score ?? 0) >= 80 ? '#5FAD8E' : (folderExam.score ?? 0) >= 60 ? '#C8965A' : '#C47878' }}>{folderExam.score}%</span>}
+                        </div>
+                      </div>
+                      <div style={{ padding: '8px 16px', borderRadius: 999, background: '#7B6FA0', color: 'white', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{folderExam.status === 'completed' ? 'Review' : 'Continue'}</div>
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
+                      <div style={{ width: 64, height: 64, borderRadius: 18, background: '#EDE9F7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                        <IconExam c="#7B6FA0" size={32} />
+                      </div>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No practice exam yet</div>
+                      <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Generate a practice exam from the resources in this folder.' : 'Upload resources first, then generate a practice exam.'}</div>
+                      <button onClick={() => hasResources ? router.push(`/michael/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`) : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? '#7B6FA0' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                        {hasResources ? 'Generate Practice Exam' : 'Upload Resources First'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -358,20 +382,35 @@ export default function MichaelBinder() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Study Guide</div>
-                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>Generate a full study guide from this folder</div>
+                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>{folderGuide ? 'Study guide generated' : 'Generate a full study guide from this folder'}</div>
                     </div>
-                    {hasResources && <button onClick={() => router.push(`/michael/study?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate</button>}
-                  </div>
-                  <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
-                    <div style={{ width: 64, height: 64, borderRadius: 18, background: '#EDE9F7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                      <IconBrain c="#7B6FA0" size={32} />
-                    </div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No study guide yet</div>
-                    <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Ascend builds a full outline and active recall guide from your uploaded material.' : 'Upload resources first — Ascend builds the study guide from your material.'}</div>
-                    <button onClick={() => hasResources ? router.push('/michael/study') : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? '#7B6FA0' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                      {hasResources ? 'Generate Study Guide' : 'Upload Resources First'}
+                    <button onClick={() => router.push(`/michael/study?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: '#7B6FA0', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                      {folderGuide ? 'New Guide' : 'Generate'}
                     </button>
                   </div>
+                  {folderGuide ? (
+                    <div onClick={() => router.push(`/michael/study?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '18px 20px', background: '#FAFAF8', borderRadius: 14, border: '1.5px solid #E8E5F0', cursor: 'pointer' }}>
+                      <div style={{ width: 48, height: 48, borderRadius: 13, background: '#EDE9F7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <IconBrain c="#7B6FA0" size={26} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{folderGuide.title}</div>
+                        <div style={{ fontSize: 11, color: '#9E9BB0' }}>{new Date(folderGuide.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                      </div>
+                      <div style={{ padding: '8px 16px', borderRadius: 999, background: '#7B6FA0', color: 'white', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>View</div>
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
+                      <div style={{ width: 64, height: 64, borderRadius: 18, background: '#EDE9F7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                        <IconBrain c="#7B6FA0" size={32} />
+                      </div>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No study guide yet</div>
+                      <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Ascend builds a full outline and active recall guide from your uploaded material.' : 'Upload resources first — Ascend builds the study guide from your material.'}</div>
+                      <button onClick={() => hasResources ? router.push(`/michael/study?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`) : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? '#7B6FA0' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                        {hasResources ? 'Generate Study Guide' : 'Upload Resources First'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
