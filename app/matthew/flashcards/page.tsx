@@ -62,6 +62,17 @@ function IconStack({ c, size = 14 }: { c: string; size?: number }) {
   );
 }
 
+function IconLightbulb({ c, size = 14 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <path d="M14 4a8 8 0 016 13.2V19a2 2 0 01-2 2h-8a2 2 0 01-2-2v-1.8A8 8 0 0114 4z" stroke={c} strokeWidth="1.6" strokeLinejoin="round" fill="none"/>
+      <line x1="10" y1="22" x2="18" y2="22" stroke={c} strokeWidth="1.4" strokeLinecap="round"/>
+      <line x1="11" y1="25" x2="17" y2="25" stroke={c} strokeWidth="1.4" strokeLinecap="round"/>
+      <line x1="14" y1="8" x2="14" y2="13" stroke={c} strokeWidth="1.4" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
 function IconDone({ size = 64 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
@@ -133,7 +144,8 @@ function MatthewFlashcardsInner() {
   const [deckName,    setDeckName]    = useState('');
   const [showSave,    setShowSave]    = useState(false);
   const [saved,       setSaved]       = useState(false);
-  const [savedDeckId, setSavedDeckId] = useState<string | null>(null);
+  const [savedDeckId,     setSavedDeckId]     = useState<string | null>(null);
+  const [scheduleReview,  setScheduleReview]  = useState(false);
 
   useEffect(() => { loadDecks(); loadLibrary(); }, []);
   useEffect(() => { if (folderId) setScreen('generate'); }, [folderId]);
@@ -294,6 +306,16 @@ function MatthewFlashcardsInner() {
         setSavedDeckId(deck.id);
         await supabase.from('flashcard_cards').insert(cards.map((c, i) => ({ deck_id: deck.id, front: c.front, back: c.back, position: i })));
         setDecks(prev => [deck, ...prev]);
+        if (scheduleReview) {
+          const today = new Date();
+          const reviewDays = [1, 3, 7];
+          const reviewTasks = reviewDays.map(d => {
+            const due = new Date(today);
+            due.setDate(today.getDate() + d);
+            return { student_id: 'matthew', title: `Review: ${deckName.trim()} flashcards`, due_date: due.toISOString().split('T')[0], task_type: 'review', completed: false };
+          });
+          await supabase.from('tasks').insert(reviewTasks);
+        }
         setSaved(true); setShowSave(false);
       }
     } catch { setError('Could not save deck.'); }
@@ -616,19 +638,29 @@ function MatthewFlashcardsInner() {
       {screen === 'study' && curCard && (
         <main style={{ maxWidth: 600, margin: '0 auto', padding: '20px 20px 80px' }}>
           {showSave && !saved && (
-            <div style={{ background: light, border: `1.5px solid ${color}40`, borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 6 }}>Save this deck?</div>
-                <input value={deckName} onChange={e => setDeckName(e.target.value)} placeholder="Deck name..." style={{ width: '100%', padding: '8px 11px', border: '1.5px solid #E8E5F0', borderRadius: 8, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FFFFFF', outline: 'none' }} />
+            <div style={{ background: light, border: `1.5px solid ${color}40`, borderRadius: 14, padding: '14px 16px', marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 8 }}>Save this deck?</div>
+              <input value={deckName} onChange={e => setDeckName(e.target.value)} placeholder="Deck name..." style={{ width: '100%', padding: '8px 11px', border: '1.5px solid #E8E5F0', borderRadius: 8, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FFFFFF', outline: 'none', marginBottom: 10 }} />
+              <div onClick={() => setScheduleReview(s => !s)} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginBottom: 10 }}>
+                <div style={{ width: 36, height: 20, borderRadius: 999, background: scheduleReview ? color : '#E8E5F0', transition: 'background 0.2s', position: 'relative', flexShrink: 0 }}>
+                  <div style={{ position: 'absolute', top: 2, left: scheduleReview ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: scheduleReview ? color : '#9E9BB0' }}>Add to review schedule (Day +1, +3, +7)</span>
               </div>
-              <button onClick={saveDeck} disabled={!deckName.trim() || saving} style={{ padding: '9px 14px', borderRadius: 10, border: 'none', background: color, color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0, opacity: !deckName.trim() ? 0.4 : 1 }}>
-                {saving ? '...' : 'Save'}
+              <button onClick={saveDeck} disabled={!deckName.trim() || saving} style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !deckName.trim() ? 0.4 : 1 }}>
+                {saving ? 'Saving...' : 'Save Deck'}
               </button>
             </div>
           )}
           {saved && (
             <div style={{ background: '#EDF7F2', borderRadius: 12, padding: '10px 14px', marginBottom: 16, fontSize: 12, fontWeight: 700, color: '#5FAD8E' }}>
               ✅ Deck saved — find it in your deck library
+            </div>
+          )}
+          {!saved && !showSave && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F3F1EC', borderRadius: 10, padding: '9px 13px', marginBottom: 16 }}>
+              <IconLightbulb c="#9E9BB0" size={14} />
+              <span style={{ fontSize: 11, color: '#9E9BB0', fontWeight: 600 }}>Save this deck to add, edit, or remove cards</span>
             </div>
           )}
 
@@ -710,6 +742,12 @@ function MatthewFlashcardsInner() {
             <div style={{ background: light, borderRadius: 14, padding: '16px', marginBottom: 20, maxWidth: 340, margin: '0 auto 20px' }}>
               <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 8 }}>Save this deck to study again later</div>
               <input value={deckName} onChange={e => setDeckName(e.target.value)} placeholder="Deck name..." style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #E8E5F0', borderRadius: 9, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FFFFFF', outline: 'none', marginBottom: 10 }} />
+              <div onClick={() => setScheduleReview(s => !s)} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginBottom: 10 }}>
+                <div style={{ width: 36, height: 20, borderRadius: 999, background: scheduleReview ? color : '#E8E5F0', transition: 'background 0.2s', position: 'relative', flexShrink: 0 }}>
+                  <div style={{ position: 'absolute', top: 2, left: scheduleReview ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: scheduleReview ? color : '#9E9BB0' }}>Add to review schedule (Day +1, +3, +7)</span>
+              </div>
               <button onClick={saveDeck} disabled={!deckName.trim() || saving} style={{ width: '100%', padding: '11px', borderRadius: 10, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !deckName.trim() ? 0.4 : 1 }}>
                 {saving ? 'Saving...' : 'Save Deck'}
               </button>
