@@ -410,6 +410,21 @@ setLoading(false);
           </div>
         )}
 
+        {/* ── ADD TO HOME SCREEN HINT ── */}
+        <div style={{ background: '#E8956D', borderRadius: 16, padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 11, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="22" height="20" viewBox="0 0 60 56" fill="none">
+              <path d="M4 52L22 10L40 52" stroke="white" strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round"/>
+              <path d="M31 52L42 28L53 52" stroke="white" strokeWidth="2.8" strokeLinejoin="round" strokeLinecap="round"/>
+              <line x1="2" y1="52" x2="56" y2="52" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+            </svg>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: 'white', marginBottom: 2 }}>Add Ascend to your home screen!</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>Tap Share → "Add to Home Screen" in Chrome 🌟</div>
+          </div>
+        </div>
+
         {/* ── 4. STUDY TOOLS ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
           <div onClick={() => router.push('/brynne/study')} style={{ background: '#FFFFFF', border: `1.5px solid ${color}20`, borderRadius: 14, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', boxShadow: '0 1px 4px rgba(29,27,38,0.06)', transition: 'transform 0.15s' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}>

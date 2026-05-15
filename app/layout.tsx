@@ -12,7 +12,15 @@ export const metadata: Metadata = {
   title: "Ascend — Forged in Focus",
   description: "Your personal study ecosystem",
   icons: {
-    icon: '/favicon.svg',
+    icon: '/favicon-32.png',
+    apple: '/apple-touch-icon.png',
+  },
+  manifest: '/manifest.json',
+  themeColor: '#7B6FA0',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Ascend',
   },
 };
 
