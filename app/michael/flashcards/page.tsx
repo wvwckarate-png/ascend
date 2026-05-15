@@ -618,7 +618,7 @@ function MichaelFlashcardsInner() {
             </div>
           )}
           {!saved && (
-            <div style={{ background: '#FAFAF8', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <div style={{ background: '#EDE9F7', border: '1.5px solid #C4B8E8', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
               <div style={{ width: 32, height: 32, borderRadius: 10, background: '#EDE9F7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
                 <IconLightbulb c="#7B6FA0" size={16} />
               </div>
