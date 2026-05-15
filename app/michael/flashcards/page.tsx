@@ -617,10 +617,15 @@ function MichaelFlashcardsInner() {
               ✅ Deck saved — find it in your deck library
             </div>
           )}
-          {!saved && !showSave && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F3F1EC', borderRadius: 10, padding: '9px 13px', marginBottom: 16 }}>
-              <IconLightbulb c="#9E9BB0" size={14} />
-              <span style={{ fontSize: 11, color: '#9E9BB0', fontWeight: 600 }}>Save this deck to add, edit, or remove cards</span>
+          {!saved && (
+            <div style={{ background: '#FAFAF8', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+              <div style={{ width: 32, height: 32, borderRadius: 10, background: '#EDE9F7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                <IconLightbulb c="#7B6FA0" size={16} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 800, color: '#7B6FA0', letterSpacing: 0.3, marginBottom: 3 }}>Did you know?</div>
+                <div style={{ fontSize: 12, color: '#6B6880', lineHeight: 1.5 }}>Once saved, you can add new cards, edit any card's front or back, or remove cards — all from your deck library.</div>
+              </div>
             </div>
           )}
           {mode === 'basic' && (<div style={{ height: 3, background: '#E8E5F0', borderRadius: 99, overflow: 'hidden', marginBottom: 16 }}><div style={{ height: '100%', background: color, width: `${progress}%`, transition: 'width 0.4s' }} /></div>)}
