@@ -178,18 +178,21 @@ export default function BrynneBinder() {
   const [resources,  setResources]  = useState<Resource[]>([]);
   const [tab,        setTab]        = useState('resources');
   const [loading,    setLoading]    = useState(true);
+  const [folderDeck,  setFolderDeck]  = useState<{id:string;title:string;card_count:number} | null>(null);
   const [showUpload, setShowUpload] = useState(false);
 
   useEffect(() => {
     const load = async () => {
-      const [{ data: classData }, { data: folderData }, { data: resourceData }] = await Promise.all([
+      const [{ data: classData }, { data: folderData }, { data: resourceData }, { data: deckData }] = await Promise.all([
         supabase.from('classes').select('id, name, semester, professor').eq('id', classId).single(),
         supabase.from('exam_folders').select('id, name, exam_date').eq('id', folderId).single(),
         supabase.from('resources').select('id, file_name, file_type, storage_url, created_at').eq('folder_id', folderId).order('created_at', { ascending: false }),
+        supabase.from('flashcard_decks').select('id, title, card_count').eq('folder_id', folderId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
       ]);
       if (classData)    setCls(classData);
       if (folderData)   setFolder(folderData);
       if (resourceData) setResources(resourceData);
+      if (deckData)     setFolderDeck(deckData);
       setLoading(false);
     };
     load();
@@ -299,20 +302,35 @@ export default function BrynneBinder() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Flashcards</div>
-                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>Make flashcards from your notes!</div>
+                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>{folderDeck ? `${folderDeck.card_count} cards saved` : 'Make flashcards from your notes!'}</div>
                     </div>
-                    {hasResources && <button onClick={() => router.push(`/brynne/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate</button>}
-                  </div>
-                  <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
-                    <div style={{ width: 64, height: 64, borderRadius: 18, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                      <IconCards c={color} size={32} />
-                    </div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No flashcards yet!</div>
-                    <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Ascend can make flashcards from your notes — great for studying! ✨' : 'Upload your notes first, then Ascend will make flashcards for you!'}</div>
-                    <button onClick={() => hasResources ? router.push('/brynne/flashcards') : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? color : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                      {hasResources ? 'Generate Flashcards' : 'Upload Notes First'}
+                    <button onClick={() => router.push(`/brynne/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                      {folderDeck ? 'New Deck' : 'Generate'}
                     </button>
                   </div>
+                  {folderDeck ? (
+                    <div onClick={() => router.push(`/brynne/flashcards`)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '18px 20px', background: '#FAFAF8', borderRadius: 14, border: '1.5px solid #E8E5F0', cursor: 'pointer' }}>
+                      <div style={{ width: 48, height: 48, borderRadius: 13, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <IconCards c={color} size={26} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{folderDeck.title}</div>
+                        <div style={{ fontSize: 11, color: '#9E9BB0' }}>{folderDeck.card_count} cards</div>
+                      </div>
+                      <div style={{ padding: '8px 16px', borderRadius: 999, background: color, color: 'white', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>Study</div>
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
+                      <div style={{ width: 64, height: 64, borderRadius: 18, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                        <IconCards c={color} size={32} />
+                      </div>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No flashcards yet!</div>
+                      <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Ascend can make flashcards from your notes — great for studying! ✨' : 'Upload your notes first, then Ascend will make flashcards for you!'}</div>
+                      <button onClick={() => hasResources ? router.push(`/brynne/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`) : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? color : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                        {hasResources ? 'Generate Flashcards' : 'Upload Notes First'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
