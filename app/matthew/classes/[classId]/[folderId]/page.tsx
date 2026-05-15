@@ -492,7 +492,7 @@ export default function MatthewBinder() {
                     </button>
                   </div>
                   {folderGuide ? (
-                    <div onClick={() => router.push(`/matthew/study?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '18px 20px', background: '#FAFAF8', borderRadius: 14, border: '1.5px solid #E8E5F0', cursor: 'pointer' }}>
+                    <div onClick={() => router.push(`/matthew/study?guideId=${folderGuide.id}&folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '18px 20px', background: '#FAFAF8', borderRadius: 14, border: '1.5px solid #E8E5F0', cursor: 'pointer' }}>
                       <div style={{ width: 48, height: 48, borderRadius: 13, background: '#EDE9F7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <IconBrain c="#7B6FA0" size={26} />
                       </div>

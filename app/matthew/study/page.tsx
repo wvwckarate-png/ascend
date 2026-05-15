@@ -119,6 +119,7 @@ function MatthewStudyInner() {
   const searchParams = useSearchParams();
   const folderId   = searchParams.get('folderId');
   const folderName = searchParams.get('folderName');
+  const guideId    = searchParams.get('guideId');
 
   const [library,         setLibrary]         = useState<LibClass[]>([]);
   const [libLoading,      setLibLoading]       = useState(true);
@@ -145,6 +146,22 @@ function MatthewStudyInner() {
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (guideId) {
+      const loadExisting = async () => {
+        setLoading(true);
+        const { data } = await supabase.from('study_guides').select('title, content, source_filename').eq('id', guideId).single();
+        if (data) {
+          setStudyGuide(data.content);
+          setGuideName(data.title);
+          setSourceFiles(data.source_filename ? data.source_filename.split(', ') : []);
+          setSaved(true);
+          setShowNamePrompt(false);
+        }
+        setLoading(false);
+      };
+      loadExisting();
+      return;
+    }
     const loadLibrary = async () => {
       setLibLoading(true);
       const { data: classData } = await supabase.from('classes').select('id, name').eq('student_id', 'matthew').eq('is_active', true).order('created_at', { ascending: true });
@@ -175,7 +192,7 @@ function MatthewStudyInner() {
       setLibLoading(false);
     };
     loadLibrary();
-  }, [folderId, folderName]);
+  }, [folderId, folderName, guideId]);
 
   const toggleResource = (id: string) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleFolder   = (folder: LibFolder) => { const ids = folder.resources.map(r => r.id); const allSel = ids.every(id => selectedIds.has(id)); setSelectedIds(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; }); };
