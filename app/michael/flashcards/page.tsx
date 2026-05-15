@@ -606,6 +606,10 @@ function MichaelFlashcardsInner() {
               <button onClick={saveDeck} disabled={!deckName.trim() || saving} style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !deckName.trim() ? 0.4 : 1 }}>
                 {saving ? 'Saving...' : 'Save Deck'}
               </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
+                <IconLightbulb c={color} size={13} />
+                <span style={{ fontSize: 11, color, fontWeight: 600, opacity: 0.7 }}>Save to add, edit, or remove cards later</span>
+              </div>
             </div>
           )}
           {saved && (
