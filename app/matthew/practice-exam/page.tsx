@@ -38,7 +38,7 @@ type TFQuestion   = { type: 'tf'; question: string; answer: string; explanation:
 type SAQuestion   = { type: 'sa'; question: string; model_answer: string; };
 type EssayQuestion = { type: 'essay'; question: string; key_points: string; };
 type Question     = MCQuestion | TFQuestion | SAQuestion | EssayQuestion;
-type PastExam     = { id: string; title: string; questions: Question[]; responses: Record<string, string>; score: number | null; status: string; created_at: string; completed_at: string | null; timer_seconds: number | null; };
+type PastExam     = { id: string; title: string; questions: Question[]; responses: Record<string, string>; score: number | null; status: string; created_at: string; completed_at: string | null; timer_seconds: number | null; folder_id?: string | null; folder_name?: string; class_name?: string; };
 type LibResource  = { id: string; file_name: string; storage_url: string; folder_id: string; };
 type LibFolder    = { id: string; name: string; class_id: string; resources: LibResource[]; };
 type LibClass     = { id: string; name: string; folders: LibFolder[]; };
@@ -116,7 +116,25 @@ function MatthewPracticeExamInner() {
   const loadHistory = async () => {
     setHistLoading(true);
     const { data } = await supabase.from('practice_exams').select('*').eq('student_id', 'matthew').order('created_at', { ascending: false });
-    if (data) setPastExams(data);
+    if (data) {
+      const folderIds = data.map(e => e.folder_id).filter(Boolean);
+      let folderMap: Record<string, { name: string; class_id: string }> = {};
+      let classMap: Record<string, string> = {};
+      if (folderIds.length > 0) {
+        const { data: folders } = await supabase.from('exam_folders').select('id, name, class_id').in('id', folderIds);
+        if (folders) {
+          folders.forEach(f => { folderMap[f.id] = { name: f.name, class_id: f.class_id }; });
+          const classIds = folders.map(f => f.class_id);
+          const { data: classes } = await supabase.from('classes').select('id, name').in('id', classIds);
+          if (classes) classes.forEach(c => { classMap[c.id] = c.name; });
+        }
+      }
+      setPastExams(data.map(e => ({
+        ...e,
+        folder_name: e.folder_id ? folderMap[e.folder_id]?.name : undefined,
+        class_name:  e.folder_id ? classMap[folderMap[e.folder_id]?.class_id] : undefined,
+      })));
+    }
     setHistLoading(false);
   };
 
@@ -285,43 +303,46 @@ function MatthewPracticeExamInner() {
               <button onClick={() => setScreen('setup')} style={{ padding: '12px 24px', borderRadius: 999, background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate First Exam</button>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {pastExams.map(exam => (
-                <div key={exam.id} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px 20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+                <div key={exam.id} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '14px 16px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       {renamingId === exam.id ? (
-                        <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
-                          <input value={renameValue} onChange={e => setRenameValue(e.target.value)} onKeyDown={async e => { if (e.key === 'Enter') { await supabase.from('practice_exams').update({ title: renameValue.trim() }).eq('id', exam.id); setPastExams(prev => prev.map(ex => ex.id === exam.id ? { ...ex, title: renameValue.trim() } : ex)); setRenamingId(null); } if (e.key === 'Escape') setRenamingId(null); }} autoFocus style={{ flex: 1, padding: '4px 8px', border: `1.5px solid ${color}`, borderRadius: 7, fontFamily: 'var(--font-jakarta)', fontSize: 14, fontWeight: 700, color: '#1D1B26', background: '#FAFAF8', outline: 'none' }} />
-                          <button onClick={async () => { await supabase.from('practice_exams').update({ title: renameValue.trim() }).eq('id', exam.id); setPastExams(prev => prev.map(ex => ex.id === exam.id ? { ...ex, title: renameValue.trim() } : ex)); setRenamingId(null); }} style={{ fontSize: 11, fontWeight: 700, color: 'white', background: color, border: 'none', borderRadius: 7, padding: '4px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Save</button>
-                          <button onClick={() => setRenamingId(null)} style={{ fontSize: 11, fontWeight: 700, color: '#9E9BB0', background: '#F3F1EC', border: 'none', borderRadius: 7, padding: '4px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Cancel</button>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 4 }}>
+                          <input value={renameValue} onChange={e => setRenameValue(e.target.value)} onKeyDown={async e => { if (e.key === 'Enter') { await supabase.from('practice_exams').update({ title: renameValue.trim() }).eq('id', exam.id); setPastExams(prev => prev.map(ex => ex.id === exam.id ? { ...ex, title: renameValue.trim() } : ex)); setRenamingId(null); } if (e.key === 'Escape') setRenamingId(null); }} autoFocus style={{ width: '100%', padding: '4px 8px', border: `1.5px solid ${color}`, borderRadius: 7, fontFamily: 'var(--font-jakarta)', fontSize: 12, fontWeight: 700, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
+                          <div style={{ display: 'flex', gap: 5 }}>
+                            <button onClick={async () => { await supabase.from('practice_exams').update({ title: renameValue.trim() }).eq('id', exam.id); setPastExams(prev => prev.map(ex => ex.id === exam.id ? { ...ex, title: renameValue.trim() } : ex)); setRenamingId(null); }} style={{ flex: 1, fontSize: 10, fontWeight: 700, color: 'white', background: color, border: 'none', borderRadius: 6, padding: '4px 0', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Save</button>
+                            <button onClick={() => setRenamingId(null)} style={{ flex: 1, fontSize: 10, fontWeight: 700, color: '#9E9BB0', background: '#F3F1EC', border: 'none', borderRadius: 6, padding: '4px 0', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Cancel</button>
+                          </div>
                         </div>
                       ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                          <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{exam.title}</div>
-                          <button onClick={() => { setRenamingId(exam.id); setRenameValue(exam.title); }} style={{ fontSize: 10, fontWeight: 700, color: '#9E9BB0', background: '#F3F1EC', border: 'none', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>Rename</button>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', marginBottom: 4 }}>{exam.title}</div>
+                      )}
+                      {(exam.class_name || exam.folder_name) && (
+                        <div style={{ fontSize: 10, fontWeight: 700, color, background: light, padding: '2px 7px', borderRadius: 999, display: 'inline-block', marginBottom: 4 }}>
+                          {exam.class_name}{exam.folder_name ? ` · ${exam.folder_name}` : ''}
                         </div>
                       )}
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 11, color: '#9E9BB0' }}>{formatDate(exam.created_at)}</span>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#9E9BB0' }}>·</span>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: exam.status === 'completed' ? '#5FAD8E' : color, background: exam.status === 'completed' ? '#EDF7F2' : light, padding: '2px 8px', borderRadius: 999 }}>
-                          {exam.status === 'completed' ? 'Completed' : 'In Progress'}
-                        </span>
-                        {exam.score !== null && <span style={{ fontSize: 11, fontWeight: 700, color: exam.score >= 80 ? '#5FAD8E' : exam.score >= 60 ? '#C8965A' : '#C47878' }}>{exam.score}%</span>}
-                        <span style={{ fontSize: 11, color: '#9E9BB0' }}>{exam.questions?.length || 0} questions</span>
+                      <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap', marginBottom: 2 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: exam.status === 'completed' ? '#5FAD8E' : color, background: exam.status === 'completed' ? '#EDF7F2' : light, padding: '2px 6px', borderRadius: 999 }}>{exam.status === 'completed' ? 'Done' : 'In Progress'}</span>
+                        {exam.score !== null && <span style={{ fontSize: 10, fontWeight: 700, color: exam.score >= 80 ? '#5FAD8E' : exam.score >= 60 ? '#C8965A' : '#C47878' }}>{exam.score}%</span>}
                       </div>
+                      <div style={{ fontSize: 10, color: '#9E9BB0' }}>{formatDate(exam.created_at)} · {exam.questions?.length || 0}q</div>
                     </div>
-                    <button onClick={() => { if (confirm('Delete this exam?')) deleteExam(exam.id); }} style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0, marginLeft: 10 }}>Delete</button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                      <button onClick={() => { setRenamingId(exam.id); setRenameValue(exam.title); }} style={{ color: '#9E9BB0', background: '#F3F1EC', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="11" height="11" viewBox="0 0 28 28" fill="none"><path d="M4 24l4-1 13-13-3-3L5 20l-1 4z" stroke="#9E9BB0" strokeWidth="1.6" strokeLinejoin="round" fill="none"/><path d="M18 8l3 3" stroke="#9E9BB0" strokeWidth="1.6" strokeLinecap="round"/></svg>
+                      </button>
+                      <button onClick={() => { if (confirm('Delete this exam?')) deleteExam(exam.id); }} style={{ color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="11" height="11" viewBox="0 0 28 28" fill="none"><path d="M6 6l16 16M22 6L6 22" stroke="#C47878" strokeWidth="2" strokeLinecap="round"/></svg>
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={() => openExam(exam)} style={{ flex: 1, padding: '9px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                      {exam.status === 'completed' ? 'View Results' : 'Continue'}
-                    </button>
-                    {exam.status === 'completed' && (
-                      <button onClick={() => { setActiveExam(exam); setExamId(exam.id); setExamTitle(exam.title); setQuestions(exam.questions); const resp: Record<number, string> = {}; Object.entries(exam.responses || {}).forEach(([k, v]) => { resp[parseInt(k)] = v as string; }); setResponses(resp); setReviewed(new Set()); setShowExplanation(new Set()); retakeExam(); }} style={{ flex: 1, padding: '9px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#F3F1EC', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear & Retake</button>
-                    )}
-                  </div>
+                  <button onClick={() => openExam(exam)} style={{ width: '100%', padding: '8px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{exam.status === 'completed' ? 'View Results' : 'Continue'}</button>
+                  {exam.status === 'completed' && (
+                    <button onClick={() => { setActiveExam(exam); setExamId(exam.id); setExamTitle(exam.title); setQuestions(exam.questions); const resp: Record<number, string> = {}; Object.entries(exam.responses || {}).forEach(([k, v]) => { resp[parseInt(k)] = v as string; }); setResponses(resp); setReviewed(new Set()); setShowExplanation(new Set()); retakeExam(); }} style={{ width: '100%', padding: '8px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#F3F1EC', color: '#6B6880', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear & Retake</button>
+                  )}
                 </div>
               ))}
             </div>
