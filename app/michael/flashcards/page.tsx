@@ -83,7 +83,7 @@ function IconDone({ size = 64 }: { size?: number }) {
 }
 
 type Card        = { id?: string; front: string; back: string; };
-type Deck        = { id: string; title: string; source_files: string | null; card_count: number; created_at: string; class_name: string | null; };
+type Deck        = { id: string; title: string; source_files: string | null; card_count: number; created_at: string; class_name?: string | null; folder_name?: string | null; folder_id?: string | null; };
 type LibResource = { id: string; file_name: string; storage_url: string; folder_id: string; };
 type LibFolder   = { id: string; name: string; class_id: string; resources: LibResource[]; };
 type LibClass    = { id: string; name: string; folders: LibFolder[]; };
@@ -153,7 +153,25 @@ function MichaelFlashcardsInner() {
   const loadDecks = async () => {
     setDecksLoading(true);
     const { data } = await supabase.from('flashcard_decks').select('*').eq('student_id', 'michael').order('created_at', { ascending: false });
-    if (data) setDecks(data);
+    if (data) {
+      const folderIds = data.map(d => d.folder_id).filter(Boolean);
+      let folderMap: Record<string, { name: string; class_id: string }> = {};
+      let classMap: Record<string, string> = {};
+      if (folderIds.length > 0) {
+        const { data: folders } = await supabase.from('exam_folders').select('id, name, class_id').in('id', folderIds);
+        if (folders) {
+          folders.forEach(f => { folderMap[f.id] = { name: f.name, class_id: f.class_id }; });
+          const classIds = folders.map(f => f.class_id);
+          const { data: classes } = await supabase.from('classes').select('id, name').in('id', classIds);
+          if (classes) classes.forEach(c => { classMap[c.id] = c.name; });
+        }
+      }
+      setDecks(data.map(d => ({
+        ...d,
+        folder_name: d.folder_id ? folderMap[d.folder_id]?.name : undefined,
+        class_name:  d.folder_id ? classMap[folderMap[d.folder_id]?.class_id] : undefined,
+      })));
+    }
     setDecksLoading(false);
   };
 
@@ -369,17 +387,22 @@ function MichaelFlashcardsInner() {
               <button onClick={() => setScreen('generate')} style={{ padding: '12px 24px', borderRadius: 999, background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate First Deck</button>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {decks.map(deck => (
-                <div key={deck.id} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px 20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div key={deck.id} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '14px 16px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div onClick={() => openDeck(deck)} style={{ flex: 1, cursor: 'pointer', minWidth: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{deck.title}</div>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color, background: light, padding: '2px 8px', borderRadius: 999 }}>{deck.card_count} cards</span>
-                      <span style={{ fontSize: 11, color: '#9E9BB0' }}>{formatDate(deck.created_at)}</span>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 4, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{deck.title}</div>
+                    {(deck.class_name || deck.folder_name) && (
+                      <div style={{ fontSize: 10, fontWeight: 700, color, background: light, padding: '2px 7px', borderRadius: 999, display: 'inline-block', marginBottom: 4 }}>
+                        {deck.class_name}{deck.folder_name ? ` · ${deck.folder_name}` : ''}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color, background: light, padding: '2px 6px', borderRadius: 999 }}>{deck.card_count} cards</span>
+                      <span style={{ fontSize: 10, color: '#9E9BB0' }}>{formatDate(deck.created_at)}</span>
                     </div>
                   </div>
-                  <button onClick={() => openDeck(deck)} style={{ padding: '8px 14px', borderRadius: 10, background: light, border: 'none', color, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>Study</button>
+                  <button onClick={() => openDeck(deck)} style={{ width: '100%', padding: '8px', borderRadius: 10, background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', border: 'none', color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Study</button>
                 </div>
               ))}
             </div>

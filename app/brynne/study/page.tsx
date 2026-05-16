@@ -16,81 +16,32 @@ function Mountain() {
     </svg>
   );
 }
-
+function IconBrain({ c, size = 28 }: { c: string; size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 28 28" fill="none"><path d="M4 6c5 0 8 2 10 4C16 8 19 6 24 6v16c-5 0-8 2-10 4C12 24 9 22 4 22V6z" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none"/><line x1="14" y1="10" x2="14" y2="24" stroke={c} strokeWidth="1.4" strokeLinecap="round"/><path d="M19 11l-2 3h3l-2 3" stroke={c} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+}
 function IconFolder({ c, size = 16 }: { c: string; size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
-      <path d="M3 9a2 2 0 012-2h5l2 2h11a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke={c} strokeWidth="1.6" strokeLinejoin="round" fill="none"/>
-    </svg>
-  );
+  return <svg width={size} height={size} viewBox="0 0 28 28" fill="none"><path d="M3 9a2 2 0 012-2h5l2 2h11a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke={c} strokeWidth="1.6" strokeLinejoin="round" fill="none"/></svg>;
 }
-
 function IconFile({ c, size = 16 }: { c: string; size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
-      <path d="M6 4h10l6 6v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke={c} strokeWidth="1.6" strokeLinejoin="round" fill="none"/>
-      <path d="M16 4v6h6" stroke={c} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
+  return <svg width={size} height={size} viewBox="0 0 28 28" fill="none"><path d="M6 4h10l6 6v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke={c} strokeWidth="1.6" strokeLinejoin="round" fill="none"/><path d="M16 4v6h6" stroke={c} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 }
-
 function IconEmptyFolder({ size = 36 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 36 36" fill="none">
-      <path d="M4 11a2 2 0 012-2h6l3 3h14a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V11z" stroke="#C4C1D4" strokeWidth="1.6" strokeLinejoin="round" fill="none"/>
-      <line x1="12" y1="20" x2="24" y2="20" stroke="#E8E5F0" strokeWidth="1.4" strokeLinecap="round"/>
-      <line x1="12" y1="24" x2="19" y2="24" stroke="#E8E5F0" strokeWidth="1.4" strokeLinecap="round"/>
-    </svg>
-  );
+  return <svg width={size} height={size} viewBox="0 0 36 36" fill="none"><path d="M4 11a2 2 0 012-2h6l3 3h14a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V11z" stroke="#C4C1D4" strokeWidth="1.6" strokeLinejoin="round" fill="none"/><line x1="12" y1="20" x2="24" y2="20" stroke="#E8E5F0" strokeWidth="1.4" strokeLinecap="round"/><line x1="12" y1="24" x2="19" y2="24" stroke="#E8E5F0" strokeWidth="1.4" strokeLinecap="round"/></svg>;
 }
-
 function IconPrint({ c = '#6B6880', size = 16 }: { c?: string; size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
-      <rect x="6" y="3" width="16" height="8" rx="1" stroke={c} strokeWidth="1.5" fill="none"/>
-      <path d="M6 11H4a2 2 0 00-2 2v7a2 2 0 002 2h2v-4h16v4h2a2 2 0 002-2v-7a2 2 0 00-2-2H6z" stroke={c} strokeWidth="1.5" fill="none"/>
-      <rect x="6" y="18" width="16" height="7" rx="1" stroke={c} strokeWidth="1.5" fill="none"/>
-    </svg>
-  );
+  return <svg width={size} height={size} viewBox="0 0 28 28" fill="none"><rect x="6" y="3" width="16" height="8" rx="1" stroke={c} strokeWidth="1.5" fill="none"/><path d="M6 11H4a2 2 0 00-2 2v7a2 2 0 002 2h2v-4h16v4h2a2 2 0 002-2v-7a2 2 0 00-2-2H6z" stroke={c} strokeWidth="1.5" fill="none"/><rect x="6" y="18" width="16" height="7" rx="1" stroke={c} strokeWidth="1.5" fill="none"/></svg>;
 }
-
 function IconShare({ c = '#6B6880', size = 16 }: { c?: string; size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
-      <path d="M14 4v14" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
-      <path d="M9 9l5-5 5 5" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M5 16v6a2 2 0 002 2h14a2 2 0 002-2v-6" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
-    </svg>
-  );
+  return <svg width={size} height={size} viewBox="0 0 28 28" fill="none"><path d="M14 4v14" stroke={c} strokeWidth="1.6" strokeLinecap="round"/><path d="M9 9l5-5 5 5" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/><path d="M5 16v6a2 2 0 002 2h14a2 2 0 002-2v-6" stroke={c} strokeWidth="1.6" strokeLinecap="round"/></svg>;
 }
-
 function IconCopy({ c = '#6B6880', size = 16 }: { c?: string; size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
-      <rect x="9" y="9" width="15" height="16" rx="2" stroke={c} strokeWidth="1.5" fill="none"/>
-      <path d="M5 19V6a2 2 0 012-2h13" stroke={c} strokeWidth="1.5" strokeLinecap="round"/>
-    </svg>
-  );
+  return <svg width={size} height={size} viewBox="0 0 28 28" fill="none"><rect x="9" y="9" width="15" height="16" rx="2" stroke={c} strokeWidth="1.5" fill="none"/><path d="M5 19V6a2 2 0 012-2h13" stroke={c} strokeWidth="1.5" strokeLinecap="round"/></svg>;
 }
-
 function IconDownload({ c = '#6B6880', size = 16 }: { c?: string; size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
-      <path d="M14 4v14" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
-      <path d="M9 13l5 5 5-5" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M4 22h20" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
-    </svg>
-  );
+  return <svg width={size} height={size} viewBox="0 0 28 28" fill="none"><path d="M14 4v14" stroke={c} strokeWidth="1.6" strokeLinecap="round"/><path d="M9 13l5 5 5-5" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/><path d="M4 22h20" stroke={c} strokeWidth="1.6" strokeLinecap="round"/></svg>;
 }
-
 function IconStack({ c, size = 16 }: { c: string; size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
-      <rect x="4" y="14" width="20" height="10" rx="2" stroke={c} strokeWidth="1.5" fill="none"/>
-      <rect x="6" y="9"  width="16" height="8"  rx="2" stroke={c} strokeWidth="1.4" fill="none" opacity="0.6"/>
-      <rect x="8" y="4"  width="12" height="8"  rx="2" stroke={c} strokeWidth="1.3" fill="none" opacity="0.35"/>
-    </svg>
-  );
+  return <svg width={size} height={size} viewBox="0 0 28 28" fill="none"><rect x="4" y="14" width="20" height="10" rx="2" stroke={c} strokeWidth="1.5" fill="none"/><rect x="6" y="9" width="16" height="8" rx="2" stroke={c} strokeWidth="1.4" fill="none" opacity="0.6"/><rect x="8" y="4" width="12" height="8" rx="2" stroke={c} strokeWidth="1.3" fill="none" opacity="0.35"/></svg>;
 }
 
 const LEVELS = [
@@ -99,18 +50,16 @@ const LEVELS = [
   { id: 'detailed', label: 'Detailed', desc: 'Full explanations with examples.' },
   { id: 'mastery',  label: 'Mastery',  desc: 'Deep dive into everything. For real learning!' },
 ];
-
 const QUESTION_FORMATS = ['Multiple Choice', 'Short Answer', 'Both'];
 
 function addDays(date: Date, days: number): string {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split('T')[0];
+  const d = new Date(date); d.setDate(d.getDate() + days); return d.toISOString().split('T')[0];
 }
 
 type LibResource = { id: string; file_name: string; storage_url: string; folder_id: string; };
 type LibFolder   = { id: string; name: string; class_id: string; resources: LibResource[]; };
 type LibClass    = { id: string; name: string; folders: LibFolder[]; };
+type SavedGuide  = { id: string; title: string; created_at: string; source_filename: string | null; folder_id: string | null; folder_name?: string; class_name?: string; };
 
 const color = '#E8956D';
 const light = '#FFF3E8';
@@ -120,6 +69,10 @@ function BrynneStudyInner() {
   const folderId   = searchParams.get('folderId');
   const folderName = searchParams.get('folderName');
   const guideId    = searchParams.get('guideId');
+
+  const [screen, setScreen] = useState<'history' | 'setup' | 'view'>('history');
+  const [savedGuides, setSavedGuides] = useState<SavedGuide[]>([]);
+  const [histLoading, setHistLoading] = useState(true);
 
   const [library,         setLibrary]         = useState<LibClass[]>([]);
   const [libLoading,      setLibLoading]       = useState(true);
@@ -145,7 +98,63 @@ function BrynneStudyInner() {
   const [sourceFiles,        setSourceFiles]        = useState<string[]>([]);
   const printRef = useRef<HTMLDivElement>(null);
 
+  const loadHistory = async () => {
+    setHistLoading(true);
+    const { data } = await supabase.from('study_guides').select('id, title, created_at, source_filename, folder_id').eq('student_id', 'brynne').order('created_at', { ascending: false });
+    if (data) {
+      const folderIds = data.map(g => g.folder_id).filter(Boolean);
+      let folderMap: Record<string, { name: string; class_id: string }> = {};
+      let classMap: Record<string, string> = {};
+      if (folderIds.length > 0) {
+        const { data: folders } = await supabase.from('exam_folders').select('id, name, class_id').in('id', folderIds);
+        if (folders) {
+          folders.forEach(f => { folderMap[f.id] = { name: f.name, class_id: f.class_id }; });
+          const classIds = folders.map(f => f.class_id);
+          const { data: classes } = await supabase.from('classes').select('id, name').in('id', classIds);
+          if (classes) classes.forEach(c => { classMap[c.id] = c.name; });
+        }
+      }
+      setSavedGuides(data.map(g => ({
+        ...g,
+        folder_name: g.folder_id ? folderMap[g.folder_id]?.name : undefined,
+        class_name:  g.folder_id ? classMap[folderMap[g.folder_id]?.class_id] : undefined,
+      })));
+    }
+    setHistLoading(false);
+  };
+
+  const loadLibrary = async () => {
+    setLibLoading(true);
+    const { data: classData } = await supabase.from('classes').select('id, name').eq('student_id', 'brynne').eq('is_active', true).order('created_at', { ascending: true });
+    if (!classData || classData.length === 0) { setLibLoading(false); return; }
+    const classIds = classData.map(c => c.id);
+    const { data: folderData } = await supabase.from('exam_folders').select('id, name, class_id').in('class_id', classIds).order('exam_date', { ascending: true });
+    const folderIds = (folderData || []).map(f => f.id);
+    let resourceData: any[] = [];
+    if (folderIds.length > 0) {
+      const { data } = await supabase.from('resources').select('id, file_name, file_type, storage_url, folder_id').in('folder_id', folderIds).eq('file_type', 'pdf').not('storage_url', 'is', null);
+      resourceData = data || [];
+    }
+    const rByFolder: Record<string, LibResource[]> = {};
+    resourceData.forEach(r => { if (!rByFolder[r.folder_id]) rByFolder[r.folder_id] = []; rByFolder[r.folder_id].push(r); });
+    const fByClass: Record<string, LibFolder[]> = {};
+    (folderData || []).forEach(f => { if (!fByClass[f.class_id]) fByClass[f.class_id] = []; fByClass[f.class_id].push({ ...f, resources: rByFolder[f.id] || [] }); });
+    const lib = classData.map(c => ({ ...c, folders: (fByClass[c.id] || []).filter(f => f.resources.length > 0) })).filter(c => c.folders.length > 0);
+    setLibrary(lib);
+    if (folderId) {
+      const folder = (folderData || []).find(f => f.id === folderId);
+      if (folder) {
+        setExpandedClasses(new Set([folder.class_id]));
+        setExpandedFolders(new Set([folderId]));
+        setSelectedIds(new Set((rByFolder[folderId] || []).map(r => r.id)));
+        if (folderName) setGuideName(folderName + ' — Study Guide');
+      }
+    }
+    setLibLoading(false);
+  };
+
   useEffect(() => {
+    loadHistory();
     if (guideId) {
       const loadExisting = async () => {
         setLoading(true);
@@ -156,48 +165,41 @@ function BrynneStudyInner() {
           setSourceFiles(data.source_filename ? data.source_filename.split(', ') : []);
           setSaved(true);
           setShowNamePrompt(false);
+          setScreen('view');
         }
         setLoading(false);
       };
       loadExisting();
-      return;
+    } else if (folderId) {
+      loadLibrary();
+      setScreen('setup');
+    } else {
+      loadLibrary();
     }
-    const loadLibrary = async () => {
-      setLibLoading(true);
-      const { data: classData } = await supabase.from('classes').select('id, name').eq('student_id', 'brynne').eq('is_active', true).order('created_at', { ascending: true });
-      if (!classData || classData.length === 0) { setLibLoading(false); return; }
-      const classIds = classData.map(c => c.id);
-      const { data: folderData } = await supabase.from('exam_folders').select('id, name, class_id').in('class_id', classIds).order('exam_date', { ascending: true });
-      const folderIds = (folderData || []).map(f => f.id);
-      let resourceData: any[] = [];
-      if (folderIds.length > 0) {
-        const { data } = await supabase.from('resources').select('id, file_name, file_type, storage_url, folder_id').in('folder_id', folderIds).eq('file_type', 'pdf').not('storage_url', 'is', null);
-        resourceData = data || [];
-      }
-      const rByFolder: Record<string, LibResource[]> = {};
-      resourceData.forEach(r => { if (!rByFolder[r.folder_id]) rByFolder[r.folder_id] = []; rByFolder[r.folder_id].push(r); });
-      const fByClass: Record<string, LibFolder[]> = {};
-      (folderData || []).forEach(f => { if (!fByClass[f.class_id]) fByClass[f.class_id] = []; fByClass[f.class_id].push({ ...f, resources: rByFolder[f.id] || [] }); });
-      const lib = classData.map(c => ({ ...c, folders: (fByClass[c.id] || []).filter(f => f.resources.length > 0) })).filter(c => c.folders.length > 0);
-      setLibrary(lib);
-      if (folderId) {
-        const folder = (folderData || []).find(f => f.id === folderId);
-        if (folder) {
-          setExpandedClasses(new Set([folder.class_id]));
-          setExpandedFolders(new Set([folderId]));
-          setSelectedIds(new Set((rByFolder[folderId] || []).map(r => r.id)));
-          if (folderName) setGuideName(folderName + ' — Study Guide');
-        }
-      }
-      setLibLoading(false);
-    };
-    loadLibrary();
   }, [folderId, folderName, guideId]);
+
+  const openGuide = async (id: string) => {
+    setLoading(true);
+    const { data } = await supabase.from('study_guides').select('title, content, source_filename').eq('id', id).single();
+    if (data) {
+      setStudyGuide(data.content);
+      setGuideName(data.title);
+      setSourceFiles(data.source_filename ? data.source_filename.split(', ') : []);
+      setSaved(true);
+      setShowNamePrompt(false);
+      setScreen('view');
+    }
+    setLoading(false);
+  };
+
+  const deleteGuide = async (id: string) => {
+    await supabase.from('study_guides').delete().eq('id', id);
+    setSavedGuides(prev => prev.filter(g => g.id !== id));
+  };
 
   const toggleResource = (id: string) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleFolder   = (folder: LibFolder) => { const ids = folder.resources.map(r => r.id); const allSel = ids.every(id => selectedIds.has(id)); setSelectedIds(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; }); };
-  const toggleClass    = (cls: LibClass)    => { const ids = cls.folders.flatMap(f => f.resources.map(r => r.id)); const allSel = ids.length > 0 && ids.every(id => selectedIds.has(id)); setSelectedIds(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; }); };
-
+  const toggleClass    = (cls: LibClass) => { const ids = cls.folders.flatMap(f => f.resources.map(r => r.id)); const allSel = ids.length > 0 && ids.every(id => selectedIds.has(id)); setSelectedIds(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; }); };
   const handleNewFileInput = (e: React.ChangeEvent<HTMLInputElement>) => { const selected = Array.from(e.target.files || []).filter(f => f.type === 'application/pdf'); setNewFiles(prev => [...prev, ...selected]); e.target.value = ''; };
 
   const buildPrompt = (fileCount: number) => {
@@ -239,6 +241,7 @@ function BrynneStudyInner() {
       setSourceFiles(allFiles.map(f => f.name));
       if (!guideName) setGuideName(allFiles.length > 0 ? allFiles[0].name.replace('.pdf', '') : 'My Study Guide');
       setShowNamePrompt(true); setSaved(false);
+      setScreen('view');
     } catch { setError('Something went wrong. Please try again!'); }
     finally { setLoading(false); }
   };
@@ -251,6 +254,7 @@ function BrynneStudyInner() {
       const today = new Date();
       await supabase.from('tasks').insert([1, 3, 7].map(days => ({ student_id: 'brynne', title: `Review: ${guideName.trim()}`, due_date: addDays(today, days), task_type: 'review', completed: false })));
       setSaved(true); setShowNamePrompt(false);
+      loadHistory();
     } catch { setError('Could not save. Please try again!'); }
     finally { setSaving(false); }
   };
@@ -269,6 +273,7 @@ function BrynneStudyInner() {
 
   const canGenerate   = selectedIds.size > 0 || newFiles.length > 0 || customInstructions.trim().length > 0;
   const totalSelected = selectedIds.size + newFiles.length;
+  const formatDate    = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAF8' }}>
@@ -280,17 +285,59 @@ function BrynneStudyInner() {
         </Link>
       </nav>
 
-      <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Brynne</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Study Guide</div>
-          <div style={{ fontSize: 13, color: '#9E9BB0' }}>Pick your materials and Ascend will make you an awesome study guide!</div>
-        </div>
+      {/* HISTORY */}
+      {screen === 'history' && (
+        <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Brynne</div>
+              <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px' }}>Study Guides</div>
+            </div>
+            <button onClick={() => setScreen('setup')} style={{ padding: '10px 18px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ New Guide</button>
+          </div>
+          {histLoading ? (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: '#9E9BB0', fontSize: 13 }}>Loading...</div>
+          ) : savedGuides.length === 0 ? (
+            <div style={{ background: '#FFFFFF', border: '1.5px dashed #C4C1D4', borderRadius: 18, padding: '48px 20px', textAlign: 'center' }}>
+              <div style={{ width: 72, height: 72, borderRadius: 20, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}><IconBrain c={color} size={36} /></div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26', marginBottom: 8 }}>No study guides yet!</div>
+              <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 24 }}>Ascend can make you an awesome study guide from your notes! 🌟</div>
+              <button onClick={() => setScreen('setup')} style={{ padding: '12px 24px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Make My First Guide! 🌟</button>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {savedGuides.map(guide => (
+                <div key={guide.id} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '14px 16px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 4, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{guide.title}</div>
+                      {(guide.class_name || guide.folder_name) && (
+                        <div style={{ fontSize: 10, fontWeight: 700, color, background: light, padding: '2px 7px', borderRadius: 999, display: 'inline-block', marginBottom: 3 }}>
+                          {guide.class_name}{guide.folder_name ? ` · ${guide.folder_name}` : ''}
+                        </div>
+                      )}
+                      <div style={{ fontSize: 10, color: '#9E9BB0' }}>{formatDate(guide.created_at)}</div>
+                    </div>
+                    <button onClick={() => { if (confirm('Delete this study guide?')) deleteGuide(guide.id); }} style={{ fontSize: 10, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 6, padding: '3px 7px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0, fontWeight: 700 }}>✕</button>
+                  </div>
+                  <button onClick={() => openGuide(guide.id)} style={{ width: '100%', padding: '8px', borderRadius: 10, border: 'none', background: color, color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>View Guide</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </main>
+      )}
 
-        {!studyGuide ? (
+      {/* SETUP */}
+      {screen === 'setup' && (
+        <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
+          <button onClick={() => setScreen('history')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Study Guides</button>
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Brynne</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>New Study Guide</div>
+            <div style={{ fontSize: 13, color: '#9E9BB0' }}>Pick your materials and Ascend will make you an awesome study guide!</div>
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-            {/* Resource Library */}
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                 <div>
@@ -303,7 +350,6 @@ function BrynneStudyInner() {
                   <button onClick={() => fileInputRef.current?.click()} style={{ padding: '6px 14px', borderRadius: 999, background: light, border: 'none', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Upload</button>
                 </div>
               </div>
-
               {newFiles.length > 0 && (
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6 }}>New Files</div>
@@ -316,40 +362,35 @@ function BrynneStudyInner() {
                   ))}
                 </div>
               )}
-
               {libLoading ? (
                 <div style={{ textAlign: 'center', padding: '20px 0', color: '#9E9BB0', fontSize: 13 }}>Loading your files...</div>
               ) : library.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '24px 0', border: '2px dashed #E8E5F0', borderRadius: 12 }}>
-                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
-                    <IconEmptyFolder size={40} />
-                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}><IconEmptyFolder size={40} /></div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>No files uploaded yet!</div>
-                  <div style={{ fontSize: 12, color: '#9E9BB0' }}>Upload files to your class folders, or use the button above to add files now.</div>
+                  <div style={{ fontSize: 12, color: '#9E9BB0' }}>Upload files to your class folders, or use the button above.</div>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {library.map(cls => {
-                    const clsIds     = cls.folders.flatMap(f => f.resources.map(r => r.id));
-                    const clsAllSel  = clsIds.length > 0 && clsIds.every(id => selectedIds.has(id));
+                    const clsIds = cls.folders.flatMap(f => f.resources.map(r => r.id));
+                    const clsAllSel = clsIds.length > 0 && clsIds.every(id => selectedIds.has(id));
                     const clsSomeSel = clsIds.some(id => selectedIds.has(id));
-                    const clsExp     = expandedClasses.has(cls.id);
+                    const clsExp = expandedClasses.has(cls.id);
                     return (
                       <div key={cls.id} style={{ border: '1.5px solid #E8E5F0', borderRadius: 12, overflow: 'hidden' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#FAFAF8', cursor: 'pointer' }} onClick={() => setExpandedClasses(prev => { const n = new Set(prev); n.has(cls.id) ? n.delete(cls.id) : n.add(cls.id); return n; })}>
                           <span style={{ fontSize: 11, color: '#9E9BB0', width: 12 }}>{clsExp ? '▾' : '▸'}</span>
                           <span style={{ flex: 1, fontSize: 13, fontWeight: 800, color: '#1D1B26' }}>{cls.name}</span>
-                          <button onClick={e => { e.stopPropagation(); toggleClass(cls); }} style={{ fontSize: 10, fontWeight: 700, color: clsAllSel || clsSomeSel ? color : '#9E9BB0', background: clsAllSel || clsSomeSel ? light : '#F3F1EC', border: 'none', borderRadius: 999, padding: '3px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                            {clsAllSel ? 'Deselect all' : 'Select all'}
-                          </button>
+                          <button onClick={e => { e.stopPropagation(); toggleClass(cls); }} style={{ fontSize: 10, fontWeight: 700, color: clsAllSel || clsSomeSel ? color : '#9E9BB0', background: clsAllSel || clsSomeSel ? light : '#F3F1EC', border: 'none', borderRadius: 999, padding: '3px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{clsAllSel ? 'Deselect all' : 'Select all'}</button>
                         </div>
                         {clsExp && (
                           <div style={{ padding: '0 14px 10px' }}>
                             {cls.folders.map(folder => {
-                              const fIds     = folder.resources.map(r => r.id);
-                              const fAllSel  = fIds.every(id => selectedIds.has(id));
+                              const fIds = folder.resources.map(r => r.id);
+                              const fAllSel = fIds.every(id => selectedIds.has(id));
                               const fSomeSel = fIds.some(id => selectedIds.has(id));
-                              const fExp     = expandedFolders.has(folder.id);
+                              const fExp = expandedFolders.has(folder.id);
                               return (
                                 <div key={folder.id} style={{ marginTop: 8 }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: '#F3F1EC', cursor: 'pointer', marginBottom: 4 }} onClick={() => setExpandedFolders(prev => { const n = new Set(prev); n.has(folder.id) ? n.delete(folder.id) : n.add(folder.id); return n; })}>
@@ -357,9 +398,7 @@ function BrynneStudyInner() {
                                     <IconFolder c="#9E9BB0" size={13} />
                                     <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: '#1D1B26' }}>{folder.name}</span>
                                     <span style={{ fontSize: 10, color: '#9E9BB0' }}>{folder.resources.length} file{folder.resources.length !== 1 ? 's' : ''}</span>
-                                    <button onClick={e => { e.stopPropagation(); toggleFolder(folder); }} style={{ fontSize: 10, fontWeight: 700, color: fAllSel || fSomeSel ? color : '#9E9BB0', background: fAllSel || fSomeSel ? light : '#FFFFFF', border: `1px solid ${fAllSel || fSomeSel ? color : '#E8E5F0'}`, borderRadius: 999, padding: '2px 8px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                                      {fAllSel ? 'Deselect' : 'Select all'}
-                                    </button>
+                                    <button onClick={e => { e.stopPropagation(); toggleFolder(folder); }} style={{ fontSize: 10, fontWeight: 700, color: fAllSel || fSomeSel ? color : '#9E9BB0', background: fAllSel || fSomeSel ? light : '#FFFFFF', border: `1px solid ${fAllSel || fSomeSel ? color : '#E8E5F0'}`, borderRadius: 999, padding: '2px 8px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{fAllSel ? 'Deselect' : 'Select all'}</button>
                                   </div>
                                   {fExp && (
                                     <div style={{ paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -367,9 +406,7 @@ function BrynneStudyInner() {
                                         const isSel = selectedIds.has(r.id);
                                         return (
                                           <div key={r.id} onClick={() => toggleResource(r.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, border: `1.5px solid ${isSel ? color : '#E8E5F0'}`, background: isSel ? light : '#FFFFFF', cursor: 'pointer', transition: 'all 0.15s' }}>
-                                            <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${isSel ? color : '#C4C1D4'}`, background: isSel ? color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                              {isSel && <span style={{ color: 'white', fontSize: 10 }}>✓</span>}
-                                            </div>
+                                            <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${isSel ? color : '#C4C1D4'}`, background: isSel ? color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{isSel && <span style={{ color: 'white', fontSize: 10 }}>✓</span>}</div>
                                             <IconFile c={isSel ? color : '#9E9BB0'} size={13} />
                                             <span style={{ fontSize: 12, fontWeight: isSel ? 700 : 500, color: isSel ? color : '#1D1B26', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.file_name}</span>
                                           </div>
@@ -387,7 +424,6 @@ function BrynneStudyInner() {
                   })}
                 </div>
               )}
-
               {totalSelected > 0 && (
                 <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 10, background: color, color: 'white', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <IconStack c="rgba(255,255,255,0.8)" size={15} />
@@ -396,7 +432,6 @@ function BrynneStudyInner() {
               )}
             </div>
 
-            {/* Level selector */}
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 12 }}>How Much Detail?</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -409,14 +444,12 @@ function BrynneStudyInner() {
               </div>
             </div>
 
-            {/* Custom instructions */}
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 4 }}>Special Instructions</div>
               <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 10 }}>Tell Ascend anything special you want it to focus on!</div>
               <textarea value={customInstructions} onChange={e => setCustomInstructions(e.target.value)} placeholder='e.g. "Focus on chapter 3" or "Make it easy to understand"' rows={3} style={{ width: '100%', padding: '11px 13px', border: `1.5px solid ${color}20`, borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.6 }} />
             </div>
 
-            {/* Practice questions toggle */}
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: addQuestions ? 16 : 0 }}>
                 <div>
@@ -451,7 +484,6 @@ function BrynneStudyInner() {
             </div>
 
             {error && <p style={{ fontSize: 13, color: '#C47878' }}>{error}</p>}
-
             {loading ? (
               <div style={{ textAlign: 'center', padding: '24px 0' }}>
                 <div style={{ width: 32, height: 32, border: '2.5px solid #E8E5F0', borderTopColor: color, borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.75s linear infinite' }} />
@@ -464,7 +496,13 @@ function BrynneStudyInner() {
               </button>
             )}
           </div>
-        ) : (
+        </main>
+      )}
+
+      {/* VIEW */}
+      {screen === 'view' && (
+        <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
+          <button onClick={() => { setScreen('history'); setStudyGuide(''); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Study Guides</button>
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '24px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
             {showNamePrompt && (
               <div style={{ background: light, borderRadius: 14, padding: '18px', marginBottom: 20 }}>
@@ -475,10 +513,9 @@ function BrynneStudyInner() {
                 </button>
               </div>
             )}
-            {saved && (
+            {saved && !showNamePrompt && (
               <div style={{ background: '#EDF7F2', borderRadius: 12, padding: '12px 16px', marginBottom: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#5FAD8E', marginBottom: 4 }}>✅ Saved to your Ascend dashboard!</div>
-                <div style={{ fontSize: 11, color: '#9E9BB0' }}>Review reminders set for Day 1, Day 3, and Day 7!</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#5FAD8E' }}>✅ Saved! Review reminders set for Day 1, Day 3, and Day 7!</div>
               </div>
             )}
             {sourceFiles.length > 0 && (
@@ -494,21 +531,13 @@ function BrynneStudyInner() {
             )}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26' }}>{guideName || 'Your Study Guide'}</div>
-              <button onClick={() => { setStudyGuide(''); setSelectedIds(new Set()); setNewFiles([]); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); }} style={{ fontSize: 12, fontWeight: 700, color, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Make Another</button>
+              <button onClick={() => { setStudyGuide(''); setSelectedIds(new Set()); setNewFiles([]); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); setScreen('setup'); }} style={{ fontSize: 12, fontWeight: 700, color, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Make Another</button>
             </div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
-              <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                <IconPrint size={14} /> Print
-              </button>
-              <button onClick={handleShare} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                <IconShare size={14} /> Share
-              </button>
-              <button onClick={handleCopy} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: `1.5px solid ${copied ? '#5FAD8E' : '#E8E5F0'}`, background: copied ? '#EDF7F2' : '#FAFAF8', color: copied ? '#5FAD8E' : '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                <IconCopy c={copied ? '#5FAD8E' : '#6B6880'} size={14} /> {copied ? 'Copied!' : 'Copy'}
-              </button>
-              <button onClick={handleDownload} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                <IconDownload size={14} /> PDF
-              </button>
+              <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}><IconPrint size={14} /> Print</button>
+              <button onClick={handleShare} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}><IconShare size={14} /> Share</button>
+              <button onClick={handleCopy} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: `1.5px solid ${copied ? '#5FAD8E' : '#E8E5F0'}`, background: copied ? '#EDF7F2' : '#FAFAF8', color: copied ? '#5FAD8E' : '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}><IconCopy c={copied ? '#5FAD8E' : '#6B6880'} size={14} /> {copied ? 'Copied!' : 'Copy'}</button>
+              <button onClick={handleDownload} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}><IconDownload size={14} /> PDF</button>
             </div>
             <div ref={printRef} style={{ padding: '4px' }}>
               <ReactMarkdown components={{
@@ -524,8 +553,9 @@ function BrynneStudyInner() {
               }}>{studyGuide}</ReactMarkdown>
             </div>
           </div>
-        )}
-      </main>
+        </main>
+      )}
+
       <TabBar student="brynne" />
     </div>
   );
