@@ -204,6 +204,11 @@ export default function BrynneBinder() {
     load();
   }, [classId, folderId]);
 
+  const deleteResource = async (id: string) => {
+    await supabase.from('resources').delete().eq('id', id);
+    setResources(prev => prev.filter(r => r.id !== id));
+  };
+
   const countdown    = folder ? daysUntil(folder.exam_date) : null;
   const isUrgent     = countdown && countdown !== 'Today!' && parseInt(countdown) <= 7;
   const hasResources = resources.length > 0;
@@ -296,6 +301,7 @@ export default function BrynneBinder() {
                             <div style={{ fontSize: 11, color: '#9E9BB0', textTransform: 'capitalize', marginTop: 2 }}>{r.file_type}</div>
                           </div>
                           {r.storage_url && <a href={r.storage_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 700, color, textDecoration: 'none', flexShrink: 0, padding: '5px 12px', background: light, borderRadius: 999 }}>Open</a>}
+                          <button onClick={() => { if (confirm('Delete this resource?')) deleteResource(r.id); }} style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>✕</button>
                         </div>
                       ))}
                     </div>

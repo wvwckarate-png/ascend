@@ -233,6 +233,11 @@ export default function MatthewBinder() {
     load();
   }, [classId, folderId]);
 
+  const deleteResource = async (id: string) => {
+    await supabase.from('resources').delete().eq('id', id);
+    setResources(prev => prev.filter(r => r.id !== id));
+  };
+
   const resetUpload = () => {
     setUpType(''); setUpName(''); setUpLink(''); setUpFile(null);
     setUploading(false); setUploadProgress(0); setUpError(''); setUpSaved(false);
@@ -441,6 +446,7 @@ export default function MatthewBinder() {
                           {r.storage_url && (
                             <a href={r.storage_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 700, color: '#7B6FA0', textDecoration: 'none', flexShrink: 0, padding: '5px 12px', background: '#EDE9F7', borderRadius: 999 }}>Open</a>
                           )}
+                          <button onClick={() => { if (confirm('Delete this resource?')) deleteResource(r.id); }} style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>✕</button>
                         </div>
                       ))}
                     </div>
