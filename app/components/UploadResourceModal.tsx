@@ -132,6 +132,8 @@ function TypeIcon({ typeKey, c, size = 22 }: { typeKey: string; c: string; size?
   if (typeKey === 'audio')    return <IconMic     c={c} size={size} />;
   if (typeKey === 'image')    return <IconPhoto   c={c} size={size} />;
   if (typeKey === 'gdoc')     return <IconLink    c={c} size={size} />;
+  if (typeKey === 'link')     return <IconLink    c={c} size={size} />;
+  if (typeKey === 'youtube')  return <IconLink    c={c} size={size} />;
   if (typeKey === 'old_exam') return <IconExamPaper c={c} size={size} />;
   if (typeKey === 'notes')    return <IconNotes   c={c} size={size} />;
   if (typeKey === 'textbook') return <IconBook    c={c} size={size} />;
@@ -145,7 +147,7 @@ const RESOURCE_TYPES = [
   { key: 'pptx',     label: 'Slides',     accept: '.pptx,.ppt' },
   { key: 'audio',    label: 'Audio',      accept: '.mp3,.m4a,.wav,.ogg' },
   { key: 'image',    label: 'Image',      accept: '.png,.jpg,.jpeg,.webp' },
-  { key: 'gdoc',     label: 'Google Doc', accept: '' },
+  { key: 'link',     label: 'Link',       accept: '' },
   { key: 'old_exam', label: 'Old Exam',   accept: '.pdf,.png,.jpg,.jpeg' },
   { key: 'notes',    label: 'Notes',      accept: '.pdf,.png,.jpg,.jpeg' },
   { key: 'textbook', label: 'Textbook',   accept: '.pdf' },
@@ -159,6 +161,7 @@ function fileTypeFromKey(key: string): string {
   if (key === 'audio') return 'audio';
   if (key === 'image') return 'image';
   if (key === 'gdoc')  return 'gdoc';
+  if (key === 'link')  return 'link';
   return 'pdf';
 }
 
@@ -225,6 +228,28 @@ export default function UploadResourceModal({ student, onClose, onSaved }: Props
         if (uploadError) throw new Error(uploadError.message);
         const { data: urlData } = supabase.storage.from('resources').getPublicUrl(path);
         storageUrl = urlData.publicUrl;
+      } else if (resType === 'link' && fileLink.trim()) {
+        const isYouTube = fileLink.includes('youtube.com') || fileLink.includes('youtu.be');
+        if (isYouTube) {
+          const res = await fetch('/api/fetch-youtube-transcript', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: fileLink.trim() }),
+          });
+          const data = await res.json();
+          if (data.transcript) {
+            await supabase.from('resources').insert({ folder_id: folderId, file_name: fileName.trim(), file_type: 'youtube', storage_url: fileLink.trim(), transcript: data.transcript });
+            setSaved(true);
+            setTimeout(() => { onSaved?.(); onClose(); }, 900);
+            return;
+          } else {
+            setError(data.error || 'Could not fetch transcript. The video may not have captions.');
+            setUploading(false);
+            return;
+          }
+        } else {
+          storageUrl = fileLink.trim();
+        }
       } else if (isGdoc && fileLink.trim()) {
         storageUrl = fileLink.trim();
       }
@@ -349,7 +374,7 @@ export default function UploadResourceModal({ student, onClose, onSaved }: Props
         {step === 4 && (
           <div>
             <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>
-              {isGdoc ? 'Add Google Doc Link' : 'Upload File'}
+              {resType === 'link' ? 'Add Link' : isGdoc ? 'Add Google Doc Link' : 'Upload File'}
             </div>
             <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 4 }}>{selectedClass?.name} → {selectedFolder?.name}</div>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: light, borderRadius: 999, padding: '4px 12px', marginBottom: 18 }}>
@@ -362,14 +387,21 @@ export default function UploadResourceModal({ student, onClose, onSaved }: Props
               <input autoFocus value={fileName} onChange={e => setFileName(e.target.value)} placeholder='e.g. "Lecture 8 - Krebs Cycle"' style={inputStyle} />
             </div>
 
-            {isGdoc && (
+            {(isGdoc || resType === 'link') && (
               <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Google Doc URL</label>
-                <input value={fileLink} onChange={e => setFileLink(e.target.value)} placeholder="https://docs.google.com/..." style={inputStyle} />
+                <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>
+                  {resType === 'link' ? <>Link <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(YouTube, Google Doc, article, lecture recording)</span></> : 'Google Doc URL'}
+                </label>
+                <input value={fileLink} onChange={e => setFileLink(e.target.value)} placeholder="https://..." style={inputStyle} />
+                {resType === 'link' && (fileLink.includes('youtube.com') || fileLink.includes('youtu.be')) && (
+                  <div style={{ marginTop: 8, fontSize: 11, fontWeight: 600, color, background: light, padding: '6px 10px', borderRadius: 8 }}>
+                    YouTube detected — Ascend will fetch the transcript automatically
+                  </div>
+                )}
               </div>
             )}
 
-            {!isGdoc && (
+            {!isGdoc && resType !== 'link' && (
               <div style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>File</label>
                 <input ref={fileInputRef} type="file" accept={acceptStr} onChange={handleFileChange} style={{ display: 'none' }} />
@@ -423,8 +455,8 @@ export default function UploadResourceModal({ student, onClose, onSaved }: Props
               <button onClick={() => setStep(3)} disabled={uploading} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Back</button>
               <button
                 onClick={handleSave}
-                disabled={!fileName.trim() || uploading || saved || (isGdoc ? !fileLink.trim() : false)}
-                style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: saved ? '#5FAD8E' : !fileName.trim() || (isGdoc && !fileLink.trim()) ? '#F3F1EC' : color, color: !fileName.trim() || (isGdoc && !fileLink.trim()) ? '#C4C1D4' : 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: uploading ? 0.7 : 1 }}
+                disabled={!fileName.trim() || uploading || saved || ((isGdoc || resType === 'link') ? !fileLink.trim() : false)}
+                style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: saved ? '#5FAD8E' : !fileName.trim() || ((isGdoc || resType === 'link') && !fileLink.trim()) ? '#F3F1EC' : color, color: !fileName.trim() || ((isGdoc || resType === 'link') && !fileLink.trim()) ? '#C4C1D4' : 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: uploading ? 0.7 : 1 }}
               >
                 {saved ? 'Saved!' : uploading ? 'Uploading...' : file ? 'Upload & Save' : 'Save Resource'}
               </button>

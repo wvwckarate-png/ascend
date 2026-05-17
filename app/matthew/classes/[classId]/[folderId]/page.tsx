@@ -127,6 +127,8 @@ function FileTypeIcon({ type, c, size = 20 }: { type: string; c: string; size?: 
   if (type === 'audio') return <IconMic     c={c} size={size} />;
   if (type === 'image') return <IconPhoto   c={c} size={size} />;
   if (type === 'gdoc')  return <IconLink    c={c} size={size} />;
+  if (type === 'link')  return <IconLink    c={c} size={size} />;
+  if (type === 'youtube') return <IconLink  c={c} size={size} />;
   return <IconFilePDF c={c} size={size} />;
 }
 
@@ -168,7 +170,7 @@ const FILE_TYPES = [
   { key: 'pptx',  label: 'Slides',     accept: '.pptx,.ppt' },
   { key: 'audio', label: 'Audio',      accept: '.mp3,.m4a,.wav,.ogg' },
   { key: 'image', label: 'Image',      accept: '.png,.jpg,.jpeg,.webp' },
-  { key: 'gdoc',  label: 'Google Doc', accept: '' },
+  { key: 'link',  label: 'Link',       accept: '' },
 ];
 
 function formatDate(d: string | null) {
@@ -276,8 +278,34 @@ export default function MatthewBinder() {
 
         storageUrl = urlData.publicUrl;
 
-      } else if (upType === 'gdoc' && upLink.trim()) {
-        storageUrl = upLink.trim();
+      } else if (upType === 'link' && upLink.trim()) {
+        const isYouTube = upLink.includes('youtube.com') || upLink.includes('youtu.be');
+        if (isYouTube) {
+          const res = await fetch('/api/fetch-youtube-transcript', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: upLink.trim() }),
+          });
+          const data = await res.json();
+          if (data.transcript) {
+            // Store transcript in resources table
+            const { data: saved } = await supabase
+              .from('resources')
+              .insert({ folder_id: folderId, file_name: upName.trim(), file_type: 'youtube', storage_url: upLink.trim(), transcript: data.transcript })
+              .select()
+              .single();
+            if (saved) setResources(prev => [saved, ...prev]);
+            setUpSaved(true);
+            setTimeout(() => { setShowUpload(false); resetUpload(); }, 900);
+            return;
+          } else {
+            setUpError(data.error || 'Could not fetch transcript. The video may not have captions.');
+            setUploading(false);
+            return;
+          }
+        } else {
+          storageUrl = upLink.trim();
+        }
       }
 
       const { data } = await supabase
@@ -562,15 +590,20 @@ export default function MatthewBinder() {
             </div>
 
             {/* Google Doc link */}
-            {upType === 'gdoc' && (
+            {upType === 'link' && (
               <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Google Doc Link</label>
+                <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Link <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(YouTube, Google Doc, article, lecture recording)</span></label>
                 <input
                   value={upLink}
                   onChange={e => setUpLink(e.target.value)}
-                  placeholder="https://docs.google.com/..."
+                  placeholder="https://..."
                   style={{ width: '100%', padding: '12px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }}
                 />
+                {upLink && upLink.includes('youtube.com') || upLink.includes('youtu.be') ? (
+                  <div style={{ marginTop: 8, fontSize: 11, fontWeight: 600, color: '#7B6FA0', background: '#EDE9F7', padding: '6px 10px', borderRadius: 8 }}>
+                    YouTube detected — Ascend will fetch the transcript automatically
+                  </div>
+                ) : null}
               </div>
             )}
 
@@ -643,7 +676,7 @@ export default function MatthewBinder() {
               </button>
               <button
                 onClick={handleAddResource}
-                disabled={!upName.trim() || !upType || uploading || upSaved || (upType === 'gdoc' ? !upLink.trim() : false)}
+                disabled={!upName.trim() || !upType || uploading || upSaved || (upType === 'link' ? !upLink.trim() : false)}
                 style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: upSaved ? '#5FAD8E' : !upName.trim() || !upType ? '#F3F1EC' : 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: !upName.trim() || !upType ? '#C4C1D4' : 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: uploading ? 0.7 : 1 }}
               >
                 {upSaved ? 'Saved!' : uploading ? 'Uploading...' : upFile ? 'Upload & Save' : 'Save Resource'}
