@@ -377,8 +377,8 @@ export default function MatthewClassBinder() {
 
       {/* ── ADD FOLDER MODAL ── */}
       {showAdd && (
-        <div onClick={e => { if (e.target === e.currentTarget) { setShowAdd(false); setNewName(''); setNewDate(''); }}} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.45)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div style={{ background: '#FFFFFF', borderRadius: '22px 22px 0 0', padding: '24px 20px 36px', width: '100%', maxWidth: 580, boxShadow: '0 -8px 40px rgba(29,27,38,0.12)' }}>
+        <div onClick={e => { if (e.target === e.currentTarget) { setShowAdd(false); setNewName(''); setNewDate(''); }}} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.45)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '24px 20px 28px', width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(29,27,38,0.18)' }}>
             <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 20px' }} />
             <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>New Exam Folder</div>
             <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 22 }}>Ascend will create countdown reminders automatically when you add a date.</div>
@@ -407,8 +407,8 @@ export default function MatthewClassBinder() {
 
       {/* ── SYLLABUS MODAL ── */}
       {showSyllabus && (
-        <div onClick={e => { if (e.target === e.currentTarget) { setShowSyllabus(false); resetSyllabus(); }}} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div style={{ background: '#FFFFFF', borderRadius: '22px 22px 0 0', padding: '24px 20px 44px', width: '100%', maxWidth: 580, boxShadow: '0 -8px 40px rgba(29,27,38,0.15)', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div onClick={e => { if (e.target === e.currentTarget) { setShowSyllabus(false); resetSyllabus(); }}} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '24px 20px 32px', width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(29,27,38,0.18)', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 20px' }} />
             <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>Upload Syllabus</div>
             <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>Ascend will create exam folders and countdown reminders automatically.</div>
