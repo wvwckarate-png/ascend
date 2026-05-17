@@ -144,9 +144,9 @@ export default function TabBar({ student }: Props) {
       {showModal && (
         <div
           onClick={e => { if (e.target === e.currentTarget) { setShowModal(false); reset(); }}}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.45)', backdropFilter: 'blur(3px)', zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.45)', backdropFilter: 'blur(3px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
         >
-          <div style={{ background: '#FFFFFF', borderRadius: '22px 22px 0 0', padding: '20px 18px 36px', width: '100%', maxWidth: 580, boxShadow: '0 -8px 40px rgba(29,27,38,0.12)' }}>
+          <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '20px 18px 28px', width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(29,27,38,0.18)' }}>
             <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 18px' }} />
             <div style={{ fontSize: 18, fontWeight: 800, color: '#1D1B26', marginBottom: 16 }}>Quick Add Task</div>
 
