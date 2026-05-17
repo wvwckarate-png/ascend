@@ -48,6 +48,11 @@ function IconProfile() {
 }
 
 const TASK_TYPES = ['Assignment', 'Quiz', 'Reading', 'Paper', 'Project', 'Task'];
+const STUDENT_COLOR: Record<string, string> = {
+  matthew: '#7B6FA0',
+  michael: '#7B6FA0',
+  brynne:  '#E8956D',
+};
 
 const labelStyle = { fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 5, display: 'block' };
 const inputStyle = { width: '100%', padding: '10px 12px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none' };
@@ -97,7 +102,7 @@ export default function TabBar({ student }: Props) {
     gap: 3,
     padding: '6px 16px',
     borderRadius: 12,
-    color: isActive(href) ? '#7B6FA0' : '#C4C1D4',
+    color: isActive(href) ? STUDENT_COLOR[student] : '#C4C1D4',
     transition: 'color 0.15s',
     flex: 1,
   });
@@ -188,7 +193,7 @@ export default function TabBar({ student }: Props) {
 
             <div style={{ display: 'flex', gap: 9 }}>
               <button onClick={() => { setShowModal(false); reset(); }} style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={handleSave} disabled={!title.trim() || saving} style={{ flex: 2, padding: '12px', borderRadius: 12, border: 'none', background: saved ? '#5FAD8E' : 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !title.trim() ? 0.4 : 1 }}>
+              <button onClick={handleSave} disabled={!title.trim() || saving} style={{ flex: 2, padding: '12px', borderRadius: 12, border: 'none', background: saved ? '#5FAD8E' : student === 'brynne' ? '#E8956D' : 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !title.trim() ? 0.4 : 1 }}>
                 {saved ? '✅ Added!' : saving ? 'Saving...' : 'Add Task'}
               </button>
             </div>
@@ -215,9 +220,9 @@ export default function TabBar({ student }: Props) {
             onClick={() => setShowModal(true)}
             style={{
               width: 48, height: 48, borderRadius: '50%', border: 'none',
-              background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white',
+              background: student === 'brynne' ? '#E8956D' : 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white',
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 16px rgba(123,111,160,0.4)', marginBottom: 12, padding: 0,
+              boxShadow: student === 'brynne' ? '0 4px 16px rgba(232,149,109,0.4)' : '0 4px 16px rgba(123,111,160,0.4)', marginBottom: 12, padding: 0,
             }}
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">

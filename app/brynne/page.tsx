@@ -447,6 +447,8 @@ setLoading(false);
 
       </main>
 
-{showUpload && <UploadResourceModal student="brynne" onClose={() => setShowUpload(false)} />}    </div>
+{showUpload && <UploadResourceModal student="brynne" onClose={() => setShowUpload(false)} />}
+      <TabBar student="brynne" />
+    </div>
   );
 }
