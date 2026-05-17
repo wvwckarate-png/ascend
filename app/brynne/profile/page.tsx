@@ -24,52 +24,59 @@ function EditIcon() {
   );
 }
 
-const stats = [
-  { label: 'Study Guides', value: '—' },
-  { label: 'Flashcard Decks', value: '—' },
-  { label: 'Exams Taken', value: '—' },
-  { label: 'Day Streak', value: '—' },
-];
+const color = '#E8956D';
+const light = '#FFF3E8';
 
 export default function BrynneProfile() {
-  const [name, setName] = useState('Brynne');
+  const [name,  setName]  = useState('Brynne');
   const [grade, setGrade] = useState('5th Grade');
   const [focus, setFocus] = useState('Future WVU Physician');
+  const [track, setTrack] = useState('Pre-Med');
+  const [bio,   setBio]   = useState('Already crushing high school Algebra in 5th grade. The Dragon is just getting started! 🐉');
 
   const [editingField, setEditingField] = useState<string | null>(null);
-  const [draft, setDraft] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [savedField, setSavedField] = useState<string | null>(null);
+  const [draft,        setDraft]        = useState('');
+  const [saving,       setSaving]       = useState(false);
+  const [savedField,   setSavedField]   = useState<string | null>(null);
+
+  const [statGuides, setStatGuides] = useState<number | null>(null);
+  const [statDecks,  setStatDecks]  = useState<number | null>(null);
+  const [statExams,  setStatExams]  = useState<number | null>(null);
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from('students').select('name, grade, focus').eq('id', 'brynne').single();
+      const { data } = await supabase.from('students').select('name, grade, focus, track, bio').eq('id', 'brynne').single();
       if (data) {
-        if (data.name) setName(data.name);
+        if (data.name)  setName(data.name);
         if (data.grade) setGrade(data.grade);
         if (data.focus) setFocus(data.focus);
+        if (data.track) setTrack(data.track);
+        if (data.bio)   setBio(data.bio);
       }
+      const [{ count: guides }, { count: decks }, { count: exams }] = await Promise.all([
+        supabase.from('study_guides').select('id', { count: 'exact', head: true }).eq('student_id', 'brynne'),
+        supabase.from('flashcard_decks').select('id', { count: 'exact', head: true }).eq('student_id', 'brynne'),
+        supabase.from('practice_exams').select('id', { count: 'exact', head: true }).eq('student_id', 'brynne'),
+      ]);
+      setStatGuides(guides ?? 0);
+      setStatDecks(decks ?? 0);
+      setStatExams(exams ?? 0);
     };
     load();
   }, []);
 
-  const startEdit = (field: string, current: string) => {
-    setEditingField(field);
-    setDraft(current);
-  };
-
-  const cancelEdit = () => {
-    setEditingField(null);
-    setDraft('');
-  };
+  const startEdit  = (field: string, current: string) => { setEditingField(field); setDraft(current); };
+  const cancelEdit = () => { setEditingField(null); setDraft(''); };
 
   const saveField = async (field: string) => {
     if (!draft.trim()) return;
     setSaving(true);
     await supabase.from('students').update({ [field]: draft.trim() }).eq('id', 'brynne');
-    if (field === 'name') setName(draft.trim());
+    if (field === 'name')  setName(draft.trim());
     if (field === 'grade') setGrade(draft.trim());
     if (field === 'focus') setFocus(draft.trim());
+    if (field === 'track') setTrack(draft.trim());
+    if (field === 'bio')   setBio(draft.trim());
     setSaving(false);
     setEditingField(null);
     setDraft('');
@@ -80,7 +87,7 @@ export default function BrynneProfile() {
   const inputStyle = {
     width: '100%',
     padding: '10px 14px',
-    border: '1.5px solid #E8956D',
+    border: `1.5px solid ${color}`,
     borderRadius: 10,
     fontFamily: 'var(--font-jakarta)',
     fontSize: 14,
@@ -90,23 +97,22 @@ export default function BrynneProfile() {
     boxSizing: 'border-box' as const,
   };
 
-  const saveBtn = (field: string) => (
+  const SaveButtons = ({ field }: { field: string }) => (
     <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-      <button
-        onClick={() => saveField(field)}
-        disabled={saving || !draft.trim()}
-        style={{ padding: '8px 18px', borderRadius: 999, border: 'none', background: '#E8956D', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: saving || !draft.trim() ? 0.5 : 1 }}
-      >
+      <button onClick={() => saveField(field)} disabled={saving || !draft.trim()} style={{ padding: '8px 18px', borderRadius: 999, border: 'none', background: color, color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: saving || !draft.trim() ? 0.5 : 1 }}>
         {saving ? 'Saving…' : 'Save'}
       </button>
-      <button
-        onClick={cancelEdit}
-        style={{ padding: '8px 18px', borderRadius: 999, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}
-      >
+      <button onClick={cancelEdit} style={{ padding: '8px 18px', borderRadius: 999, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
         Cancel
       </button>
     </div>
   );
+
+  const stats = [
+    { label: 'Study Guides',    value: statGuides },
+    { label: 'Flashcard Decks', value: statDecks  },
+    { label: 'Exams Taken',     value: statExams  },
+  ];
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAF8' }}>
@@ -129,8 +135,8 @@ export default function BrynneProfile() {
           {/* Name */}
           {editingField === 'name' ? (
             <div style={{ width: '100%', maxWidth: 320, textAlign: 'left', marginBottom: 8 }}>
-              <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} style={{ ...inputStyle, fontSize: 22, fontWeight: 800, textAlign: 'center' }} />
-              {saveBtn('name')}
+              <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('name'); if (e.key === 'Escape') cancelEdit(); }} style={{ ...inputStyle, fontSize: 22, fontWeight: 800, textAlign: 'center' }} />
+              <SaveButtons field="name" />
             </div>
           ) : (
             <div onClick={() => startEdit('name', name)} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 4 }}>
@@ -143,52 +149,75 @@ export default function BrynneProfile() {
           {/* Grade */}
           {editingField === 'grade' ? (
             <div style={{ width: '100%', maxWidth: 320, textAlign: 'left', marginBottom: 8 }}>
-              <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} style={inputStyle} />
-              {saveBtn('grade')}
+              <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('grade'); if (e.key === 'Escape') cancelEdit(); }} style={inputStyle} />
+              <SaveButtons field="grade" />
             </div>
           ) : (
-            <div onClick={() => startEdit('grade', grade)} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 8 }}>
+            <div onClick={() => startEdit('grade', grade)} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 10 }}>
               <div style={{ fontSize: 13, color: '#9E9BB0' }}>{grade}</div>
               <EditIcon />
             </div>
           )}
           {savedField === 'grade' && <div style={{ fontSize: 11, color: '#5FAD8E', fontWeight: 700, marginBottom: 4 }}>✅ Saved!</div>}
 
-          <div style={{ display: 'flex', gap: 8 }}>
-            <div style={{ padding: '4px 12px', borderRadius: 999, background: '#FFF3E8', fontSize: 11, fontWeight: 700, color: '#E8956D' }}>Pre-Med</div>
-            <div style={{ padding: '4px 12px', borderRadius: 999, background: '#FFF3E8', fontSize: 11, fontWeight: 700, color: '#E8956D' }}>Future WVU Physician</div>
+          {/* Track + Focus tags */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+            {editingField === 'track' ? (
+              <div style={{ width: '100%', maxWidth: 320 }}>
+                <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('track'); if (e.key === 'Escape') cancelEdit(); }} placeholder="e.g. Pre-Med" style={inputStyle} />
+                <SaveButtons field="track" />
+              </div>
+            ) : (
+              <div onClick={() => startEdit('track', track)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 999, background: light, cursor: 'pointer' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color }}>{track}</div>
+                <EditIcon />
+              </div>
+            )}
+            {savedField === 'track' && <div style={{ fontSize: 11, color: '#5FAD8E', fontWeight: 700 }}>✅ Saved!</div>}
+
+            {editingField === 'focus' ? (
+              <div style={{ width: '100%', maxWidth: 320 }}>
+                <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('focus'); if (e.key === 'Escape') cancelEdit(); }} placeholder="e.g. Future WVU Physician" style={inputStyle} />
+                <SaveButtons field="focus" />
+              </div>
+            ) : (
+              <div onClick={() => startEdit('focus', focus)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 999, background: light, cursor: 'pointer' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color }}>{focus}</div>
+                <EditIcon />
+              </div>
+            )}
+            {savedField === 'focus' && <div style={{ fontSize: 11, color: '#5FAD8E', fontWeight: 700 }}>✅ Saved!</div>}
           </div>
         </div>
 
-        {/* Stats grid */}
+        {/* Stats */}
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 12 }}>Activity</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 24 }}>
           {stats.map((s, i) => (
             <div key={i} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '18px', textAlign: 'center', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-              <div style={{ fontSize: 28, fontWeight: 800, color: '#E8956D', marginBottom: 4 }}>{s.value}</div>
+              <div style={{ fontSize: 28, fontWeight: 800, color, marginBottom: 4 }}>
+                {s.value === null ? <span style={{ fontSize: 16, color: '#C4C1D4' }}>…</span> : s.value}
+              </div>
               <div style={{ fontSize: 11, color: '#9E9BB0', fontWeight: 600 }}>{s.label}</div>
             </div>
           ))}
         </div>
 
-        {/* Goal */}
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 12 }}>Goal</div>
+        {/* About */}
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 12 }}>About</div>
         <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 16, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-          {editingField === 'focus' ? (
+          {editingField === 'bio' ? (
             <div>
-              <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} style={inputStyle} />
-              {saveBtn('focus')}
+              <textarea autoFocus value={draft} onChange={e => setDraft(e.target.value)} rows={3} style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6 }} />
+              <SaveButtons field="bio" />
             </div>
           ) : (
-            <div onClick={() => startEdit('focus', focus)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>{focus} 🌟</div>
-                <div style={{ fontSize: 13, color: '#9E9BB0', lineHeight: 1.6 }}>Already crushing high school Algebra in 5th grade. The Dragon is just getting started! 🐉</div>
-              </div>
-              <div style={{ marginLeft: 12, flexShrink: 0 }}><EditIcon /></div>
+            <div onClick={() => startEdit('bio', bio)} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', cursor: 'pointer' }}>
+              <div style={{ fontSize: 13, color: '#9E9BB0', lineHeight: 1.6, flex: 1 }}>{bio}</div>
+              <div style={{ marginLeft: 12, flexShrink: 0, marginTop: 2 }}><EditIcon /></div>
             </div>
           )}
-          {savedField === 'focus' && <div style={{ fontSize: 11, color: '#5FAD8E', fontWeight: 700, marginTop: 8 }}>✅ Saved!</div>}
+          {savedField === 'bio' && <div style={{ fontSize: 11, color: '#5FAD8E', fontWeight: 700, marginTop: 8 }}>✅ Saved!</div>}
         </div>
 
         {/* Settings */}
