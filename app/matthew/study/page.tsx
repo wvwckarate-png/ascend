@@ -132,7 +132,7 @@ function MatthewStudyInner() {
     const folderIds = (folderData || []).map(f => f.id);
     let resourceData: any[] = [];
     if (folderIds.length > 0) {
-      const { data } = await supabase.from('resources').select('id, file_name, file_type, storage_url, folder_id').in('folder_id', folderIds).eq('file_type', 'pdf').not('storage_url', 'is', null);
+      const { data } = await supabase.from('resources').select('id, file_name, file_type, storage_url, folder_id').in('folder_id', folderIds).in('file_type', ['pdf', 'youtube']).not('storage_url', 'is', null);
       resourceData = data || [];
     }
     const rByFolder: Record<string, LibResource[]> = {};
