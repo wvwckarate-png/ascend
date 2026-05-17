@@ -47,7 +47,7 @@ function IconProfile() {
   );
 }
 
-const TASK_TYPES = ['Assignment', 'Quiz', 'Reading', 'Paper', 'Project', 'Task'];
+const TASK_TYPES = ['Assignment', 'Quiz', 'Reading', 'Paper', 'Project', 'Task', 'Other'];
 const STUDENT_COLOR: Record<string, string> = {
   matthew: '#7B6FA0',
   michael: '#7B6FA0',
