@@ -508,6 +508,21 @@ function UploadResourceModalInline({ student, folderId, onClose, onSaved }: {
             }
           } catch { /* fall through to normal save */ }
         }
+
+        // Claude vision text extraction for images
+        if (upType === 'image') {
+          try {
+            const imageForm = new FormData();
+            imageForm.append('file', upFile);
+            const extractRes = await fetch('/api/extract-image-text', { method: 'POST', body: imageForm });
+            const extractData = await extractRes.json();
+            if (extractData.transcript) {
+              const { data } = await supabase.from('resources').insert({ folder_id: folderId, file_name: upName.trim(), file_type: 'image', storage_url: storageUrl, transcript: extractData.transcript }).select().single();
+              if (data) { setUpSaved(true); setTimeout(() => { onSaved(data); reset(); }, 900); }
+              return;
+            }
+          } catch { /* fall through to normal save */ }
+        }
       } else if (upType === 'gdoc' && upLink.trim()) {
         storageUrl = upLink.trim();
       }

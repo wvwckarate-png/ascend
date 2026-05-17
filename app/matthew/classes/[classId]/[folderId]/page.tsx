@@ -278,15 +278,15 @@ export default function MatthewBinder() {
 
         storageUrl = urlData.publicUrl;
 
-        // Whisper transcription for audio files
-        if (upType === 'audio') {
+        // Claude vision text extraction for images
+        if (upType === 'image') {
           try {
-            const audioForm = new FormData();
-            audioForm.append('file', upFile);
-            const transcribeRes = await fetch('/api/transcribe-audio', { method: 'POST', body: audioForm });
-            const transcribeData = await transcribeRes.json();
-            if (transcribeData.transcript) {
-              const { data } = await supabase.from('resources').insert({ folder_id: folderId, file_name: upName.trim(), file_type: 'audio', storage_url: storageUrl, transcript: transcribeData.transcript }).select().single();
+            const imageForm = new FormData();
+            imageForm.append('file', upFile);
+            const extractRes = await fetch('/api/extract-image-text', { method: 'POST', body: imageForm });
+            const extractData = await extractRes.json();
+            if (extractData.transcript) {
+              const { data } = await supabase.from('resources').insert({ folder_id: folderId, file_name: upName.trim(), file_type: 'image', storage_url: storageUrl, transcript: extractData.transcript }).select().single();
               if (data) setResources(prev => [data, ...prev]);
               setUpSaved(true);
               setTimeout(() => { setShowUpload(false); resetUpload(); }, 900);
