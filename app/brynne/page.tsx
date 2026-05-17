@@ -131,7 +131,8 @@ export default function BrynneDashboard() {
   const [loading,    setLoading]    = useState(true);
   const [calView,    setCalView]    = useState<'week' | 'month'>('week');
   const [showDone,   setShowDone]   = useState(false);
-  const [showUpload, setShowUpload] = useState(false);
+  const [showUpload,  setShowUpload]  = useState(false);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -282,7 +283,7 @@ setLoading(false);
                 const isToday = ds === todayStr;
                 const active  = hasActivity(ds);
                 return (
-                  <div key={i} onClick={() => router.push('/brynne/calendar')} style={{ textAlign: 'center', cursor: 'pointer', padding: '6px 2px', borderRadius: 10, background: isToday ? color : 'transparent' }}>
+                  <div key={i} onClick={() => setSelectedDay(ds)} style={{ textAlign: 'center', cursor: 'pointer', padding: '6px 2px', borderRadius: 10, background: isToday ? color : 'transparent' }}>
                     <div style={{ fontSize: 9, fontWeight: 600, color: isToday ? 'rgba(255,255,255,0.7)' : '#C4C1D4', marginBottom: 4 }}>{DAYS[i].slice(0, 1)}</div>
                     <div style={{ fontSize: 13, fontWeight: isToday ? 800 : 500, color: isToday ? 'white' : '#1D1B26', marginBottom: 4 }}>{d.getDate()}</div>
                     {active && <div style={{ width: 5, height: 5, borderRadius: '50%', background: isToday ? 'rgba(255,255,255,0.7)' : color, margin: '0 auto' }} />}
@@ -307,7 +308,7 @@ setLoading(false);
                   const active  = hasActivity(ds);
                   const hasExam = examsForDate(ds).length > 0;
                   return (
-                    <div key={day} onClick={() => router.push('/brynne/calendar')} style={{ textAlign: 'center', padding: '4px 2px', borderRadius: 8, cursor: 'pointer', background: isToday ? color : 'transparent' }}>
+                    <div key={day} onClick={() => setSelectedDay(ds)} style={{ textAlign: 'center', padding: '4px 2px', borderRadius: 8, cursor: 'pointer', background: isToday ? color : 'transparent' }}>
                       <div style={{ fontSize: 11, fontWeight: isToday ? 800 : 400, color: isToday ? 'white' : '#1D1B26' }}>{day}</div>
                       {(active || hasExam) && (
                         <div style={{ display: 'flex', justifyContent: 'center', gap: 2, marginTop: 1 }}>
@@ -448,6 +449,66 @@ setLoading(false);
       </main>
 
 {showUpload && <UploadResourceModal student="brynne" onClose={() => setShowUpload(false)} />}
+
+      {selectedDay && (() => {
+        const dayTasks  = tasks.filter(t => t.due_date === selectedDay);
+        const dayExams  = exams.filter(e => e.exam_date === selectedDay);
+        const dateLabel = new Date(selectedDay + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+        const isEmpty   = dayTasks.length === 0 && dayExams.length === 0;
+        return (
+          <div onClick={e => { if (e.target === e.currentTarget) setSelectedDay(null); }} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.45)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+            <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '24px 20px 20px', width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(29,27,38,0.18)', maxHeight: '80vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26' }}>{dateLabel}</div>
+                <button onClick={() => setSelectedDay(null)} style={{ background: '#F3F1EC', border: 'none', borderRadius: 8, width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="10" height="10" viewBox="0 0 28 28" fill="none"><path d="M6 6l16 16M22 6L6 22" stroke="#9E9BB0" strokeWidth="2" strokeLinecap="round"/></svg>
+                </button>
+              </div>
+
+              {dayExams.map(exam => (
+                <div key={exam.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, background: '#FDF2F2', border: '1.5px solid rgba(196,120,120,0.2)', marginBottom: 8 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#C47878', flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26' }}>{exam.name}</div>
+                    {exam.class_name && <div style={{ fontSize: 11, color: '#C47878', fontWeight: 600 }}>{exam.class_name}</div>}
+                  </div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#C47878', background: '#FDF2F2', padding: '2px 8px', borderRadius: 999, border: '1px solid rgba(196,120,120,0.3)' }}>Test</div>
+                </div>
+              ))}
+
+              {dayTasks.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {dayTasks.map(task => (
+                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, background: '#FAFAF8', border: '1.5px solid #E8E5F0', opacity: task.completed ? 0.5 : 1 }}>
+                      <button onClick={() => toggleTask(task)} style={{ width: 20, height: 20, borderRadius: '50%', border: `2px solid ${task.completed ? '#5FAD8E' : '#C4C1D4'}`, background: task.completed ? '#5FAD8E' : 'transparent', cursor: 'pointer', flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#1D1B26', textDecoration: task.completed ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{task.title}</div>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 2 }}>
+                          {task.class_name && <span style={{ fontSize: 10, color, fontWeight: 600 }}>{task.class_name}</span>}
+                          <span style={{ fontSize: 10, fontWeight: 700, color: taskColor(task.task_type), background: taskBg(task.task_type), padding: '1px 7px', borderRadius: 999 }}>{task.task_type.charAt(0).toUpperCase() + task.task_type.slice(1)}</span>
+                        </div>
+                      </div>
+                      {task.due_time && <div style={{ fontSize: 10, color: '#C4C1D4', flexShrink: 0 }}>{formatTime(task.due_time)}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {isEmpty && (
+                <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>🎉</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>Free day!</div>
+                  <div style={{ fontSize: 12, color: '#9E9BB0' }}>Nothing scheduled — enjoy it! 🌟</div>
+                </div>
+              )}
+
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid #F3F1EC', textAlign: 'center' }}>
+                <Link href="/brynne/calendar" onClick={() => setSelectedDay(null)} style={{ fontSize: 12, fontWeight: 700, color, textDecoration: 'none' }}>Open in Calendar →</Link>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       <TabBar student="brynne" />
     </div>
   );
