@@ -187,20 +187,35 @@ function MichaelPracticeExamInner() {
     try {
       const allResources = library.flatMap(c => c.folders.flatMap(f => f.resources));
       const selResources = allResources.filter(r => selectedIds.has(r.id));
+      // Fetch transcripts from selected folders
+      const selectedFolderIds = [...new Set(selResources.map(r => r.folder_id))];
+      let transcripts: { name: string; text: string }[] = [];
+      if (selectedFolderIds.length > 0) {
+        const { data: transcriptResources } = await supabase
+          .from('resources')
+          .select('file_name, transcript')
+          .in('folder_id', selectedFolderIds)
+          .not('transcript', 'is', null);
+        if (transcriptResources) {
+          transcripts = transcriptResources.map(r => ({ name: r.file_name, text: r.transcript }));
+        }
+      }
+
       const fetchedFiles: File[] = [];
       for (const r of selResources) {
         if (!r.storage_url) continue;
         try { const res = await fetch(r.storage_url); const blob = await res.blob(); fetchedFiles.push(new File([blob], r.file_name + '.pdf', { type: 'application/pdf' })); } catch {}
       }
       const allFiles = [...fetchedFiles, ...newFiles];
-      const prompt   = buildPrompt(allFiles.length);
+      const prompt   = buildPrompt(allFiles.length + transcripts.length);
       let raw = '';
-      if (allFiles.length > 0) {
+      if (allFiles.length > 0 || transcripts.length > 0) {
         const fd = new FormData(); allFiles.forEach(f => fd.append('files', f)); fd.append('student', 'michael'); fd.append('prompt', prompt); fd.append('type', 'exam');
+        if (transcripts.length > 0) fd.append('transcripts', JSON.stringify(transcripts));
         const res = await fetch('/api/generate-study-guide', { method: 'POST', body: fd });
         const d = await res.json(); raw = (d.studyGuide || d.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
       } else {
-        const res = await fetch('/api/generate-study-guide', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt, student: 'michael', type: 'exam' }) });
+        const res = await fetch('/api/generate-study-guide', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt, student: 'michael', transcripts, type: 'exam' }) });
         const d = await res.json(); raw = (d.studyGuide || d.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
       }
       const parsed: Question[] = JSON.parse(raw);

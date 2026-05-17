@@ -277,6 +277,21 @@ function MatthewFlashcardsInner() {
     try {
       const allResources = library.flatMap(c => c.folders.flatMap(f => f.resources));
       const selectedResources = allResources.filter(r => selectedIds.has(r.id));
+
+      // Fetch transcripts from selected folders
+      const selectedFolderIds = [...new Set(selectedResources.map(r => r.folder_id))];
+      let transcripts: { name: string; text: string }[] = [];
+      if (selectedFolderIds.length > 0) {
+        const { data: transcriptResources } = await supabase
+          .from('resources')
+          .select('file_name, transcript')
+          .in('folder_id', selectedFolderIds)
+          .not('transcript', 'is', null);
+        if (transcriptResources) {
+          transcripts = transcriptResources.map(r => ({ name: r.file_name, text: r.transcript }));
+        }
+      }
+
       const fetchedFiles: File[] = [];
       for (const r of selectedResources) {
         if (!r.storage_url) continue;
@@ -292,17 +307,18 @@ function MatthewFlashcardsInner() {
       const custom = customInstructions.trim() ? ` Additional instructions: ${customInstructions.trim()}` : '';
       const prompt = baseInstruction + custom + ' Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]';
       let raw = '';
-      if (allFiles.length > 0) {
+      if (allFiles.length > 0 || transcripts.length > 0) {
         const formData = new FormData();
         allFiles.forEach(f => formData.append('files', f));
         formData.append('student', 'matthew');
         formData.append('prompt', prompt);
         formData.append('type', 'flashcards');
+        if (transcripts.length > 0) formData.append('transcripts', JSON.stringify(transcripts));
         const res = await fetch('/api/generate-study-guide', { method: 'POST', body: formData });
         const data = await res.json();
         raw = (data.studyGuide || data.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
       } else {
-        const res = await fetch('/api/generate-study-guide', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt, student: 'matthew', type: 'flashcards' }) });
+        const res = await fetch('/api/generate-study-guide', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt, student: 'matthew', transcripts, type: 'flashcards' }) });
         const data = await res.json();
         raw = (data.studyGuide || data.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
       }

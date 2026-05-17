@@ -224,6 +224,21 @@ function MatthewStudyInner() {
     try {
       const allResources = library.flatMap(c => c.folders.flatMap(f => f.resources));
       const selectedResources = allResources.filter(r => selectedIds.has(r.id));
+
+      // Fetch transcript resources from the same folders as selected resources
+      const selectedFolderIds = [...new Set(selectedResources.map(r => r.folder_id))];
+      let transcripts: { name: string; text: string }[] = [];
+      if (selectedFolderIds.length > 0) {
+        const { data: transcriptResources } = await supabase
+          .from('resources')
+          .select('file_name, transcript')
+          .in('folder_id', selectedFolderIds)
+          .not('transcript', 'is', null);
+        if (transcriptResources) {
+          transcripts = transcriptResources.map(r => ({ name: r.file_name, text: r.transcript }));
+        }
+      }
+
       const fetchedFiles: File[] = [];
       for (const r of selectedResources) {
         if (!r.storage_url) continue;
@@ -233,13 +248,14 @@ function MatthewStudyInner() {
       const formData = new FormData();
       allFiles.forEach(f => formData.append('files', f));
       formData.append('student', 'matthew');
-      formData.append('prompt', buildPrompt(allFiles.length));
+      formData.append('prompt', buildPrompt(allFiles.length + transcripts.length));
+      if (transcripts.length > 0) formData.append('transcripts', JSON.stringify(transcripts));
       const res  = await fetch('/api/generate-study-guide', { method: 'POST', body: formData });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setStudyGuide(data.studyGuide);
-      setSourceFiles(allFiles.map(f => f.name));
-      if (!guideName) setGuideName(allFiles.length > 0 ? allFiles[0].name.replace('.pdf', '') : 'Study Guide');
+      setSourceFiles([...allFiles.map(f => f.name), ...transcripts.map(t => t.name)]);
+      if (!guideName) setGuideName(allFiles.length > 0 ? allFiles[0].name.replace('.pdf', '') : transcripts.length > 0 ? transcripts[0].name : 'Study Guide');
       setShowNamePrompt(true); setSaved(false);
       setScreen('view');
     } catch { setError('Could not generate study guide. Please try again.'); }
