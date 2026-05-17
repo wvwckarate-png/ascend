@@ -460,11 +460,11 @@ function UploadResourceModalInline({ student, folderId, onClose, onSaved }: {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const FILE_TYPES = [
-    { key: 'pdf',   label: 'PDF',        accept: '.pdf' },
-    { key: 'pptx',  label: 'Slides',     accept: '.pptx,.ppt' },
-    { key: 'audio', label: 'Audio',      accept: '.mp3,.m4a,.wav,.ogg' },
-    { key: 'image', label: 'Image',      accept: '.png,.jpg,.jpeg,.webp' },
-    { key: 'gdoc',  label: 'Google Doc', accept: '' },
+    { key: 'pdf',   label: 'PDF',   accept: '.pdf' },
+    { key: 'pptx',  label: 'Slides', accept: '.pptx,.ppt' },
+    { key: 'audio', label: 'Audio', accept: '.mp3,.m4a,.wav,.ogg' },
+    { key: 'image', label: 'Image', accept: '.png,.jpg,.jpeg,.webp' },
+    { key: 'link',  label: 'Link',  accept: '' },
   ];
 
   const selectedType = FILE_TYPES.find(f => f.key === upType);
@@ -529,8 +529,23 @@ function UploadResourceModalInline({ student, folderId, onClose, onSaved }: {
             }
           } catch { /* fall through to normal save */ }
         }
-      } else if (upType === 'gdoc' && upLink.trim()) {
-        storageUrl = upLink.trim();
+      } else if (upType === 'link' && upLink.trim()) {
+        const isYouTube = upLink.includes('youtube.com') || upLink.includes('youtu.be');
+        if (isYouTube) {
+          const res = await fetch('/api/fetch-youtube-transcript', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: upLink.trim() }) });
+          const data = await res.json();
+          if (data.transcript) {
+            const { data: saved } = await supabase.from('resources').insert({ folder_id: folderId, file_name: upName.trim(), file_type: 'youtube', storage_url: upLink.trim(), transcript: data.transcript }).select().single();
+            if (saved) { setUpSaved(true); setTimeout(() => { onSaved(saved); reset(); }, 900); }
+            return;
+          } else {
+            setUpError(data.error || 'Could not fetch transcript. The video may not have captions.');
+            setUploading(false);
+            return;
+          }
+        } else {
+          storageUrl = upLink.trim();
+        }
       }
       const { data } = await supabase.from('resources').insert({ folder_id: folderId, file_name: upName.trim(), file_type: upType, storage_url: storageUrl }).select().single();
       if (data) { setUpSaved(true); setTimeout(() => { onSaved(data); reset(); }, 900); }
@@ -561,14 +576,19 @@ function UploadResourceModalInline({ student, folderId, onClose, onSaved }: {
           <input autoFocus value={upName} onChange={e => setUpName(e.target.value)} placeholder='e.g. "Lecture 8 - Krebs Cycle"' style={{ width: '100%', padding: '12px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
         </div>
 
-        {upType === 'gdoc' && (
+        {upType === 'link' && (
           <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Google Doc Link</label>
-            <input value={upLink} onChange={e => setUpLink(e.target.value)} placeholder="https://docs.google.com/..." style={{ width: '100%', padding: '12px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
+            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Link <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(YouTube, Google Doc, article, lecture recording)</span></label>
+            <input value={upLink} onChange={e => setUpLink(e.target.value)} placeholder="https://..." style={{ width: '100%', padding: '12px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
+            {(upLink.includes('youtube.com') || upLink.includes('youtu.be')) && (
+              <div style={{ marginTop: 8, fontSize: 11, fontWeight: 600, color, background: '#EDE9F7', padding: '6px 10px', borderRadius: 8 }}>
+                YouTube detected — Ascend will fetch the transcript automatically
+              </div>
+            )}
           </div>
         )}
 
-        {upType && upType !== 'gdoc' && (
+        {upType && upType !== 'link' && (
           <div style={{ marginBottom: 14 }}>
             <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>File</label>
             <input ref={fileInputRef} type="file" accept={selectedType?.accept || '*'} onChange={handleFileChange} style={{ display: 'none' }} />
@@ -615,7 +635,7 @@ function UploadResourceModalInline({ student, folderId, onClose, onSaved }: {
 
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={() => { onClose(); reset(); }} disabled={uploading} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
-          <button onClick={handleSave} disabled={!upName.trim() || !upType || uploading || upSaved || (upType === 'gdoc' ? !upLink.trim() : false)} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: upSaved ? '#5FAD8E' : !upName.trim() || !upType ? '#F3F1EC' : 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: !upName.trim() || !upType ? '#C4C1D4' : 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: uploading ? 0.7 : 1 }}>
+          <button onClick={handleSave} disabled={!upName.trim() || !upType || uploading || upSaved || (upType === 'link' ? !upLink.trim() : false)} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: upSaved ? '#5FAD8E' : !upName.trim() || !upType ? '#F3F1EC' : 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: !upName.trim() || !upType ? '#C4C1D4' : 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: uploading ? 0.7 : 1 }}>
             {upSaved ? 'Saved!' : uploading ? 'Uploading...' : upFile ? 'Upload & Save' : 'Save Resource'}
           </button>
         </div>
