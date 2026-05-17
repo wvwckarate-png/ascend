@@ -483,7 +483,7 @@ function UploadResourceModalInline({ student, folderId, onClose, onSaved }: {
     setUploading(true); setUpError('');
     try {
       let storageUrl: string | null = null;
-      if (upFile && upType !== 'gdoc') {
+      if (upFile && upType !== 'link') {
         const ext      = upFile.name.split('.').pop();
         const safeName = upName.trim().replace(/[^a-zA-Z0-9-_]/g, '_');
         const path     = `${student}/${folderId}/${Date.now()}_${safeName}.${ext}`;
@@ -494,6 +494,21 @@ function UploadResourceModalInline({ student, folderId, onClose, onSaved }: {
         if (uploadError) throw new Error(uploadError.message);
         const { data: urlData } = supabase.storage.from('resources').getPublicUrl(path);
         storageUrl = urlData.publicUrl;
+
+        // Whisper transcription for audio files
+        if (upType === 'audio') {
+          try {
+            const audioForm = new FormData();
+            audioForm.append('file', upFile);
+            const transcribeRes = await fetch('/api/transcribe-audio', { method: 'POST', body: audioForm });
+            const transcribeData = await transcribeRes.json();
+            if (transcribeData.transcript) {
+              const { data } = await supabase.from('resources').insert({ folder_id: folderId, file_name: upName.trim(), file_type: 'audio', storage_url: storageUrl, transcript: transcribeData.transcript }).select().single();
+              if (data) { setUpSaved(true); setTimeout(() => { onSaved(data); reset(); }, 900); }
+              return;
+            }
+          } catch { /* fall through to normal save */ }
+        }
       } else if (upType === 'link' && upLink.trim()) {
         const isYouTube = upLink.includes('youtube.com') || upLink.includes('youtu.be');
         if (isYouTube) {

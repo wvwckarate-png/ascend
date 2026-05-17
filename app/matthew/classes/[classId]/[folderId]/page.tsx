@@ -254,7 +254,7 @@ export default function MatthewBinder() {
     try {
       let storageUrl: string | null = null;
 
-      if (upFile && upType !== 'gdoc') {
+      if (upFile && upType !== 'link') {
         const ext      = upFile.name.split('.').pop();
         const safeName = upName.trim().replace(/[^a-zA-Z0-9-_]/g, '_');
         const path     = `matthew/${folderId}/${Date.now()}_${safeName}.${ext}`;
@@ -277,6 +277,23 @@ export default function MatthewBinder() {
           .getPublicUrl(path);
 
         storageUrl = urlData.publicUrl;
+
+        // Whisper transcription for audio files
+        if (upType === 'audio') {
+          try {
+            const audioForm = new FormData();
+            audioForm.append('file', upFile);
+            const transcribeRes = await fetch('/api/transcribe-audio', { method: 'POST', body: audioForm });
+            const transcribeData = await transcribeRes.json();
+            if (transcribeData.transcript) {
+              const { data } = await supabase.from('resources').insert({ folder_id: folderId, file_name: upName.trim(), file_type: 'audio', storage_url: storageUrl, transcript: transcribeData.transcript }).select().single();
+              if (data) setResources(prev => [data, ...prev]);
+              setUpSaved(true);
+              setTimeout(() => { setShowUpload(false); resetUpload(); }, 900);
+              return;
+            }
+          } catch { /* fall through to normal save */ }
+        }
 
       } else if (upType === 'link' && upLink.trim()) {
         const isYouTube = upLink.includes('youtube.com') || upLink.includes('youtu.be');
