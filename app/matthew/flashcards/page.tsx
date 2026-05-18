@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import TabBar from '../../components/TabBar';
 import { supabase } from '../../../lib/supabase';
@@ -82,7 +82,8 @@ function IconDone({ size = 64 }: { size?: number }) {
   );
 }
 
-type Card        = { id?: string; front: string; back: string; front_image_url?: string | null; back_image_url?: string | null; };
+type Block       = { x: number; y: number; w: number; h: number; };
+type Card        = { id?: string; front: string; back: string; front_image_url?: string | null; back_image_url?: string | null; front_blocks?: Block[] | null; back_blocks?: Block[] | null; };
 type Deck        = { id: string; title: string; source_files: string | null; card_count: number; created_at: string; class_name?: string | null; folder_name?: string | null; folder_id?: string | null; };
 type LibResource = { id: string; file_name: string; storage_url: string; folder_id: string; };
 type LibFolder   = { id: string; name: string; class_id: string; resources: LibResource[]; };
@@ -114,6 +115,13 @@ function MatthewFlashcardsInner() {
   const [deckLoading,  setDeckLoading]  = useState(false);
 
   const [lightboxUrl,     setLightboxUrl]     = useState<string | null>(null);
+  const [blockEditor,     setBlockEditor]     = useState<{ side: 'front' | 'back'; imageUrl: string; blocks: Block[] } | null>(null);
+  const [frontBlocks,     setFrontBlocks]     = useState<Block[]>([]);
+  const [backBlocks,      setBackBlocks]      = useState<Block[]>([]);
+  const [drawing,         setDrawing]         = useState(false);
+  const [drawStart,       setDrawStart]       = useState<{ x: number; y: number } | null>(null);
+  const [drawCurrent,     setDrawCurrent]     = useState<{ x: number; y: number } | null>(null);
+  const blockEditorRef = useRef<HTMLDivElement>(null);
   const [showAddCard,     setShowAddCard]     = useState(false);
   const [editCardId,      setEditCardId]      = useState<string | null>(null);
   const [newFront,        setNewFront]        = useState('');
@@ -278,24 +286,24 @@ function MatthewFlashcardsInner() {
       let newBackUrl  = backImageUrl;
       if (frontImageFile) newFrontUrl = await uploadCardImage(frontImageFile, editCardId, 'front');
       if (backImageFile)  newBackUrl  = await uploadCardImage(backImageFile,  editCardId, 'back');
-      await supabase.from('flashcard_cards').update({ front: newFront.trim(), back: newBack.trim(), front_image_url: newFrontUrl, back_image_url: newBackUrl }).eq('id', editCardId);
-      setDeckCards(prev => prev.map(c => c.id === editCardId ? { ...c, front: newFront.trim(), back: newBack.trim(), front_image_url: newFrontUrl, back_image_url: newBackUrl } : c));
+      await supabase.from('flashcard_cards').update({ front: newFront.trim(), back: newBack.trim(), front_image_url: newFrontUrl, back_image_url: newBackUrl, front_blocks: frontBlocks.length > 0 ? frontBlocks : null, back_blocks: backBlocks.length > 0 ? backBlocks : null }).eq('id', editCardId);
+      setDeckCards(prev => prev.map(c => c.id === editCardId ? { ...c, front: newFront.trim(), back: newBack.trim(), front_image_url: newFrontUrl, back_image_url: newBackUrl, front_blocks: frontBlocks, back_blocks: backBlocks } : c));
     } else {
-      const { data } = await supabase.from('flashcard_cards').insert({ deck_id: activeDeck.id, front: newFront.trim(), back: newBack.trim(), front_image_url: null, back_image_url: null, position: deckCards.length }).select().single();
+      const { data } = await supabase.from('flashcard_cards').insert({ deck_id: activeDeck.id, front: newFront.trim(), back: newBack.trim(), front_image_url: null, back_image_url: null, front_blocks: null, back_blocks: null, position: deckCards.length }).select().single();
       if (data) {
         let newFrontUrl = null;
         let newBackUrl  = null;
         if (frontImageFile) newFrontUrl = await uploadCardImage(frontImageFile, data.id, 'front');
         if (backImageFile)  newBackUrl  = await uploadCardImage(backImageFile,  data.id, 'back');
-        if (newFrontUrl || newBackUrl) {
-          await supabase.from('flashcard_cards').update({ front_image_url: newFrontUrl, back_image_url: newBackUrl }).eq('id', data.id);
+        if (newFrontUrl || newBackUrl || frontBlocks.length > 0 || backBlocks.length > 0) {
+          await supabase.from('flashcard_cards').update({ front_image_url: newFrontUrl, back_image_url: newBackUrl, front_blocks: frontBlocks.length > 0 ? frontBlocks : null, back_blocks: backBlocks.length > 0 ? backBlocks : null }).eq('id', data.id);
         }
-        setDeckCards(prev => [...prev, { ...data, front_image_url: newFrontUrl, back_image_url: newBackUrl }]);
+        setDeckCards(prev => [...prev, { ...data, front_image_url: newFrontUrl, back_image_url: newBackUrl, front_blocks: frontBlocks, back_blocks: backBlocks }]);
         await supabase.from('flashcard_decks').update({ card_count: deckCards.length + 1 }).eq('id', activeDeck.id);
         setDecks(prev => prev.map(d => d.id === activeDeck.id ? { ...d, card_count: deckCards.length + 1 } : d));
       }
     }
-    setNewFront(''); setNewBack(''); setFrontImageFile(null); setBackImageFile(null); setFrontImageUrl(null); setBackImageUrl(null); setEditCardId(null); setShowAddCard(false);
+    setNewFront(''); setNewBack(''); setFrontImageFile(null); setBackImageFile(null); setFrontImageUrl(null); setBackImageUrl(null); setFrontBlocks([]); setBackBlocks([]); setEditCardId(null); setShowAddCard(false);
     setCardSaving(false);
   };
 
@@ -317,7 +325,58 @@ function MatthewFlashcardsInner() {
     setBackImageUrl(card.back_image_url || null);
     setFrontImageFile(null);
     setBackImageFile(null);
+    setFrontBlocks(card.front_blocks || []);
+    setBackBlocks(card.back_blocks || []);
     setShowAddCard(true);
+  };
+
+  const getRelativePos = (clientX: number, clientY: number) => {
+    if (!blockEditorRef.current) return { x: 0, y: 0 };
+    const rect = blockEditorRef.current.getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100)),
+      y: Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100)),
+    };
+  };
+
+  const getDrawRect = (start: { x: number; y: number }, current: { x: number; y: number }): Block => ({
+    x: Math.min(start.x, current.x),
+    y: Math.min(start.y, current.y),
+    w: Math.abs(current.x - start.x),
+    h: Math.abs(current.y - start.y),
+  });
+
+  const handleBlockMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const pos = getRelativePos(e.clientX, e.clientY);
+    setDrawing(true); setDrawStart(pos); setDrawCurrent(pos);
+  };
+
+  const handleBlockMouseMove = (e: React.MouseEvent) => {
+    if (!drawing) return;
+    setDrawCurrent(getRelativePos(e.clientX, e.clientY));
+  };
+
+  const handleBlockMouseUp = () => {
+    if (!drawing || !drawStart || !drawCurrent) { setDrawing(false); return; }
+    const rect = getDrawRect(drawStart, drawCurrent);
+    if (rect.w > 1 && rect.h > 1) {
+      setBlockEditor(prev => prev ? { ...prev, blocks: [...prev.blocks, rect] } : null);
+    }
+    setDrawing(false); setDrawStart(null); setDrawCurrent(null);
+  };
+
+  const handleBlockTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault();
+    const t = e.touches[0];
+    const pos = getRelativePos(t.clientX, t.clientY);
+    setDrawing(true); setDrawStart(pos); setDrawCurrent(pos);
+  };
+
+  const handleBlockTouchMove = (e: React.TouchEvent) => {
+    if (!drawing) return;
+    const t = e.touches[0];
+    setDrawCurrent(getRelativePos(t.clientX, t.clientY));
   };
 
   const toggleResource = (id: string) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -552,9 +611,14 @@ function MatthewFlashcardsInner() {
                   <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Front (Question)</label>
                   <textarea autoFocus value={newFront} onChange={e => setNewFront(e.target.value)} rows={2} placeholder="Enter the question or term..." style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.5, boxSizing: 'border-box' as const, marginBottom: 8 }} />
                   {frontImageUrl && (
-                    <div style={{ position: 'relative', marginBottom: 8 }}>
-                      <img src={frontImageUrl} alt="Front" style={{ width: '100%', borderRadius: 10, objectFit: 'contain', maxHeight: 180 }} />
-                      <button onClick={() => { setFrontImageUrl(null); setFrontImageFile(null); }} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(29,27,38,0.6)', border: 'none', borderRadius: 999, color: 'white', width: 24, height: 24, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ position: 'relative', marginBottom: 6 }}>
+                        <img src={frontImageUrl} alt="Front" style={{ width: '100%', borderRadius: 10, objectFit: 'contain', maxHeight: 180 }} />
+                        <button onClick={() => { setFrontImageUrl(null); setFrontImageFile(null); setFrontBlocks([]); }} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(29,27,38,0.6)', border: 'none', borderRadius: 999, color: 'white', width: 24, height: 24, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                      </div>
+                      <button onClick={() => setBlockEditor({ side: 'front', imageUrl: frontImageUrl, blocks: [...frontBlocks] })} style={{ width: '100%', padding: '7px', borderRadius: 8, border: `1.5px solid ${color}`, background: light, color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                        ✎ Block Labels {frontBlocks.length > 0 ? `(${frontBlocks.length} block${frontBlocks.length !== 1 ? 's' : ''})` : ''}
+                      </button>
                     </div>
                   )}
                   {frontImageFile && !frontImageUrl && (
@@ -572,9 +636,14 @@ function MatthewFlashcardsInner() {
                   <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Back (Answer)</label>
                   <textarea value={newBack} onChange={e => setNewBack(e.target.value)} rows={2} placeholder="Enter the answer or definition..." style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.5, boxSizing: 'border-box' as const, marginBottom: 8 }} />
                   {backImageUrl && (
-                    <div style={{ position: 'relative', marginBottom: 8 }}>
-                      <img src={backImageUrl} alt="Back" style={{ width: '100%', borderRadius: 10, objectFit: 'contain', maxHeight: 180 }} />
-                      <button onClick={() => { setBackImageUrl(null); setBackImageFile(null); }} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(29,27,38,0.6)', border: 'none', borderRadius: 999, color: 'white', width: 24, height: 24, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ position: 'relative', marginBottom: 6 }}>
+                        <img src={backImageUrl} alt="Back" style={{ width: '100%', borderRadius: 10, objectFit: 'contain', maxHeight: 180 }} />
+                        <button onClick={() => { setBackImageUrl(null); setBackImageFile(null); setBackBlocks([]); }} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(29,27,38,0.6)', border: 'none', borderRadius: 999, color: 'white', width: 24, height: 24, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                      </div>
+                      <button onClick={() => setBlockEditor({ side: 'back', imageUrl: backImageUrl, blocks: [...backBlocks] })} style={{ width: '100%', padding: '7px', borderRadius: 8, border: `1.5px solid ${color}`, background: light, color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                        ✎ Block Labels {backBlocks.length > 0 ? `(${backBlocks.length} block${backBlocks.length !== 1 ? 's' : ''})` : ''}
+                      </button>
                     </div>
                   )}
                   {backImageFile && !backImageUrl && (
@@ -833,6 +902,11 @@ function MatthewFlashcardsInner() {
                 {curCard.front_image_url && (
                   <div style={{ position: 'relative', marginBottom: 12 }}>
                     <img src={curCard.front_image_url} alt="Front" onClick={e => { e.stopPropagation(); setLightboxUrl(curCard.front_image_url!); }} style={{ maxWidth: '100%', maxHeight: 160, objectFit: 'contain', borderRadius: 10, cursor: 'zoom-in', display: 'block' }} />
+                    {curCard.front_blocks && curCard.front_blocks.length > 0 && (
+                      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', borderRadius: 10 }}>
+                        {curCard.front_blocks.map((b, i) => <rect key={i} x={`${b.x}%`} y={`${b.y}%`} width={`${b.w}%`} height={`${b.h}%`} fill="rgba(123,111,160,0.92)" />)}
+                      </svg>
+                    )}
                     <div onClick={e => { e.stopPropagation(); setLightboxUrl(curCard.front_image_url!); }} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(29,27,38,0.5)', borderRadius: 6, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     </div>
@@ -919,6 +993,46 @@ function MatthewFlashcardsInner() {
             <button onClick={() => setScreen('decks')} style={{ flex: 1, padding: '13px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>My Decks</button>
           </div>
         </main>
+      )}
+
+      {blockEditor && (
+        <div style={{ position: 'fixed', inset: 0, background: '#000000', zIndex: 400, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: 'white', marginBottom: 2 }}>Block Labels</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>Drag to draw rectangles over labels to hide them</div>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => { setBlockEditor(null); setDrawing(false); setDrawStart(null); setDrawCurrent(null); }} style={{ padding: '8px 14px', borderRadius: 999, border: '1.5px solid rgba(255,255,255,0.2)', background: 'transparent', color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Cancel</button>
+              <button onClick={() => { if (blockEditor.side === 'front') setFrontBlocks(blockEditor.blocks); else setBackBlocks(blockEditor.blocks); setBlockEditor(null); setDrawing(false); setDrawStart(null); setDrawCurrent(null); }} style={{ padding: '8px 14px', borderRadius: 999, border: 'none', background: color, color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Done</button>
+            </div>
+          </div>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', overflow: 'hidden' }}>
+            <div
+              ref={blockEditorRef}
+              style={{ position: 'relative', display: 'inline-block', cursor: 'crosshair', userSelect: 'none', maxWidth: '100%', maxHeight: 'calc(100vh - 160px)' }}
+              onMouseDown={handleBlockMouseDown}
+              onMouseMove={handleBlockMouseMove}
+              onMouseUp={handleBlockMouseUp}
+              onMouseLeave={handleBlockMouseUp}
+              onTouchStart={handleBlockTouchStart}
+              onTouchMove={handleBlockTouchMove}
+              onTouchEnd={handleBlockMouseUp}
+            >
+              <img src={blockEditor.imageUrl} alt="Edit" style={{ display: 'block', maxWidth: '100%', maxHeight: 'calc(100vh - 160px)', objectFit: 'contain', pointerEvents: 'none' }} />
+              <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+                {blockEditor.blocks.map((b, i) => <rect key={i} x={`${b.x}%`} y={`${b.y}%`} width={`${b.w}%`} height={`${b.h}%`} fill="rgba(123,111,160,0.75)" stroke="#7B6FA0" strokeWidth="2" />)}
+                {drawing && drawStart && drawCurrent && (() => { const r = getDrawRect(drawStart, drawCurrent); return <rect x={`${r.x}%`} y={`${r.y}%`} width={`${r.w}%`} height={`${r.h}%`} fill="rgba(123,111,160,0.4)" stroke="#7B6FA0" strokeWidth="2" strokeDasharray="4" />; })()}
+              </svg>
+              {blockEditor.blocks.map((b, i) => (
+                <button key={i} onClick={() => setBlockEditor(prev => prev ? { ...prev, blocks: prev.blocks.filter((_, idx) => idx !== i) } : null)} style={{ position: 'absolute', left: `calc(${b.x + b.w / 2}% - 10px)`, top: `calc(${b.y + b.h / 2}% - 10px)`, width: 20, height: 20, background: 'rgba(0,0,0,0.7)', border: 'none', borderRadius: 999, color: 'white', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}>✕</button>
+              ))}
+            </div>
+          </div>
+          <div style={{ padding: '12px 20px', textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.35)', flexShrink: 0 }}>
+            {blockEditor.blocks.length === 0 ? 'Drag over a label to block it out' : `${blockEditor.blocks.length} block${blockEditor.blocks.length !== 1 ? 's' : ''} · tap ✕ on a block to remove it`}
+          </div>
+        </div>
       )}
 
       {lightboxUrl && (
