@@ -1,5 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 56" fill="none">
-  <path d="M4 52L22 10L40 52" stroke="#7B6FA0" strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round"/>
-  <path d="M31 52L42 28L53 52" stroke="#7B6FA0" strokeWidth="2.8" strokeLinejoin="round" strokeLinecap="round"/>
-  <line x1="2" y1="52" x2="56" y2="52" stroke="#7B6FA0" strokeWidth="2.5" strokeLinecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="96" fill="#F3F1EC"/>
+  <path d="M100 400L230 80L360 400" stroke="#7B6FA0" stroke-width="38" stroke-linejoin="miter" stroke-linecap="square"/>
+  <path d="M290 400L365 210L440 400" stroke="#7B6FA0" stroke-width="30" stroke-linejoin="miter" stroke-linecap="square"/>
+  <line x1="72" y1="400" x2="460" y2="400" stroke="#7B6FA0" stroke-width="26" stroke-linecap="square"/>
+  <rect x="60" y="230" width="392" height="90" fill="#F3F1EC"/>
+  <text x="256" y="305" font-family="Georgia, serif" font-size="82" font-weight="bold" fill="#7B6FA0" text-anchor="middle" letter-spacing="6">ASCEND</text>
 </svg>
