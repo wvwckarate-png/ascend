@@ -114,6 +114,11 @@ export default function MichaelCalendar() {
     load();
   }, []);
 
+  const deleteTask = async (id: string) => {
+    await supabase.from('tasks').delete().eq('id', id);
+    setTasks(prev => prev.filter(t => t.id !== id));
+  };
+
   const toggleTask = async (task: Task) => {
     await supabase.from('tasks').update({ completed: !task.completed }).eq('id', task.id);
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: !t.completed } : t));
@@ -176,6 +181,7 @@ export default function MichaelCalendar() {
           <span style={{ fontSize: 10, fontWeight: 700, color: taskColor(task.task_type), background: taskColor(task.task_type) + '18', padding: '2px 8px', borderRadius: 999 }}>{task.task_type.charAt(0).toUpperCase() + task.task_type.slice(1)}</span>
         </div>
       </div>
+      <button onClick={() => { if (confirm('Delete this task?')) deleteTask(task.id); }} style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>✕</button>
     </div>
   );
 

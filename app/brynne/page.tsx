@@ -166,6 +166,11 @@ setLoading(false);
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: updated } : t));
   };
 
+  const deleteTask = async (id: string) => {
+    await supabase.from('tasks').delete().eq('id', id);
+    setTasks(prev => prev.filter(t => t.id !== id));
+  };
+
   const upcomingTasks  = tasks.filter(t => t.due_date >= todayStr).slice(0, 8);
   const overdueTasks   = tasks.filter(t => !t.completed && t.due_date < todayStr);
   const completedTasks = tasks.filter(t => t.completed).slice(0, 5);
@@ -213,6 +218,7 @@ setLoading(false);
         </div>
         {task.due_time && <div style={{ fontSize: 10, color: '#C4C1D4' }}>{formatTime(task.due_time)}</div>}
       </div>
+      <button onClick={() => { if (confirm('Delete this task?')) deleteTask(task.id); }} style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>✕</button>
     </div>
   );
 

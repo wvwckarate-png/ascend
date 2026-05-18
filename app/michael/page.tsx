@@ -173,6 +173,11 @@ setLoading(false);
     const interval = setInterval(load, 15000);
     return () => clearInterval(interval);
   }, []);
+  const deleteTask = async (id: string) => {
+    await supabase.from('tasks').delete().eq('id', id);
+    setTasks(prev => prev.filter(t => t.id !== id));
+  };
+
   const toggleTask = async (task: Task) => {
     const updated = !task.completed;
     await supabase.from('tasks').update({ completed: updated }).eq('id', task.id);
@@ -226,6 +231,7 @@ setLoading(false);
         </div>
         {task.due_time && <div style={{ fontSize: 10, color: '#C4C1D4' }}>{formatTime(task.due_time)}</div>}
       </div>
+      <button onClick={() => { if (confirm('Delete this task?')) deleteTask(task.id); }} style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>✕</button>
     </div>
   );
 
