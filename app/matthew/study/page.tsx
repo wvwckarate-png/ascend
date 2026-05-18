@@ -210,8 +210,8 @@ function MatthewStudyInner() {
       mastery:  'Generate a comprehensive mastery-level guide with deep explanations across all materials.',
     };
     const base = fileCount > 1
-      ? `You are Ascend analyzing ${fileCount} study documents for Matthew, a pre-dental high school junior taking AP Physics 2, AP Biology, and AP Chemistry. Perform CROSS-DOCUMENT ANALYSIS: identify concepts recurring across multiple documents, find overlapping themes, and focus your output on these high-frequency areas. ${level ? levelPrompts[level] : ''}`
-      : `You are Ascend, an AI study assistant for Matthew, a pre-dental high school junior. Be precise and thorough. ${level ? levelPrompts[level] : 'Generate a study guide based on the instructions below.'}`;
+      ? `You are Ascend, a test-prep assistant for Matthew, a pre-dental high school junior. Your goal is to help him get an A in THIS class with THIS professor. Analyze these ${fileCount} documents and identify the highest-yield topics — concepts that appear repeatedly, are emphasized, or are most likely to appear on an exam. Do NOT go deeper than what the professor's materials cover. Stay scoped to what was actually taught. ${level ? levelPrompts[level] : ''}`
+      : `You are Ascend, a test-prep assistant for Matthew, a pre-dental high school junior. Your goal is to help him get an A in THIS class. Focus only on what is in these materials — identify the most testable concepts, likely exam topics, and high-frequency themes. Do not expand beyond the scope of what was taught. ${level ? levelPrompts[level] : 'Generate a focused study guide from the provided material.'}`;
     const q = addQuestions ? `\n\nAdd a "Practice Questions" section with ${questionFormat === 'Both' ? 'mixed multiple choice and short answer' : questionFormat.toLowerCase()} questions.${showAnswers ? ' Include answers and explanations.' : ' Do not include answers.'}` : '';
     const c = customInstructions.trim() ? `\n\nAdditional instructions: ${customInstructions.trim()}` : '';
     return base + c + q + '\n\nFormat with clear markdown headers and structure.';

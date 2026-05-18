@@ -169,7 +169,7 @@ function BrynnePracticeExamInner() {
     const typeList = Array.from(questionTypes);
     const typeDescriptions = typeList.map(t => t === 'mc' ? 'Multiple Choice (4 options A/B/C/D)' : t === 'tf' ? 'True/False' : t === 'sa' ? 'Short Answer' : 'Essay').join(', ');
     const countStr = countMode === 'auto' ? 'an appropriate number of' : `exactly ${actualCount}`;
-    const crossDoc = fileCount > 1 ? `Perform CROSS-DOCUMENT ANALYSIS — identify the most important recurring concepts across all ${fileCount} documents and weight questions toward those high-yield topics. ` : '';
+    const crossDoc = fileCount > 1 ? `Analyze all ${fileCount} documents and identify the highest-yield topics — concepts that appear repeatedly or are most likely to be tested. Weight your questions heavily toward these topics. ` : '';
     const custom   = customInstructions.trim() ? ` Additional instructions: ${customInstructions.trim()}.` : '';
     const formats  = typeList.map(t => {
       if (t === 'mc')    return `MC: {"type":"mc","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A","explanation":"Why this is correct and why others are wrong..."}`;
@@ -178,7 +178,7 @@ function BrynnePracticeExamInner() {
       if (t === 'essay') return `Essay: {"type":"essay","question":"...","key_points":"Key points a strong essay response should address: 1)... 2)... 3)..."}`;
       return '';
     }).join('\n');
-    return `You are Ascend generating a practice exam for Brynne, an advanced 5th grader doing high school level math and science. Use friendly, encouraging language and age-appropriate but challenging questions.${topic.trim() ? ` Topic: ${topic.trim()}.` : ''} ${crossDoc}Generate ${countStr} questions of these types: ${typeDescriptions}. ${typeList.length > 1 ? 'Distribute evenly across all types.' : ''} Make questions clear and well-structured.${custom}\n\nReturn ONLY a JSON array, no markdown, no backticks. Use these exact formats:\n${formats}`;
+    return `You are Ascend generating a practice exam for Brynne, an advanced 5th grader doing high school level math and science. Use friendly, encouraging language. Your goal is to help her get an A in THIS class — focus only on what was actually taught in these materials. Do not go deeper than the teacher's scope.${topic.trim() ? ` Topic: ${topic.trim()}.` : ''} ${crossDoc}Generate ${countStr} questions of these types: ${typeDescriptions}. ${typeList.length > 1 ? 'Distribute evenly across all types.' : ''} Make questions clear, age-appropriate, and realistic to what a teacher would actually test.${custom}\n\nReturn ONLY a JSON array, no markdown, no backticks. Use these exact formats:\n${formats}`;
   };
 
   const generate = async () => {

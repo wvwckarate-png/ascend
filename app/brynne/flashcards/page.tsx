@@ -291,8 +291,8 @@ function BrynneFlashcardsInner() {
       const allFiles = [...fetchedFiles, ...newFiles];
       const countPhrase = autoCount ? 'as many flashcards as needed to comprehensively cover all key concepts (determine the ideal number yourself)' : `${count} flashcards`;
       const baseInstruction = totalSelected > 1
-        ? `You are Ascend analyzing ${allFiles.length} study documents for Brynne, an advanced 5th grader doing high school level math and science. Use friendly, encouraging language. Perform CROSS-DOCUMENT ANALYSIS: identify concepts recurring across multiple documents, find overlapping themes. Generate ${countPhrase} focused on these high-frequency cross-document concepts.${topic.trim() ? ` Additional focus: ${topic.trim()}.` : ''}`
-        : `Generate ${countPhrase}${topic.trim() ? ` for: ${topic.trim()}` : ' from the uploaded study material'}. Use friendly, encouraging language for an advanced 5th grader.`;
+        ? `You are Ascend, a test-prep assistant for Brynne, an advanced 5th grader doing high school level math and science. Use friendly, encouraging language. Your goal is to help her get an A in THIS class. Analyze these ${allFiles.length} documents and identify the highest-yield concepts — topics that appear repeatedly, are emphasized, or are most likely to be tested. Generate ${countPhrase} focused strictly on these high-yield concepts. Do not go deeper than what the teacher's materials cover.${topic.trim() ? ` Additional focus: ${topic.trim()}.` : ''}`
+        : `You are Ascend, a test-prep assistant for Brynne, an advanced 5th grader. Use friendly, encouraging language. Generate ${countPhrase}${topic.trim() ? ` focused on: ${topic.trim()}` : ' from the uploaded material'}. Focus only on the most testable concepts from what was actually taught. Do not expand beyond the scope of the provided material.`;
       const custom = customInstructions.trim() ? ` Additional instructions: ${customInstructions.trim()}` : '';
       const prompt = baseInstruction + custom + ' Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]';
       let raw = '';

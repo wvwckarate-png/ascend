@@ -177,7 +177,7 @@ function MatthewPracticeExamInner() {
     const typeList = Array.from(questionTypes);
     const typeDescriptions = typeList.map(t => t === 'mc' ? 'Multiple Choice (4 options A/B/C/D)' : t === 'tf' ? 'True/False' : t === 'sa' ? 'Short Answer' : 'Essay').join(', ');
     const countStr = countMode === 'auto' ? 'an appropriate number of' : `exactly ${actualCount}`;
-    const crossDoc = fileCount > 1 ? `Perform CROSS-DOCUMENT ANALYSIS — identify the most important recurring concepts across all ${fileCount} documents and weight questions toward those high-yield topics. ` : '';
+    const crossDoc = fileCount > 1 ? `Analyze all ${fileCount} documents and identify the highest-yield topics — concepts that appear repeatedly or are most likely to be tested. Weight your questions heavily toward these topics. ` : '';
     const custom   = customInstructions.trim() ? ` Additional instructions: ${customInstructions.trim()}.` : '';
     const formats  = typeList.map(t => {
       if (t === 'mc')    return `MC: {"type":"mc","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A","explanation":"Why this is correct and why others are wrong..."}`;
@@ -186,7 +186,7 @@ function MatthewPracticeExamInner() {
       if (t === 'essay') return `Essay: {"type":"essay","question":"...","key_points":"Key points a strong essay response should address: 1)... 2)... 3)..."}`;
       return '';
     }).join('\n');
-    return `You are Ascend generating a practice exam for Matthew, a pre-dental high school junior.${topic.trim() ? ` Topic: ${topic.trim()}.` : ''} ${crossDoc}Generate ${countStr} questions of these types: ${typeDescriptions}. ${typeList.length > 1 ? 'Distribute evenly across all types.' : ''} Make questions challenging and exam-realistic.${custom}\n\nReturn ONLY a JSON array, no markdown, no backticks. Use these exact formats:\n${formats}`;
+    return `You are Ascend generating a practice exam for Matthew, a pre-dental high school junior. Your goal is to help him get an A in THIS class — focus only on what was actually taught in these materials. Do not go deeper than the professor's scope.${topic.trim() ? ` Topic: ${topic.trim()}.` : ''} ${crossDoc}Generate ${countStr} questions of these types: ${typeDescriptions}. ${typeList.length > 1 ? 'Distribute evenly across all types.' : ''} Make questions realistic to what a professor would actually test.${custom}\n\nReturn ONLY a JSON array, no markdown, no backticks. Use these exact formats:\n${formats}`;
   };
 
   const generate = async () => {
