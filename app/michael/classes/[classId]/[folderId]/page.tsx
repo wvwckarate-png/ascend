@@ -529,6 +529,21 @@ function UploadResourceModalInline({ student, folderId, onClose, onSaved }: {
             }
           } catch { /* fall through to normal save */ }
         }
+
+        // Mammoth text extraction for PPTX/slides
+        if (upType === 'pptx') {
+          try {
+            const pptxForm = new FormData();
+            pptxForm.append('file', upFile);
+            const extractRes = await fetch('/api/extract-pptx-text', { method: 'POST', body: pptxForm });
+            const extractData = await extractRes.json();
+            if (extractData.transcript) {
+              const { data } = await supabase.from('resources').insert({ folder_id: folderId, file_name: upName.trim(), file_type: 'pptx', storage_url: storageUrl, transcript: extractData.transcript }).select().single();
+              if (data) { setUpSaved(true); setTimeout(() => { onSaved(data); reset(); }, 900); }
+              return;
+            }
+          } catch { /* fall through to normal save */ }
+        }
       } else if (upType === 'link' && upLink.trim()) {
         const isYouTube = upLink.includes('youtube.com') || upLink.includes('youtu.be');
         if (isYouTube) {
