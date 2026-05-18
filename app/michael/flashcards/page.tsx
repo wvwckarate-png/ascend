@@ -528,17 +528,20 @@ function MichaelFlashcardsInner() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {decks.map(deck => (
                 <div key={deck.id} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '14px 16px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div onClick={() => openDeck(deck)} style={{ flex: 1, cursor: 'pointer', minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 4, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{deck.title}</div>
-                    {(deck.class_name || deck.folder_name) && (
-                      <div style={{ fontSize: 10, fontWeight: 700, color, background: light, padding: '2px 7px', borderRadius: 999, display: 'inline-block', marginBottom: 4 }}>
-                        {deck.class_name}{deck.folder_name ? ` · ${deck.folder_name}` : ''}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                    <div onClick={() => openDeck(deck)} style={{ flex: 1, cursor: 'pointer', minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 4, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{deck.title}</div>
+                      {(deck.class_name || deck.folder_name) && (
+                        <div style={{ fontSize: 10, fontWeight: 700, color, background: light, padding: '2px 7px', borderRadius: 999, display: 'inline-block', marginBottom: 4 }}>
+                          {deck.class_name}{deck.folder_name ? ` · ${deck.folder_name}` : ''}
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color, background: light, padding: '2px 6px', borderRadius: 999 }}>{deck.card_count} cards</span>
+                        <span style={{ fontSize: 10, color: '#9E9BB0' }}>{formatDate(deck.created_at)}</span>
                       </div>
-                    )}
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color, background: light, padding: '2px 6px', borderRadius: 999 }}>{deck.card_count} cards</span>
-                      <span style={{ fontSize: 10, color: '#9E9BB0' }}>{formatDate(deck.created_at)}</span>
                     </div>
+                    <button onClick={() => { if (confirm('Delete this deck?')) deleteDeck(deck.id); }} style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '5px 8px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>✕</button>
                   </div>
                   <button onClick={() => openDeck(deck)} style={{ width: '100%', padding: '8px', borderRadius: 10, background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', border: 'none', color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Study</button>
                 </div>
