@@ -82,7 +82,7 @@ function IconDone({ size = 64 }: { size?: number }) {
   );
 }
 
-type Card        = { id?: string; front: string; back: string; };
+type Card        = { id?: string; front: string; back: string; front_image_url?: string | null; back_image_url?: string | null; };
 type Deck        = { id: string; title: string; source_files: string | null; card_count: number; created_at: string; class_name?: string | null; folder_name?: string | null; folder_id?: string | null; };
 type LibResource = { id: string; file_name: string; storage_url: string; folder_id: string; };
 type LibFolder   = { id: string; name: string; class_id: string; resources: LibResource[]; };
@@ -113,11 +113,16 @@ function BrynneFlashcardsInner() {
   const [deckCards,    setDeckCards]    = useState<Card[]>([]);
   const [deckLoading,  setDeckLoading]  = useState(false);
 
-  const [showAddCard, setShowAddCard] = useState(false);
-  const [editCardId,  setEditCardId]  = useState<string | null>(null);
-  const [newFront,    setNewFront]    = useState('');
-  const [newBack,     setNewBack]     = useState('');
-  const [cardSaving,  setCardSaving]  = useState(false);
+  const [lightboxUrl,     setLightboxUrl]     = useState<string | null>(null);
+  const [showAddCard,     setShowAddCard]     = useState(false);
+  const [editCardId,      setEditCardId]      = useState<string | null>(null);
+  const [newFront,        setNewFront]        = useState('');
+  const [newBack,         setNewBack]         = useState('');
+  const [frontImageFile,  setFrontImageFile]  = useState<File | null>(null);
+  const [backImageFile,   setBackImageFile]   = useState<File | null>(null);
+  const [frontImageUrl,   setFrontImageUrl]   = useState<string | null>(null);
+  const [backImageUrl,    setBackImageUrl]    = useState<string | null>(null);
+  const [cardSaving,      setCardSaving]      = useState(false);
 
   const [library,         setLibrary]         = useState<LibClass[]>([]);
   const [libLoading,      setLibLoading]       = useState(true);
@@ -225,21 +230,70 @@ function BrynneFlashcardsInner() {
     if (activeDeck?.id === deckId) setScreen('decks');
   };
 
+  const compressImage = async (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const maxDim = 800;
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+          else { w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { reject(new Error('Canvas failed')); return; }
+        ctx.drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+  };
+
+  const uploadCardImage = async (file: File, cardId: string, side: 'front' | 'back'): Promise<string | null> => {
+    try {
+      const compressed = await compressImage(file);
+      const base64 = compressed.split(',')[1];
+      const byteArray = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+      const blob = new Blob([byteArray], { type: 'image/jpeg' });
+      const path = `brynne/${cardId}_${side}.jpg`;
+      const { error } = await supabase.storage.from('card-images').upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
+      if (error) return null;
+      const { data } = supabase.storage.from('card-images').getPublicUrl(path);
+      return data.publicUrl;
+    } catch { return null; }
+  };
+
   const saveCard = async () => {
-    if (!newFront.trim() || !newBack.trim() || !activeDeck) return;
+    if ((!newFront.trim() && !frontImageFile && !frontImageUrl) || (!newBack.trim() && !backImageFile && !backImageUrl) || !activeDeck) return;
     setCardSaving(true);
     if (editCardId) {
-      await supabase.from('flashcard_cards').update({ front: newFront.trim(), back: newBack.trim() }).eq('id', editCardId);
-      setDeckCards(prev => prev.map(c => c.id === editCardId ? { ...c, front: newFront.trim(), back: newBack.trim() } : c));
+      let newFrontUrl = frontImageUrl;
+      let newBackUrl  = backImageUrl;
+      if (frontImageFile) newFrontUrl = await uploadCardImage(frontImageFile, editCardId, 'front');
+      if (backImageFile)  newBackUrl  = await uploadCardImage(backImageFile,  editCardId, 'back');
+      await supabase.from('flashcard_cards').update({ front: newFront.trim(), back: newBack.trim(), front_image_url: newFrontUrl, back_image_url: newBackUrl }).eq('id', editCardId);
+      setDeckCards(prev => prev.map(c => c.id === editCardId ? { ...c, front: newFront.trim(), back: newBack.trim(), front_image_url: newFrontUrl, back_image_url: newBackUrl } : c));
     } else {
-      const { data } = await supabase.from('flashcard_cards').insert({ deck_id: activeDeck.id, front: newFront.trim(), back: newBack.trim(), position: deckCards.length }).select().single();
+      const { data } = await supabase.from('flashcard_cards').insert({ deck_id: activeDeck.id, front: newFront.trim(), back: newBack.trim(), front_image_url: null, back_image_url: null, position: deckCards.length }).select().single();
       if (data) {
-        setDeckCards(prev => [...prev, data]);
+        let newFrontUrl = null;
+        let newBackUrl  = null;
+        if (frontImageFile) newFrontUrl = await uploadCardImage(frontImageFile, data.id, 'front');
+        if (backImageFile)  newBackUrl  = await uploadCardImage(backImageFile,  data.id, 'back');
+        if (newFrontUrl || newBackUrl) {
+          await supabase.from('flashcard_cards').update({ front_image_url: newFrontUrl, back_image_url: newBackUrl }).eq('id', data.id);
+        }
+        setDeckCards(prev => [...prev, { ...data, front_image_url: newFrontUrl, back_image_url: newBackUrl }]);
         await supabase.from('flashcard_decks').update({ card_count: deckCards.length + 1 }).eq('id', activeDeck.id);
         setDecks(prev => prev.map(d => d.id === activeDeck.id ? { ...d, card_count: deckCards.length + 1 } : d));
       }
     }
-    setNewFront(''); setNewBack(''); setEditCardId(null); setShowAddCard(false);
+    setNewFront(''); setNewBack(''); setFrontImageFile(null); setBackImageFile(null); setFrontImageUrl(null); setBackImageUrl(null); setEditCardId(null); setShowAddCard(false);
     setCardSaving(false);
   };
 
@@ -253,7 +307,16 @@ function BrynneFlashcardsInner() {
     }
   };
 
-  const startEdit = (card: Card) => { setEditCardId(card.id || null); setNewFront(card.front); setNewBack(card.back); setShowAddCard(true); };
+  const startEdit = (card: Card) => {
+    setEditCardId(card.id || null);
+    setNewFront(card.front);
+    setNewBack(card.back);
+    setFrontImageUrl(card.front_image_url || null);
+    setBackImageUrl(card.back_image_url || null);
+    setFrontImageFile(null);
+    setBackImageFile(null);
+    setShowAddCard(true);
+  };
 
   const toggleResource = (id: string) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleFolder   = (folder: LibFolder) => { const ids = folder.resources.map(r => r.id); const allSel = ids.length > 0 && ids.every(id => selectedIds.has(id)); setSelectedIds(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; }); };
@@ -466,20 +529,44 @@ function BrynneFlashcardsInner() {
             </div>
           )}
           {showAddCard && (
-            <div onClick={e => { if (e.target === e.currentTarget) { setShowAddCard(false); setEditCardId(null); setNewFront(''); setNewBack(''); }}} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-              <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '28px 24px', width: '100%', maxWidth: 540, boxShadow: '0 8px 40px rgba(29,27,38,0.18)' }}>
+            <div onClick={e => { if (e.target === e.currentTarget) { setShowAddCard(false); setEditCardId(null); setNewFront(''); setNewBack(''); setFrontImageFile(null); setBackImageFile(null); setFrontImageUrl(null); setBackImageUrl(null); }}} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+              <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '28px 24px', width: '100%', maxWidth: 540, boxShadow: '0 8px 40px rgba(29,27,38,0.18)', maxHeight: '90vh', overflowY: 'auto' }}>
                 <div style={{ fontSize: 18, fontWeight: 800, color: '#1D1B26', marginBottom: 16 }}>{editCardId ? 'Edit Card' : 'Add a Card!'}</div>
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Front (Question)</label>
-                  <textarea autoFocus value={newFront} onChange={e => setNewFront(e.target.value)} rows={3} placeholder="What's the question?" style={{ width: '100%', padding: '11px 13px', border: `1.5px solid ${color}`, borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.5, boxSizing: 'border-box' as const }} />
+                  <textarea autoFocus value={newFront} onChange={e => setNewFront(e.target.value)} rows={2} placeholder="What's the question?" style={{ width: '100%', padding: '11px 13px', border: `1.5px solid ${color}`, borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.5, boxSizing: 'border-box' as const, marginBottom: 8 }} />
+                  {frontImageUrl && (
+                    <div style={{ position: 'relative', marginBottom: 8 }}>
+                      <img src={frontImageUrl} alt="Front" style={{ width: '100%', borderRadius: 10, objectFit: 'contain', maxHeight: 180 }} />
+                      <button onClick={() => { setFrontImageUrl(null); setFrontImageFile(null); }} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(29,27,38,0.6)', border: 'none', borderRadius: 999, color: 'white', width: 24, height: 24, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                    </div>
+                  )}
+                  {frontImageFile && !frontImageUrl && <div style={{ fontSize: 11, color, background: light, padding: '6px 10px', borderRadius: 8, marginBottom: 8 }}>📷 {frontImageFile.name}</div>}
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: '#9E9BB0', cursor: 'pointer', padding: '6px 10px', borderRadius: 8, border: '1.5px dashed #E8E5F0', background: '#FAFAF8' }}>
+                    <svg width="14" height="14" viewBox="0 0 28 28" fill="none"><rect x="3" y="6" width="22" height="16" rx="2" stroke="#9E9BB0" strokeWidth="1.6" fill="none"/><circle cx="9" cy="12" r="2" stroke="#9E9BB0" strokeWidth="1.4" fill="none"/><path d="M3 20l6-5 4 4 3-3 6 5" stroke="#9E9BB0" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    Add image to front
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { setFrontImageFile(f); setFrontImageUrl(URL.createObjectURL(f)); } e.target.value = ''; }} />
+                  </label>
                 </div>
                 <div style={{ marginBottom: 20 }}>
                   <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Back (Answer)</label>
-                  <textarea value={newBack} onChange={e => setNewBack(e.target.value)} rows={3} placeholder="What's the answer?" style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.5, boxSizing: 'border-box' as const }} />
+                  <textarea value={newBack} onChange={e => setNewBack(e.target.value)} rows={2} placeholder="What's the answer?" style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.5, boxSizing: 'border-box' as const, marginBottom: 8 }} />
+                  {backImageUrl && (
+                    <div style={{ position: 'relative', marginBottom: 8 }}>
+                      <img src={backImageUrl} alt="Back" style={{ width: '100%', borderRadius: 10, objectFit: 'contain', maxHeight: 180 }} />
+                      <button onClick={() => { setBackImageUrl(null); setBackImageFile(null); }} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(29,27,38,0.6)', border: 'none', borderRadius: 999, color: 'white', width: 24, height: 24, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                    </div>
+                  )}
+                  {backImageFile && !backImageUrl && <div style={{ fontSize: 11, color, background: light, padding: '6px 10px', borderRadius: 8, marginBottom: 8 }}>📷 {backImageFile.name}</div>}
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: '#9E9BB0', cursor: 'pointer', padding: '6px 10px', borderRadius: 8, border: '1.5px dashed #E8E5F0', background: '#FAFAF8' }}>
+                    <svg width="14" height="14" viewBox="0 0 28 28" fill="none"><rect x="3" y="6" width="22" height="16" rx="2" stroke="#9E9BB0" strokeWidth="1.6" fill="none"/><circle cx="9" cy="12" r="2" stroke="#9E9BB0" strokeWidth="1.4" fill="none"/><path d="M3 20l6-5 4 4 3-3 6 5" stroke="#9E9BB0" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    Add image to back
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { setBackImageFile(f); setBackImageUrl(URL.createObjectURL(f)); } e.target.value = ''; }} />
+                  </label>
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={() => { setShowAddCard(false); setEditCardId(null); setNewFront(''); setNewBack(''); }} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
-                  <button onClick={saveCard} disabled={!newFront.trim() || !newBack.trim() || cardSaving} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !newFront.trim() || !newBack.trim() ? 0.4 : 1 }}>
+                  <button onClick={() => { setShowAddCard(false); setEditCardId(null); setNewFront(''); setNewBack(''); setFrontImageFile(null); setBackImageFile(null); setFrontImageUrl(null); setBackImageUrl(null); }} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+                  <button onClick={saveCard} disabled={cardSaving} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: cardSaving ? 0.7 : 1 }}>
                     {cardSaving ? 'Saving...' : editCardId ? 'Save Changes' : 'Add Card 🌟'}
                   </button>
                 </div>
@@ -679,12 +766,28 @@ function BrynneFlashcardsInner() {
             <div style={{ position: 'relative', width: '100%', minHeight: 240, transformStyle: 'preserve-3d', transition: 'transform 0.35s', transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
               <div style={{ position: 'absolute', width: '100%', minHeight: 240, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', borderRadius: 20, padding: '36px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: '#FFFFFF', border: '1.5px solid #E8E5F0', boxShadow: '0 6px 28px rgba(29,27,38,0.08)' }}>
                 <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 16 }}>Question</div>
-                <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.5, color: '#1D1B26' }}>{curCard.front}</div>
+                {curCard.front_image_url && (
+                  <div style={{ position: 'relative', marginBottom: 12 }}>
+                    <img src={curCard.front_image_url} alt="Front" onClick={e => { e.stopPropagation(); setLightboxUrl(curCard.front_image_url!); }} style={{ maxWidth: '100%', maxHeight: 160, objectFit: 'contain', borderRadius: 10, cursor: 'zoom-in', display: 'block' }} />
+                    <div onClick={e => { e.stopPropagation(); setLightboxUrl(curCard.front_image_url!); }} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(29,27,38,0.5)', borderRadius: 6, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </div>
+                  </div>
+                )}
+                {curCard.front && <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.5, color: '#1D1B26' }}>{curCard.front}</div>}
                 <div style={{ marginTop: 20, fontSize: 11, color: '#C4C1D4' }}>tap to flip!</div>
               </div>
               <div style={{ position: 'absolute', width: '100%', minHeight: 240, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', borderRadius: 20, padding: '36px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: light, border: `1.5px solid rgba(232,149,109,0.2)`, transform: 'rotateY(180deg)' }}>
                 <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color, opacity: 0.7, marginBottom: 16 }}>Answer 🌟</div>
-                <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.5, color: '#C4845A' }}>{curCard.back}</div>
+                {curCard.back_image_url && (
+                  <div style={{ position: 'relative', marginBottom: 12 }}>
+                    <img src={curCard.back_image_url} alt="Back" onClick={e => { e.stopPropagation(); setLightboxUrl(curCard.back_image_url!); }} style={{ maxWidth: '100%', maxHeight: 160, objectFit: 'contain', borderRadius: 10, cursor: 'zoom-in', display: 'block' }} />
+                    <div onClick={e => { e.stopPropagation(); setLightboxUrl(curCard.back_image_url!); }} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(29,27,38,0.5)', borderRadius: 6, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </div>
+                  </div>
+                )}
+                {curCard.back && <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.5, color: '#C4845A' }}>{curCard.back}</div>}
               </div>
             </div>
           </div>
@@ -744,6 +847,12 @@ function BrynneFlashcardsInner() {
         </main>
       )}
 
+      {lightboxUrl && (
+        <div onClick={() => setLightboxUrl(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', cursor: 'zoom-out' }}>
+          <img src={lightboxUrl} alt="Expanded" style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: 12 }} />
+          <button onClick={() => setLightboxUrl(null)} style={{ position: 'absolute', top: 20, right: 20, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 999, color: 'white', width: 36, height: 36, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+        </div>
+      )}
       <TabBar student="brynne" />
     </div>
   );
