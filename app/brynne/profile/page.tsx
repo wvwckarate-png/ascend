@@ -233,7 +233,7 @@ export default function BrynneProfile() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 2 }}>Notifications</div>
-              <div style={{ fontSize: 11, color: '#9E9BB0' }}>Coming in v2.0</div>
+              <div style={{ fontSize: 11, color: '#9E9BB0' }}>Coming soon</div>
             </div>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#C4C1D4', background: '#F3F1EC', padding: '4px 10px', borderRadius: 999 }}>Soon</div>
           </div>
