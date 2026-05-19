@@ -116,6 +116,9 @@ function MichaelFlashcardsInner() {
 
   const [lightboxUrl,     setLightboxUrl]     = useState<string | null>(null);
   const [lightboxBlocks,  setLightboxBlocks]  = useState<Block[]>([]);
+  const [lightboxCard,    setLightboxCard]    = useState<Card | null>(null);
+  const [lightboxSide,    setLightboxSide]    = useState<'front' | 'back'>('front');
+  const [lightboxFlipped, setLightboxFlipped] = useState(false);
   const [blockEditor,     setBlockEditor]     = useState<{ side: 'front' | 'back'; imageUrl: string; blocks: Block[] } | null>(null);
   const [frontBlocks,     setFrontBlocks]     = useState<Block[]>([]);
   const [backBlocks,      setBackBlocks]      = useState<Block[]>([]);
@@ -481,6 +484,11 @@ function MichaelFlashcardsInner() {
   useEffect(() => {
     if (screen !== 'study') return;
     const handleKey = (e: KeyboardEvent) => {
+      if (lightboxUrl) {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setLightboxFlipped(f => !f); }
+        if (e.key === 'Escape') { setLightboxUrl(null); setLightboxBlocks([]); setLightboxCard(null); setLightboxFlipped(false); }
+        return;
+      }
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setFlipped(f => !f); }
       if (e.key === 'ArrowUp')   { e.preventDefault(); next(); }
       if (e.key === 'ArrowDown') { e.preventDefault(); prev(); }
@@ -845,13 +853,13 @@ function MichaelFlashcardsInner() {
                 <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 16 }}>Question</div>
                 {curCard.front_image_url && (
                   <div style={{ position: 'relative', marginBottom: 12 }}>
-                    <img src={curCard.front_image_url} alt="Front" onClick={e => { e.stopPropagation(); setLightboxUrl(curCard.front_image_url!); setLightboxBlocks(curCard.front_blocks || []); }} style={{ maxWidth: '100%', maxHeight: 160, objectFit: 'contain', borderRadius: 10, cursor: 'zoom-in', display: 'block' }} />
+                    <img src={curCard.front_image_url} alt="Front" onClick={e => { e.stopPropagation(); setLightboxUrl(curCard.front_image_url!); setLightboxBlocks(curCard.front_blocks || []); setLightboxCard(curCard); setLightboxSide('front'); setLightboxFlipped(false); }} style={{ maxWidth: '100%', maxHeight: 160, objectFit: 'contain', borderRadius: 10, cursor: 'zoom-in', display: 'block' }} />
                     {curCard.front_blocks && curCard.front_blocks.length > 0 && (
                       <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', borderRadius: 10 }}>
                         {curCard.front_blocks.map((b, i) => <rect key={i} x={`${b.x}%`} y={`${b.y}%`} width={`${b.w}%`} height={`${b.h}%`} fill="#7B6FA0" />)}
                       </svg>
                     )}
-                    <div onClick={e => { e.stopPropagation(); setLightboxUrl(curCard.front_image_url!); setLightboxBlocks(curCard.front_blocks || []); }} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(29,27,38,0.5)', borderRadius: 6, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                    <div onClick={e => { e.stopPropagation(); setLightboxUrl(curCard.front_image_url!); setLightboxBlocks(curCard.front_blocks || []); setLightboxCard(curCard); setLightboxSide('front'); setLightboxFlipped(false); }} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(29,27,38,0.5)', borderRadius: 6, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     </div>
                   </div>
@@ -863,8 +871,8 @@ function MichaelFlashcardsInner() {
                 <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color, opacity: 0.7, marginBottom: 16 }}>Answer</div>
                 {curCard.back_image_url && (
                   <div style={{ position: 'relative', marginBottom: 12 }}>
-                    <img src={curCard.back_image_url} alt="Back" onClick={e => { e.stopPropagation(); setLightboxUrl(curCard.back_image_url!); setLightboxBlocks(curCard.back_blocks || []); }} style={{ maxWidth: '100%', maxHeight: 160, objectFit: 'contain', borderRadius: 10, cursor: 'zoom-in', display: 'block' }} />
-                    <div onClick={e => { e.stopPropagation(); setLightboxUrl(curCard.back_image_url!); setLightboxBlocks(curCard.back_blocks || []); }} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(29,27,38,0.5)', borderRadius: 6, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                    <img src={curCard.back_image_url} alt="Back" onClick={e => { e.stopPropagation(); setLightboxUrl(curCard.back_image_url!); setLightboxBlocks(curCard.back_blocks || []); setLightboxCard(curCard); setLightboxSide('back'); setLightboxFlipped(false); }} style={{ maxWidth: '100%', maxHeight: 160, objectFit: 'contain', borderRadius: 10, cursor: 'zoom-in', display: 'block' }} />
+                    <div onClick={e => { e.stopPropagation(); setLightboxUrl(curCard.back_image_url!); setLightboxBlocks(curCard.back_blocks || []); setLightboxCard(curCard); setLightboxSide('back'); setLightboxFlipped(false); }} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(29,27,38,0.5)', borderRadius: 6, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     </div>
                   </div>
@@ -962,17 +970,48 @@ function MichaelFlashcardsInner() {
           </div>
         </div>
       )}
-      {lightboxUrl && (
-        <div onClick={() => { setLightboxUrl(null); setLightboxBlocks([]); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', cursor: 'zoom-out' }}>
-          <div style={{ position: 'relative', maxWidth: '100%', maxHeight: '90vh' }}>
-            <img src={lightboxUrl} alt="Expanded" style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: 12, display: 'block' }} />
-            {lightboxBlocks.length > 0 && (
-              <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', borderRadius: 12 }}>
-                {lightboxBlocks.map((b, i) => <rect key={i} x={`${b.x}%`} y={`${b.y}%`} width={`${b.w}%`} height={`${b.h}%`} fill="#7B6FA0" />)}
-              </svg>
-            )}
+      {lightboxUrl && lightboxCard && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 300, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ perspective: 1400, cursor: 'pointer', maxWidth: '100%', maxHeight: '80vh', width: '100%', display: 'flex', justifyContent: 'center' }} onClick={() => setLightboxFlipped(f => !f)}>
+            <div style={{ position: 'relative', width: '100%', maxWidth: 700, transformStyle: 'preserve-3d', transition: 'transform 0.4s', transform: lightboxFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
+              <div style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', display: 'flex', justifyContent: 'center' }}>
+                {lightboxSide === 'front' && lightboxCard.front_image_url ? (
+                  <div style={{ position: 'relative' }}>
+                    <img src={lightboxCard.front_image_url} alt="Front" style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: 12, display: 'block' }} />
+                    {(lightboxCard.front_blocks || []).length > 0 && (
+                      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', borderRadius: 12 }}>
+                        {(lightboxCard.front_blocks || []).map((b, i) => <rect key={i} x={`${b.x}%`} y={`${b.y}%`} width={`${b.w}%`} height={`${b.h}%`} fill="#7B6FA0" />)}
+                      </svg>
+                    )}
+                  </div>
+                ) : lightboxSide === 'back' && lightboxCard.back_image_url ? (
+                  <div style={{ position: 'relative' }}>
+                    <img src={lightboxCard.back_image_url} alt="Back" style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: 12, display: 'block' }} />
+                    {(lightboxCard.back_blocks || []).length > 0 && (
+                      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', borderRadius: 12 }}>
+                        {(lightboxCard.back_blocks || []).map((b, i) => <rect key={i} x={`${b.x}%`} y={`${b.y}%`} width={`${b.w}%`} height={`${b.h}%`} fill="#7B6FA0" />)}
+                      </svg>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+              <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                {lightboxSide === 'front' && lightboxCard.back_image_url ? (
+                  <img src={lightboxCard.back_image_url} alt="Back revealed" style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: 12, display: 'block' }} />
+                ) : lightboxSide === 'back' && lightboxCard.front_image_url ? (
+                  <img src={lightboxCard.front_image_url} alt="Front revealed" style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: 12, display: 'block' }} />
+                ) : (
+                  <div style={{ color: 'white', fontSize: 18, fontWeight: 700, textAlign: 'center', padding: 20 }}>
+                    {lightboxSide === 'front' ? lightboxCard.back : lightboxCard.front}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-          <button onClick={() => { setLightboxUrl(null); setLightboxBlocks([]); }} style={{ position: 'absolute', top: 20, right: 20, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 999, color: 'white', width: 36, height: 36, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+          <div style={{ marginTop: 16, fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>
+            {lightboxFlipped ? 'Tap to flip back' : 'Tap to reveal answer'}
+          </div>
+          <button onClick={() => { setLightboxUrl(null); setLightboxBlocks([]); setLightboxCard(null); setLightboxFlipped(false); }} style={{ position: 'absolute', top: 20, right: 20, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 999, color: 'white', width: 36, height: 36, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
         </div>
       )}
       <TabBar student="michael" />
