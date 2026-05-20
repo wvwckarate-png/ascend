@@ -226,7 +226,7 @@ export default function MichaelCalendar() {
                 const { tasks: dayTasks, exams: dayExams } = allForDate(dateStr);
                 const col = (firstDay + i) % 7;
                 return (
-                  <div key={day} onClick={() => { setCurDay(day); setView('day'); }} style={{ minHeight: 90, borderRight: col < 6 ? '1px solid #F3F1EC' : 'none', borderBottom: '1px solid #F3F1EC', padding: '6px 5px', cursor: 'pointer', background: isToday ? '#FAFAF8' : '#FFFFFF' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = light} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = isToday ? '#FAFAF8' : '#FFFFFF'}>
+                  <div key={day} onClick={() => { setCurDay(day); setView('day'); }} style={{ minHeight: 90, borderRight: col < 6 ? '1px solid #F3F1EC' : 'none', borderBottom: '1px solid #F3F1EC', padding: '6px 5px', cursor: 'pointer', background: isToday ? '#FAFAF8' : '#FFFFFF', minWidth: 0, overflow: 'hidden' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = light} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = isToday ? '#FAFAF8' : '#FFFFFF'}>
                     <div style={{ width: 24, height: 24, borderRadius: '50%', background: isToday ? color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
                       <span style={{ fontSize: 11, fontWeight: isToday ? 800 : 500, color: isToday ? 'white' : '#1D1B26' }}>{day}</span>
                     </div>
@@ -253,7 +253,7 @@ export default function MichaelCalendar() {
                 const isToday = dateStr === todayStr;
                 const { tasks: dayTasks, exams: dayExams } = allForDate(dateStr);
                 return (
-                  <div key={i} onClick={() => { setCurYear(d.getFullYear()); setCurMonth(d.getMonth()); setCurDay(d.getDate()); setView('day'); }} style={{ borderRight: i < 6 ? '1px solid #F3F1EC' : 'none', padding: '10px 6px', minHeight: 120, cursor: 'pointer' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = light} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = 'transparent'}>
+                  <div key={i} onClick={() => { setCurYear(d.getFullYear()); setCurMonth(d.getMonth()); setCurDay(d.getDate()); setView('day'); }} style={{ borderRight: i < 6 ? '1px solid #F3F1EC' : 'none', padding: '10px 6px', minHeight: 120, cursor: 'pointer', minWidth: 0, overflow: 'hidden' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = light} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = 'transparent'}>
                     <div style={{ textAlign: 'center', marginBottom: 8 }}>
                       <div style={{ fontSize: 9, fontWeight: 700, color: '#C4C1D4', letterSpacing: 0.5, marginBottom: 3 }}>{DAYS_SHORT[i].toUpperCase()}</div>
                       <div style={{ width: 28, height: 28, borderRadius: '50%', background: isToday ? color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
