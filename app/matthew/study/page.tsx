@@ -73,6 +73,8 @@ function MatthewStudyInner() {
   const [screen, setScreen] = useState<'history' | 'setup' | 'view'>('history');
   const [savedGuides,  setSavedGuides]  = useState<SavedGuide[]>([]);
   const [histLoading,  setHistLoading]  = useState(true);
+  const [renamingId,   setRenamingId]   = useState<string | null>(null);
+  const [renameValue,  setRenameValue]  = useState('');
 
   const [library,         setLibrary]         = useState<LibClass[]>([]);
   const [libLoading,      setLibLoading]       = useState(true);
@@ -177,6 +179,12 @@ function MatthewStudyInner() {
       loadLibrary();
     }
   }, [folderId, folderName, guideId]);
+
+  const renameGuide = async (id: string, title: string) => {
+    await supabase.from('study_guides').update({ title: title.trim() }).eq('id', id);
+    setSavedGuides(prev => prev.map(g => g.id === id ? { ...g, title: title.trim() } : g));
+    setRenamingId(null);
+  };
 
   const openGuide = async (id: string) => {
     setLoading(true);
@@ -327,7 +335,17 @@ function MatthewStudyInner() {
                 <div key={guide.id} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '14px 16px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 4, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{guide.title}</div>
+                      {renamingId === guide.id ? (
+                        <div style={{ marginBottom: 4 }}>
+                          <input value={renameValue} onChange={e => setRenameValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && renameValue.trim()) renameGuide(guide.id, renameValue); if (e.key === 'Escape') setRenamingId(null); }} autoFocus style={{ width: '100%', padding: '4px 8px', border: `1.5px solid ${color}`, borderRadius: 7, fontFamily: 'var(--font-jakarta)', fontSize: 12, fontWeight: 700, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
+                          <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                            <button onClick={() => { if (renameValue.trim()) renameGuide(guide.id, renameValue); }} style={{ flex: 1, fontSize: 10, fontWeight: 700, color: 'white', background: color, border: 'none', borderRadius: 6, padding: '4px 0', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Save</button>
+                            <button onClick={() => setRenamingId(null)} style={{ flex: 1, fontSize: 10, fontWeight: 700, color: '#9E9BB0', background: '#F3F1EC', border: 'none', borderRadius: 6, padding: '4px 0', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 4, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{guide.title}</div>
+                      )}
                       {(guide.class_name || guide.folder_name) && (
                         <div style={{ fontSize: 10, fontWeight: 700, color: color, background: light, padding: '2px 7px', borderRadius: 999, display: 'inline-block', marginBottom: 3 }}>
                           {guide.class_name}{guide.folder_name ? ` · ${guide.folder_name}` : ''}
@@ -335,7 +353,12 @@ function MatthewStudyInner() {
                       )}
                       <div style={{ fontSize: 10, color: '#9E9BB0' }}>{formatDate(guide.created_at)}</div>
                     </div>
-                    <button onClick={() => { if (confirm('Delete this study guide?')) deleteGuide(guide.id); }} style={{ fontSize: 10, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 6, padding: '3px 7px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0, fontWeight: 700 }}>✕</button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <button onClick={() => { setRenamingId(guide.id); setRenameValue(guide.title); }} style={{ color: '#9E9BB0', background: '#F3F1EC', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="11" height="11" viewBox="0 0 28 28" fill="none"><path d="M4 24l4-1 13-13-3-3L5 20l-1 4z" stroke="#9E9BB0" strokeWidth="1.6" strokeLinejoin="round" fill="none"/><path d="M18 8l3 3" stroke="#9E9BB0" strokeWidth="1.6" strokeLinecap="round"/></svg>
+                      </button>
+                      <button onClick={() => { if (confirm('Delete this study guide?')) deleteGuide(guide.id); }} style={{ fontSize: 10, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                    </div>
                   </div>
                   <button onClick={() => openGuide(guide.id)} style={{ width: '100%', padding: '8px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>View Guide</button>
                 </div>
