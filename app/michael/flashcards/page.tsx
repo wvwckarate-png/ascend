@@ -103,8 +103,9 @@ const light = '#EDE9F7';
 
 function MichaelFlashcardsInner() {
   const searchParams = useSearchParams();
-  const folderId   = searchParams.get('folderId');
-  const folderName = searchParams.get('folderName');
+  const folderId    = searchParams.get('folderId');
+  const folderName  = searchParams.get('folderName');
+  const deckIdParam = searchParams.get('deckId');
 
   const [screen, setScreen] = useState<'decks' | 'generate' | 'study' | 'done' | 'deck-detail'>('decks');
 
@@ -166,6 +167,18 @@ function MichaelFlashcardsInner() {
 
   useEffect(() => { loadDecks(); loadLibrary(); }, []);
   useEffect(() => { if (folderId) setScreen('generate'); }, [folderId]);
+  useEffect(() => {
+    if (deckIdParam) {
+      const loadDeck = async () => {
+        const { data: deck } = await supabase.from('flashcard_decks').select('*').eq('id', deckIdParam).single();
+        if (deck) {
+          const { data: cards } = await supabase.from('flashcard_cards').select('*').eq('deck_id', deckIdParam).order('position', { ascending: true });
+          if (cards && cards.length > 0) studyDeck(deck, cards);
+        }
+      };
+      loadDeck();
+    }
+  }, [deckIdParam]);
 
   const loadDecks = async () => {
     setDecksLoading(true);
@@ -460,7 +473,7 @@ function MichaelFlashcardsInner() {
           const reviewTasks = [1, 3, 7].map(d => {
             const due = new Date(today);
             due.setDate(today.getDate() + d);
-            return { student_id: 'michael', title: `Review: ${deckName.trim()} flashcards`, due_date: due.toISOString().split('T')[0], task_type: 'review', completed: false };
+            return { student_id: 'michael', title: `Review: ${deckName.trim()} flashcards`, due_date: due.toISOString().split('T')[0], task_type: 'review', completed: false, resource_id: deck.id, resource_type: 'flashcard_deck' };
           });
           await supabase.from('tasks').insert(reviewTasks);
         }

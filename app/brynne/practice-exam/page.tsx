@@ -48,8 +48,9 @@ const light = '#FFF3E8';
 
 function BrynnePracticeExamInner() {
   const searchParams = useSearchParams();
-  const folderId   = searchParams.get('folderId');
-  const folderName = searchParams.get('folderName');
+  const folderId    = searchParams.get('folderId');
+  const folderName  = searchParams.get('folderName');
+  const examIdParam = searchParams.get('examId');
 
   const [screen,          setScreen]          = useState<'history' | 'setup' | 'exam' | 'results'>('history');
   const [pastExams,       setPastExams]       = useState<PastExam[]>([]);
@@ -96,7 +97,13 @@ function BrynnePracticeExamInner() {
 
   useEffect(() => {
     loadHistory(); loadLibrary();
-    if (folderId) { setScreen('setup'); if (folderName) setTopic(folderName); }
+    if (examIdParam) {
+      const loadExam = async () => {
+        const { data } = await supabase.from('practice_exams').select('*').eq('id', examIdParam).single();
+        if (data) { openExam(data); }
+      };
+      loadExam();
+    } else if (folderId) { setScreen('setup'); if (folderName) setTopic(folderName); }
   }, []);
 
   useEffect(() => {
@@ -676,7 +683,7 @@ function BrynnePracticeExamInner() {
               {scheduleReview && (
                 <button onClick={async () => {
                   const today = new Date();
-                  const tasks = [1, 3, 7].map(d => { const due = new Date(today); due.setDate(today.getDate() + d); return { student_id: 'brynne', title: `Review: ${examTitle}`, due_date: due.toISOString().split('T')[0], task_type: 'review', completed: false }; });
+                  const tasks = [1, 3, 7].map(d => { const due = new Date(today); due.setDate(today.getDate() + d); return { student_id: 'brynne', title: `Review: ${examTitle}`, due_date: due.toISOString().split('T')[0], task_type: 'review', completed: false, resource_id: examId, resource_type: 'practice_exam' }; });
                   await supabase.from('tasks').insert(tasks);
                   setReviewScheduled(true);
                 }} style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', marginTop: 12 }}>Confirm Schedule 🌟</button>

@@ -267,7 +267,8 @@ function BrynneStudyInner() {
     try {
       await supabase.from('study_guides').insert({ student_id: 'brynne', title: guideName.trim(), content: studyGuide, source_filename: sourceFiles.join(', ') || 'Custom', folder_id: folderId || null });
       const today = new Date();
-      await supabase.from('tasks').insert([1, 3, 7].map(days => ({ student_id: 'brynne', title: `Review: ${guideName.trim()}`, due_date: addDays(today, days), task_type: 'review', completed: false })));
+      const { data: savedGuide } = await supabase.from('study_guides').select('id').eq('student_id', 'brynne').order('created_at', { ascending: false }).limit(1).single();
+      await supabase.from('tasks').insert([1, 3, 7].map(days => ({ student_id: 'brynne', title: `Review: ${guideName.trim()}`, due_date: addDays(today, days), task_type: 'review', completed: false, resource_id: savedGuide?.id || null, resource_type: 'study_guide' })));
       setSaved(true); setShowNamePrompt(false);
       loadHistory();
     } catch { setError('Could not save. Please try again!'); }

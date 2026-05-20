@@ -58,7 +58,7 @@ function IconUpload({ c }: { c: string }) {
   );
 }
 
-type Task      = { id: string; title: string; due_date: string; due_time: string | null; completed: boolean; class_name: string | null; task_type: string; };
+type Task      = { id: string; title: string; due_date: string; due_time: string | null; completed: boolean; class_name: string | null; task_type: string; resource_id?: string | null; resource_type?: string | null; };
 type ClassRow  = { id: string; name: string; semester: string; professor: string | null; };
 type ExamEvent = { id: string; name: string; exam_date: string; class_name: string; };
 
@@ -195,6 +195,13 @@ setLoading(false);
   const hasActivity  = (d: string) =>
     tasks.some(t => t.due_date === d && !t.completed) || exams.some(e => e.exam_date === d);
 
+  const navigateToResource = (task: Task) => {
+    if (!task.resource_id || !task.resource_type) return;
+    if (task.resource_type === 'flashcard_deck') router.push(`/brynne/flashcards?deckId=${task.resource_id}`);
+    if (task.resource_type === 'study_guide')    router.push(`/brynne/study?guideId=${task.resource_id}`);
+    if (task.resource_type === 'practice_exam')  router.push(`/brynne/practice-exam?examId=${task.resource_id}`);
+  };
+
   const TaskRow = ({ task }: { task: Task }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: '1px solid #F3F1EC', opacity: task.completed ? 0.45 : 1, transition: 'opacity 0.2s' }}>
       <button
@@ -218,6 +225,11 @@ setLoading(false);
         </div>
         {task.due_time && <div style={{ fontSize: 10, color: '#C4C1D4' }}>{formatTime(task.due_time)}</div>}
       </div>
+      {task.resource_id && task.resource_type && (
+        <button onClick={() => navigateToResource(task)} style={{ background: light, border: 'none', borderRadius: 8, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M12 5l7 7-7 7" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+      )}
       <button onClick={() => { if (confirm('Delete this task?')) deleteTask(task.id); }} style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>✕</button>
     </div>
   );

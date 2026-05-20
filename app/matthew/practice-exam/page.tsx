@@ -763,7 +763,7 @@ function MatthewPracticeExamInner() {
               {scheduleReview && (
                 <button onClick={async () => {
                   const today = new Date();
-                  const tasks = [1, 3, 7].map(d => { const due = new Date(today); due.setDate(today.getDate() + d); return { student_id: 'matthew', title: `Review: ${examTitle}`, due_date: due.toISOString().split('T')[0], task_type: 'review', completed: false }; });
+                  const tasks = [1, 3, 7].map(d => { const due = new Date(today); due.setDate(today.getDate() + d); return { student_id: 'matthew', title: `Review: ${examTitle}`, due_date: due.toISOString().split('T')[0], task_type: 'review', completed: false, resource_id: examId, resource_type: 'practice_exam' }; });
                   await supabase.from('tasks').insert(tasks);
                   setReviewScheduled(true);
                 }} style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Confirm Schedule</button>
