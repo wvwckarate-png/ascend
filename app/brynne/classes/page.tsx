@@ -34,20 +34,20 @@ const CLASS_COLORS = ['#E8956D', '#C4A882', '#D4845A', '#C8965A', '#E0A882', '#D
 
 export default function BrynneClasses() {
   const router = useRouter();
-  const [classes, setClasses] = useState<Class[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [classes,      setClasses]      = useState<Class[]>([]);
+  const [archived,     setArchived]     = useState<Class[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
-    supabase
-      .from('classes')
-      .select('id, name, semester, professor')
-      .eq('student_id', 'brynne')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (data) setClasses(data);
-        setLoading(false);
-      });
+    const load = async () => {
+      const { data: active }   = await supabase.from('classes').select('id, name, semester, professor').eq('student_id', 'brynne').eq('is_active', true).order('created_at', { ascending: false });
+      const { data: inactive } = await supabase.from('classes').select('id, name, semester, professor').eq('student_id', 'brynne').eq('is_active', false).order('created_at', { ascending: false });
+      if (active)   setClasses(active);
+      if (inactive) setArchived(inactive);
+      setLoading(false);
+    };
+    load();
   }, []);
 
   return (
@@ -111,6 +111,32 @@ export default function BrynneClasses() {
               <div style={{ width: 34, height: 34, borderRadius: 10, background: '#FFF3E8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#E8956D', marginBottom: 8 }}>+</div>
               <div style={{ fontSize: 12, fontWeight: 800, color: '#1D1B26' }}>Add a Class</div>
             </div>
+          </div>
+        )}
+
+        {archived.length > 0 && (
+          <div style={{ marginTop: 32 }}>
+            <button onClick={() => setShowArchived(s => !s)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 14 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase' as const, color: '#C4C1D4' }}>Archived ({archived.length})</span>
+              <span style={{ fontSize: 10, color: '#C4C1D4' }}>{showArchived ? '▾' : '▸'}</span>
+            </button>
+            {showArchived && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {archived.map((cls, i) => {
+                  const c = CLASS_COLORS[i % CLASS_COLORS.length];
+                  return (
+                    <div key={cls.id} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, opacity: 0.6 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 9, background: c + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: c, flexShrink: 0 }}>{classLabel(cls.name)}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26' }}>{cls.name}</div>
+                        <div style={{ fontSize: 10, color: '#9E9BB0' }}>{cls.semester || ''}</div>
+                      </div>
+                      <button onClick={async () => { await supabase.from('classes').update({ is_active: true }).eq('id', cls.id); setArchived(prev => prev.filter(a => a.id !== cls.id)); setClasses(prev => [cls, ...prev]); }} style={{ fontSize: 11, fontWeight: 700, color: '#E8956D', background: '#FFF3E8', border: 'none', borderRadius: 8, padding: '5px 12px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>Restore</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </main>
