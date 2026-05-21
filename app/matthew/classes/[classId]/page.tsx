@@ -117,6 +117,7 @@ export default function MatthewClassBinder() {
   };
 
   const handleDelete = async () => {
+    if (!confirm(`Archive ${cls?.name}? You can restore it anytime from the Classes page.`)) return;
     setDeleting(true);
     await supabase.from('classes').update({ is_active: false }).eq('id', classId);
     router.push('/matthew/classes');
