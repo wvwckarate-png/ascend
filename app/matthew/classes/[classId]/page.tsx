@@ -28,7 +28,7 @@ function classLabel(name: string) {
   return name.slice(0, 3).toUpperCase();
 }
 
-type ClassRow   = { id: string; name: string; semester: string; professor: string; };
+type ClassRow   = { id: string; name: string; semester: string; professor: string; notes: string | null; };
 type Folder     = { id: string; name: string; exam_date: string | null; created_at: string; };
 type ParsedExam = { name: string; date: string | null; };
 
@@ -73,21 +73,20 @@ export default function MatthewClassBinder() {
   const [createDone,   setCreateDone]   = useState(false);
   const syllabusRef = useRef<HTMLInputElement>(null);
 
-  // Edit class state
   const [showEdit,      setShowEdit]      = useState(false);
   const [editName,      setEditName]      = useState('');
   const [editSemester,  setEditSemester]  = useState('');
   const [editProfessor, setEditProfessor] = useState('');
   const [editSaving,    setEditSaving]    = useState(false);
-
-  // Delete class state
-  const [showDelete,   setShowDelete]   = useState(false);
-  const [deleting,     setDeleting]     = useState(false);
+  const [showDelete,    setShowDelete]    = useState(false);
+  const [deleting,      setDeleting]      = useState(false);
+  const [notes,         setNotes]         = useState('');
+  const [notesSaving,   setNotesSaving]   = useState(false);
 
   useEffect(() => {
     const load = async () => {
-      const { data: classData } = await supabase.from('classes').select('id, name, semester, professor').eq('id', classId).single();
-      if (classData) setCls(classData);
+      const { data: classData } = await supabase.from('classes').select('id, name, semester, professor, notes').eq('id', classId).single();
+      if (classData) { setCls(classData); setNotes(classData.notes || ''); }
       const { data: folderData } = await supabase.from('exam_folders').select('id, name, exam_date, created_at').eq('class_id', classId).order('exam_date', { ascending: true });
       if (folderData) setFolders(folderData);
       setLoading(false);
@@ -229,7 +228,7 @@ export default function MatthewClassBinder() {
         </button>
 
         {cls && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
             <div style={{ width: 52, height: 52, borderRadius: 14, background: color + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color, flexShrink: 0 }}>
               {classLabel(cls.name)}
             </div>
@@ -238,19 +237,24 @@ export default function MatthewClassBinder() {
               <div style={{ fontSize: 12, color: '#9E9BB0' }}>{[cls.semester, cls.professor].filter(Boolean).join(' · ')}</div>
             </div>
             <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-              <button
-                onClick={openEdit}
-                style={{ padding: '7px 14px', borderRadius: 999, background: light, border: 'none', color, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => setShowDelete(true)}
-                style={{ padding: '7px 14px', borderRadius: 999, background: '#F3F1EC', border: 'none', color: '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}
-              >
-                Archive
-              </button>
+              <button onClick={openEdit} style={{ padding: '7px 14px', borderRadius: 999, background: light, border: 'none', color, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Edit</button>
+              <button onClick={() => setShowDelete(true)} style={{ padding: '7px 14px', borderRadius: 999, background: '#F3F1EC', border: 'none', color: '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Archive</button>
             </div>
+          </div>
+        )}
+
+        {cls && (
+          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '14px 16px', marginBottom: 20, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' as const, color: '#C4C1D4', marginBottom: 8 }}>Professor Notes</div>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              onBlur={async () => { setNotesSaving(true); await supabase.from('classes').update({ notes: notes.trim() || null }).eq('id', classId); setNotesSaving(false); }}
+              placeholder='e.g. "Curves lowest exam. Attendance counts 10%. Office hours Tue 2–4pm."'
+              rows={3}
+              style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.6, boxSizing: 'border-box' as const }}
+            />
+            {notesSaving && <div style={{ fontSize: 10, color: '#9E9BB0', marginTop: 4 }}>Saving...</div>}
           </div>
         )}
 
@@ -269,13 +273,9 @@ export default function MatthewClassBinder() {
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4' }}>Exam Folders</div>
           <div style={{ display: 'flex', gap: 8 }}>
             {folders.length > 0 && (
-              <button onClick={() => setShowSyllabus(true)} style={{ padding: '6px 14px', borderRadius: 999, background: '#F3F1EC', border: 'none', color: '#9E9BB0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                Syllabus
-              </button>
+              <button onClick={() => setShowSyllabus(true)} style={{ padding: '6px 14px', borderRadius: 999, background: '#F3F1EC', border: 'none', color: '#9E9BB0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Syllabus</button>
             )}
-            <button onClick={() => setShowAdd(true)} style={{ padding: '6px 14px', borderRadius: 999, background: light, border: 'none', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-              + Add Folder
-            </button>
+            <button onClick={() => setShowAdd(true)} style={{ padding: '6px 14px', borderRadius: 999, background: light, border: 'none', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Add Folder</button>
           </div>
         </div>
 
@@ -284,15 +284,11 @@ export default function MatthewClassBinder() {
         ) : folders.length === 0 ? (
           <div style={{ background: '#FFFFFF', border: '1.5px dashed #C4C1D4', borderRadius: 18, padding: '40px 20px', textAlign: 'center' }}>
             <div style={{ width: 56, height: 56, borderRadius: 16, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                <path d="M3 9a2 2 0 012-2h5l2 2h11a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke={color} strokeWidth="1.6" strokeLinejoin="round" fill="none"/>
-              </svg>
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M3 9a2 2 0 012-2h5l2 2h11a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke={color} strokeWidth="1.6" strokeLinejoin="round" fill="none"/></svg>
             </div>
             <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No exam folders yet</div>
             <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>Upload your syllabus above or add folders manually.</div>
-            <button onClick={() => setShowAdd(true)} style={{ padding: '10px 22px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-              Add First Folder
-            </button>
+            <button onClick={() => setShowAdd(true)} style={{ padding: '10px 22px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Add First Folder</button>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -300,26 +296,14 @@ export default function MatthewClassBinder() {
               const countdown = daysUntil(folder.exam_date);
               const isUrgent  = countdown && countdown !== 'Today' && parseInt(countdown) <= 7;
               return (
-                <div
-                  key={folder.id}
-                  onClick={() => router.push(`/matthew/classes/${classId}/${folder.id}`)}
-                  style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '18px 20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'transform 0.15s' }}
-                  onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateX(3px)'}
-                  onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateX(0)'}
-                >
+                <div key={folder.id} onClick={() => router.push(`/matthew/classes/${classId}/${folder.id}`)} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '18px 20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'transform 0.15s' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateX(3px)'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateX(0)'}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 11, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color, flexShrink: 0 }}>
-                      {folder.name.slice(0, 1).toUpperCase()}
-                    </div>
+                    <div style={{ width: 40, height: 40, borderRadius: 11, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color, flexShrink: 0 }}>{folder.name.slice(0, 1).toUpperCase()}</div>
                     <div>
                       <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>{folder.name}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         {folder.exam_date && <span style={{ fontSize: 11, color: '#9E9BB0' }}>{formatDate(folder.exam_date)}</span>}
-                        {countdown && (
-                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: countdown === 'Today' ? '#FDF2F2' : isUrgent ? '#FFF3E8' : light, color: countdown === 'Today' ? '#C47878' : isUrgent ? '#C8965A' : color }}>
-                            {countdown}
-                          </span>
-                        )}
+                        {countdown && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: countdown === 'Today' ? '#FDF2F2' : isUrgent ? '#FFF3E8' : light, color: countdown === 'Today' ? '#C47878' : isUrgent ? '#C8965A' : color }}>{countdown}</span>}
                       </div>
                     </div>
                   </div>
@@ -358,7 +342,7 @@ export default function MatthewClassBinder() {
         </div>
       )}
 
-      {/* ── DELETE CLASS MODAL ── */}
+      {/* ── ARCHIVE CLASS MODAL ── */}
       {showDelete && (
         <div onClick={e => { if (e.target === e.currentTarget) setShowDelete(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '28px 24px', width: '100%', maxWidth: 400, boxShadow: '0 8px 40px rgba(29,27,38,0.18)' }}>
@@ -391,11 +375,7 @@ export default function MatthewClassBinder() {
               <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Exam Date (optional)</label>
               <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} style={inputStyle} />
             </div>
-            {newDate && (
-              <div style={{ background: light, borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color, fontWeight: 600 }}>
-                Countdown reminders will be added at 14 days, 7 days, 3 days, and 1 day before
-              </div>
-            )}
+            {newDate && <div style={{ background: light, borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color, fontWeight: 600 }}>Countdown reminders will be added at 14 days, 7 days, 3 days, and 1 day before</div>}
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => { setShowAdd(false); setNewName(''); setNewDate(''); }} style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
               <button onClick={handleAddFolder} disabled={!newName.trim() || saving} style={{ flex: 2, padding: '12px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !newName.trim() || saving ? 0.4 : 1 }}>
@@ -413,7 +393,6 @@ export default function MatthewClassBinder() {
             <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 20px' }} />
             <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>Upload Syllabus</div>
             <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>Ascend will create exam folders and countdown reminders automatically.</div>
-
             {!parsedExams.length && !parsing && (
               <>
                 <input ref={syllabusRef} type="file" accept=".pdf" onChange={e => { setSyllabusFile(e.target.files?.[0] || null); setParseError(''); }} style={{ display: 'none' }} />
@@ -436,13 +415,10 @@ export default function MatthewClassBinder() {
                 {parseError && <div style={{ background: '#FDF2F2', border: '1.5px solid rgba(196,120,120,0.25)', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#C47878', fontWeight: 600, marginBottom: 14 }}>{parseError}</div>}
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button onClick={() => { setShowSyllabus(false); resetSyllabus(); }} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
-                  <button onClick={handleSyllabusParse} disabled={!syllabusFile} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: syllabusFile ? 'linear-gradient(135deg, #7B6FA0, #5A5078)' : '#F3F1EC', color: syllabusFile ? 'white' : '#C4C1D4', fontSize: 13, fontWeight: 800, cursor: syllabusFile ? 'pointer' : 'not-allowed', fontFamily: 'var(--font-jakarta)' }}>
-                    Parse Syllabus
-                  </button>
+                  <button onClick={handleSyllabusParse} disabled={!syllabusFile} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: syllabusFile ? 'linear-gradient(135deg, #7B6FA0, #5A5078)' : '#F3F1EC', color: syllabusFile ? 'white' : '#C4C1D4', fontSize: 13, fontWeight: 800, cursor: syllabusFile ? 'pointer' : 'not-allowed', fontFamily: 'var(--font-jakarta)' }}>Parse Syllabus</button>
                 </div>
               </>
             )}
-
             {parsing && (
               <div style={{ textAlign: 'center', padding: '32px 0' }}>
                 <div style={{ width: 36, height: 36, border: '3px solid #E8E5F0', borderTopColor: color, borderRadius: '50%', margin: '0 auto 16px', animation: 'spin 0.75s linear infinite' }} />
@@ -451,7 +427,6 @@ export default function MatthewClassBinder() {
                 <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
               </div>
             )}
-
             {parsedExams.length > 0 && !parsing && (
               <>
                 <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>{parsedExams.length} exam{parsedExams.length !== 1 ? 's' : ''} found</div>
@@ -467,9 +442,7 @@ export default function MatthewClassBinder() {
                     </div>
                   ))}
                 </div>
-                <div style={{ background: light, borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color, fontWeight: 600 }}>
-                  Countdown reminders will be created at 14, 7, 3, and 1 day before each exam
-                </div>
+                <div style={{ background: light, borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color, fontWeight: 600 }}>Countdown reminders will be created at 14, 7, 3, and 1 day before each exam</div>
                 {parseError && <div style={{ background: '#FDF2F2', border: '1.5px solid rgba(196,120,120,0.25)', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#C47878', fontWeight: 600, marginBottom: 14 }}>{parseError}</div>}
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button onClick={resetSyllabus} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Start Over</button>

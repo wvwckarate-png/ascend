@@ -28,7 +28,7 @@ function classLabel(name: string) {
   return name.slice(0, 3).toUpperCase();
 }
 
-type ClassRow   = { id: string; name: string; semester: string; professor: string; };
+type ClassRow   = { id: string; name: string; semester: string; professor: string; notes: string | null; };
 type Folder     = { id: string; name: string; exam_date: string | null; created_at: string; };
 type ParsedExam = { name: string; date: string | null; };
 
@@ -80,11 +80,13 @@ export default function MichaelClassBinder() {
   const [editSaving,    setEditSaving]    = useState(false);
   const [showDelete,    setShowDelete]    = useState(false);
   const [deleting,      setDeleting]      = useState(false);
+  const [notes,         setNotes]         = useState('');
+  const [notesSaving,   setNotesSaving]   = useState(false);
 
   useEffect(() => {
     const load = async () => {
-      const { data: classData } = await supabase.from('classes').select('id, name, semester, professor').eq('id', classId).single();
-      if (classData) setCls(classData);
+      const { data: classData } = await supabase.from('classes').select('id, name, semester, professor, notes').eq('id', classId).single();
+      if (classData) { setCls(classData); setNotes(classData.notes || ''); }
       const { data: folderData } = await supabase.from('exam_folders').select('id, name, exam_date, created_at').eq('class_id', classId).order('exam_date', { ascending: true });
       if (folderData) setFolders(folderData);
       setLoading(false);
@@ -195,7 +197,7 @@ export default function MichaelClassBinder() {
         <button onClick={() => router.push('/michael/classes')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Classes</button>
 
         {cls && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
             <div style={{ width: 52, height: 52, borderRadius: 14, background: color + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color, flexShrink: 0 }}>{classLabel(cls.name)}</div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 24, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.6px', marginBottom: 2 }}>{cls.name}</div>
@@ -205,6 +207,21 @@ export default function MichaelClassBinder() {
               <button onClick={openEdit} style={{ padding: '7px 14px', borderRadius: 999, background: light, border: 'none', color, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Edit</button>
               <button onClick={() => setShowDelete(true)} style={{ padding: '7px 14px', borderRadius: 999, background: '#F3F1EC', border: 'none', color: '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Archive</button>
             </div>
+          </div>
+        )}
+
+        {cls && (
+          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '14px 16px', marginBottom: 20, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' as const, color: '#C4C1D4', marginBottom: 8 }}>Professor Notes</div>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              onBlur={async () => { setNotesSaving(true); await supabase.from('classes').update({ notes: notes.trim() || null }).eq('id', classId); setNotesSaving(false); }}
+              placeholder='e.g. "Curves lowest exam. Attendance counts 10%. Office hours Tue 2–4pm."'
+              rows={3}
+              style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.6, boxSizing: 'border-box' as const }}
+            />
+            {notesSaving && <div style={{ fontSize: 10, color: '#9E9BB0', marginTop: 4 }}>Saving...</div>}
           </div>
         )}
 
@@ -288,7 +305,7 @@ export default function MichaelClassBinder() {
         </div>
       )}
 
-      {/* ── DELETE CLASS MODAL ── */}
+      {/* ── ARCHIVE CLASS MODAL ── */}
       {showDelete && (
         <div onClick={e => { if (e.target === e.currentTarget) setShowDelete(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '28px 24px', width: '100%', maxWidth: 400, boxShadow: '0 8px 40px rgba(29,27,38,0.18)' }}>
