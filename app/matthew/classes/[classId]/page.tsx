@@ -28,9 +28,10 @@ function classLabel(name: string) {
   return name.slice(0, 3).toUpperCase();
 }
 
-type ClassRow   = { id: string; name: string; semester: string; professor: string; notes: string | null; };
+type ClassRow   = { id: string; name: string; semester: string; professor: string; notes: string | null; grading_schema: Record<string, number> | null; };
 type Folder     = { id: string; name: string; exam_date: string | null; created_at: string; };
 type ParsedExam = { name: string; date: string | null; };
+type Grade      = { id: string; category: string; item_name: string; score: number; max_score: number; };
 
 const color = '#7B6FA0';
 const light = '#EDE9F7';
@@ -84,13 +85,24 @@ export default function MatthewClassBinder() {
   const [notesSaving,   setNotesSaving]   = useState(false);
   const [renamingId,    setRenamingId]    = useState<string | null>(null);
   const [renameValue,   setRenameValue]   = useState('');
+  const [grades,        setGrades]        = useState<Grade[]>([]);
+  const [showAddGrade,  setShowAddGrade]  = useState(false);
+  const [gradeCategory, setGradeCategory] = useState('');
+  const [gradeItem,     setGradeItem]     = useState('');
+  const [gradeScore,    setGradeScore]    = useState('');
+  const [gradeMax,      setGradeMax]      = useState('100');
+  const [gradeSaving,   setGradeSaving]   = useState(false);
 
   useEffect(() => {
     const load = async () => {
-      const { data: classData } = await supabase.from('classes').select('id, name, semester, professor, notes').eq('id', classId).single();
+      const { data: classData } = await supabase.from('classes').select('id, name, semester, professor, notes, grading_schema').eq('id', classId).single();
       if (classData) { setCls(classData); setNotes(classData.notes || ''); }
-      const { data: folderData } = await supabase.from('exam_folders').select('id, name, exam_date, created_at').eq('class_id', classId).order('exam_date', { ascending: true });
+      const [{ data: folderData }, { data: gradeData }] = await Promise.all([
+        supabase.from('exam_folders').select('id, name, exam_date, created_at').eq('class_id', classId).order('exam_date', { ascending: true }),
+        supabase.from('grades').select('id, category, item_name, score, max_score').eq('class_id', classId).order('created_at', { ascending: true }),
+      ]);
       if (folderData) setFolders(folderData);
+      if (gradeData)  setGrades(gradeData);
       setLoading(false);
     };
     load();
@@ -195,6 +207,40 @@ export default function MatthewClassBinder() {
     }
   };
 
+  const saveGrade = async () => {
+    if (!gradeCategory || !gradeItem || gradeScore === '') return;
+    setGradeSaving(true);
+    const { data } = await supabase.from('grades').insert({
+      class_id: classId, student_id: 'matthew',
+      category: gradeCategory, item_name: gradeItem,
+      score: parseFloat(gradeScore), max_score: parseFloat(gradeMax) || 100,
+    }).select().single();
+    if (data) setGrades(prev => [...prev, data]);
+    setGradeCategory(''); setGradeItem(''); setGradeScore(''); setGradeMax('100');
+    setShowAddGrade(false); setGradeSaving(false);
+  };
+
+  const deleteGrade = async (id: string) => {
+    await supabase.from('grades').delete().eq('id', id);
+    setGrades(prev => prev.filter(g => g.id !== id));
+  };
+
+  const calcWeightedGrade = () => {
+    if (!cls?.grading_schema || Object.keys(cls.grading_schema).length === 0) return null;
+    let totalWeight = 0; let weightedSum = 0;
+    for (const [cat, weight] of Object.entries(cls.grading_schema)) {
+      const catGrades = grades.filter(g => g.category.toLowerCase() === cat.toLowerCase());
+      if (catGrades.length === 0) continue;
+      const avg = catGrades.reduce((sum, g) => sum + (g.score / g.max_score) * 100, 0) / catGrades.length;
+      weightedSum += avg * (weight / 100);
+      totalWeight += weight;
+    }
+    if (totalWeight === 0) return null;
+    return Math.round((weightedSum / totalWeight) * totalWeight * 10) / 10;
+  };
+
+  const gradeColor = (g: number) => g >= 90 ? '#5FAD8E' : g >= 80 ? '#7B6FA0' : g >= 70 ? '#C8965A' : '#C47878';
+
   const resetSyllabus = () => {
     setSyllabusFile(null); setParsedExams([]); setParseError(''); setCreateDone(false);
     if (syllabusRef.current) syllabusRef.current.value = '';
@@ -263,6 +309,70 @@ export default function MatthewClassBinder() {
               style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.6, boxSizing: 'border-box' as const }}
             />
             {notesSaving && <div style={{ fontSize: 10, color: '#9E9BB0', marginTop: 4 }}>Saving...</div>}
+          </div>
+        )}
+
+        {cls && (
+          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '16px', marginBottom: 20, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' as const, color: '#C4C1D4' }}>Grade Tracker</div>
+              <button onClick={() => { setGradeCategory(cls.grading_schema ? Object.keys(cls.grading_schema)[0] || '' : ''); setShowAddGrade(true); }} style={{ padding: '5px 12px', borderRadius: 999, background: light, border: 'none', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Add Grade</button>
+            </div>
+            {(() => {
+              const weighted = calcWeightedGrade();
+              return weighted !== null ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14, padding: '12px 14px', borderRadius: 12, background: light }}>
+                  <div>
+                    <div style={{ fontSize: 32, fontWeight: 900, color: gradeColor(weighted), lineHeight: 1 }}>{weighted.toFixed(1)}%</div>
+                    <div style={{ fontSize: 10, color: '#9E9BB0', fontWeight: 600, marginTop: 2 }}>Current Weighted Grade</div>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ height: 8, borderRadius: 99, background: '#E8E5F0', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${Math.min(weighted, 100)}%`, background: gradeColor(weighted), borderRadius: 99, transition: 'width 0.4s' }} />
+                    </div>
+                  </div>
+                </div>
+              ) : null;
+            })()}
+            {cls.grading_schema && Object.keys(cls.grading_schema).length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {Object.entries(cls.grading_schema).map(([cat, weight]) => {
+                  const catGrades = grades.filter(g => g.category.toLowerCase() === cat.toLowerCase());
+                  const avg = catGrades.length > 0 ? catGrades.reduce((sum, g) => sum + (g.score / g.max_score) * 100, 0) / catGrades.length : null;
+                  return (
+                    <div key={cat}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', textTransform: 'capitalize' }}>{cat}</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: '#9E9BB0', background: '#F3F1EC', padding: '1px 7px', borderRadius: 999 }}>{weight}%</span>
+                        </div>
+                        {avg !== null ? (
+                          <span style={{ fontSize: 13, fontWeight: 800, color: gradeColor(avg) }}>{avg.toFixed(1)}%</span>
+                        ) : (
+                          <span style={{ fontSize: 11, color: '#C4C1D4' }}>No grades yet</span>
+                        )}
+                      </div>
+                      {catGrades.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 4 }}>
+                          {catGrades.map(g => (
+                            <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 7, background: '#FAFAF8' }}>
+                              <span style={{ flex: 1, fontSize: 11, color: '#6B6880' }}>{g.item_name}</span>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: gradeColor((g.score / g.max_score) * 100) }}>{g.score}/{g.max_score}</span>
+                              <button onClick={() => deleteGrade(g.id)} style={{ fontSize: 10, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}>✕</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: '#9E9BB0', textAlign: 'center', padding: '8px 0' }}>
+                No grading schema — add grades manually or{' '}
+                <button onClick={() => setShowAddGrade(true)} style={{ color, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', fontSize: 12, fontWeight: 700, padding: 0 }}>log a grade</button>
+              </div>
+            )}
           </div>
         )}
 
@@ -489,6 +599,54 @@ export default function MatthewClassBinder() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {showAddGrade && (
+        <div onClick={e => { if (e.target === e.currentTarget) setShowAddGrade(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '28px 24px', width: '100%', maxWidth: 420, boxShadow: '0 8px 40px rgba(29,27,38,0.18)' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 20 }}>Log a Grade</div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Category</label>
+              {cls?.grading_schema && Object.keys(cls.grading_schema).length > 0 ? (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {Object.keys(cls.grading_schema).map(cat => (
+                    <button key={cat} onClick={() => setGradeCategory(cat)} style={{ padding: '7px 14px', borderRadius: 999, border: `1.5px solid ${gradeCategory === cat ? color : '#E8E5F0'}`, background: gradeCategory === cat ? color : '#FAFAF8', color: gradeCategory === cat ? 'white' : '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', textTransform: 'capitalize' }}>{cat}</button>
+                  ))}
+                </div>
+              ) : (
+                <input value={gradeCategory} onChange={e => setGradeCategory(e.target.value)} placeholder="e.g. Exams, Homework" style={inputStyle} />
+              )}
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Item Name</label>
+              <input autoFocus value={gradeItem} onChange={e => setGradeItem(e.target.value)} placeholder="e.g. Exam 1, Homework 3" style={inputStyle} />
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Score</label>
+                <input type="number" value={gradeScore} onChange={e => setGradeScore(e.target.value)} placeholder="e.g. 88" style={inputStyle} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Out of</label>
+                <input type="number" value={gradeMax} onChange={e => setGradeMax(e.target.value)} placeholder="100" style={inputStyle} />
+              </div>
+            </div>
+            {gradeScore && gradeMax && (
+              <div style={{ background: light, borderRadius: 10, padding: '10px 14px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 12, color: '#6B6880' }}>Grade preview</span>
+                <span style={{ fontSize: 18, fontWeight: 900, color: gradeColor((parseFloat(gradeScore) / parseFloat(gradeMax)) * 100) }}>
+                  {((parseFloat(gradeScore) / parseFloat(gradeMax)) * 100).toFixed(1)}%
+                </span>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setShowAddGrade(false)} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={saveGrade} disabled={!gradeCategory || !gradeItem || gradeScore === '' || gradeSaving} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: (!gradeCategory || !gradeItem || gradeScore === '') ? 0.4 : 1 }}>
+                {gradeSaving ? 'Saving...' : 'Save Grade'}
+              </button>
+            </div>
           </div>
         </div>
       )}
