@@ -70,6 +70,7 @@ function MichaelPracticeExamInner() {
   const [renameValue,        setRenameValue]        = useState('');
   const [scheduleReview,     setScheduleReview]     = useState(false);
   const [reviewScheduled,    setReviewScheduled]    = useState(false);
+  const [classMeta, setClassMeta] = useState<{ className: string; professor: string; notes: string; folderName: string; examDate: string | null; studentName: string; studentGrade: string; studentTrack: string; studentSchool: string; studentProgram: string; studentGradYear: string; generationProfile: string; } | null>(null);
 
   const [library,         setLibrary]         = useState<LibClass[]>([]);
   const [libLoading,      setLibLoading]       = useState(true);
@@ -103,7 +104,7 @@ function MichaelPracticeExamInner() {
         if (data) { openExam(data); }
       };
       loadExam();
-    } else if (folderId) { setScreen('setup'); if (folderName) setTopic(folderName); }
+    } else if (folderId) { setScreen('setup'); if (folderName) setTopic(folderName); fetchClassMeta(folderId); }
   }, []);
 
   useEffect(() => {
@@ -111,6 +112,26 @@ function MichaelPracticeExamInner() {
     else if (timerRunning && timeLeft === 0) { setTimerRunning(false); }
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [timerRunning, timeLeft]);
+
+  const fetchClassMeta = async (fId: string) => {
+    const [{ data: folder }, { data: student }] = await Promise.all([
+      supabase.from('exam_folders').select('name, exam_date, class_id').eq('id', fId).single(),
+      supabase.from('students').select('name, grade, track, target_school, target_program, grad_year, generation_profile').eq('id', 'michael').single(),
+    ]);
+    if (!folder) return;
+    const { data: cls } = await supabase.from('classes').select('name, professor, notes').eq('id', folder.class_id).single();
+    if (cls) setClassMeta({
+      className: cls.name, professor: cls.professor || '', notes: cls.notes || '',
+      folderName: folder.name, examDate: folder.exam_date,
+      studentName: student?.name || 'Michael',
+      studentGrade: student?.grade || '9th grade',
+      studentTrack: student?.track || 'Pre-Med',
+      studentSchool: student?.target_school || 'WVU',
+      studentProgram: student?.target_program || 'WVU School of Medicine',
+      studentGradYear: student?.grad_year ? String(student.grad_year) : '2028',
+      generationProfile: student?.generation_profile || '',
+    });
+  };
 
   const loadHistory = async () => {
     setHistLoading(true);
@@ -185,7 +206,16 @@ function MichaelPracticeExamInner() {
       if (t === 'essay') return `Essay: {"type":"essay","question":"...","key_points":"Key points a strong essay response should address: 1)... 2)... 3)..."}`;
       return '';
     }).join('\n');
-    return `You are Ascend generating a practice exam for Michael, a pre-med high school freshman. Your goal is to help him get an A in THIS class — focus only on what was actually taught in these materials. Do not go deeper than the professor's scope.${topic.trim() ? ` Topic: ${topic.trim()}.` : ''} ${crossDoc}Generate ${countStr} questions of these types: ${typeDescriptions}. ${typeList.length > 1 ? 'Distribute evenly across all types.' : ''} Make questions realistic to what a professor would actually test.${custom}\n\nReturn ONLY a JSON array, no markdown, no backticks. Use these exact formats:\n${formats}`;
+    const studentCtx = classMeta
+      ? `${classMeta.studentName} is a ${classMeta.studentGrade} student on a ${classMeta.studentTrack} track, targeting ${classMeta.studentProgram} (graduating ${classMeta.studentGradYear}).${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
+      : 'Michael is a 9th grade pre-med student targeting WVU School of Medicine.';
+    const classCtx = classMeta
+      ? `Class: ${classMeta.className}. Exam: ${classMeta.folderName}${classMeta.examDate ? ` (${new Date(classMeta.examDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})` : ''}. Professor: ${classMeta.professor || 'unknown'}.${classMeta.notes ? ` Professor notes: "${classMeta.notes}"` : ''}`
+      : '';
+    const goalCtx = classMeta
+      ? `Your ONLY goal: generate a realistic practice exam that mirrors how ${classMeta.professor || 'this professor'} actually tests in ${classMeta.className}. Think like this professor — their emphasis, their style, their scope.`
+      : `Your goal: generate a realistic practice exam. Focus only on what was actually taught.`;
+    return `You are Ascend generating a practice exam. ${studentCtx} ${classCtx}\n\n${goalCtx}${topic.trim() ? ` Topic focus: ${topic.trim()}.` : ''} ${crossDoc}Generate ${countStr} questions of these types: ${typeDescriptions}. ${typeList.length > 1 ? 'Distribute evenly across all types.' : ''} Make questions realistic to what this professor would actually test.${custom}\n\nReturn ONLY a JSON array, no markdown, no backticks. Use these exact formats:\n${formats}`;
   };
 
   const generate = async () => {

@@ -98,7 +98,28 @@ function MichaelStudyInner() {
   const [saved,              setSaved]              = useState(false);
   const [copied,             setCopied]             = useState(false);
   const [sourceFiles,        setSourceFiles]        = useState<string[]>([]);
+  const [classMeta, setClassMeta] = useState<{ className: string; professor: string; notes: string; folderName: string; examDate: string | null; studentName: string; studentGrade: string; studentTrack: string; studentSchool: string; studentProgram: string; studentGradYear: string; generationProfile: string; } | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
+
+  const fetchClassMeta = async (fId: string) => {
+    const [{ data: folder }, { data: student }] = await Promise.all([
+      supabase.from('exam_folders').select('name, exam_date, class_id').eq('id', fId).single(),
+      supabase.from('students').select('name, grade, track, target_school, target_program, grad_year, generation_profile').eq('id', 'michael').single(),
+    ]);
+    if (!folder) return;
+    const { data: cls } = await supabase.from('classes').select('name, professor, notes').eq('id', folder.class_id).single();
+    if (cls) setClassMeta({
+      className: cls.name, professor: cls.professor || '', notes: cls.notes || '',
+      folderName: folder.name, examDate: folder.exam_date,
+      studentName: student?.name || 'Michael',
+      studentGrade: student?.grade || '9th grade',
+      studentTrack: student?.track || 'Pre-Med',
+      studentSchool: student?.target_school || 'WVU',
+      studentProgram: student?.target_program || 'WVU School of Medicine',
+      studentGradYear: student?.grad_year ? String(student.grad_year) : '2028',
+      generationProfile: student?.generation_profile || '',
+    });
+  };
 
   const loadHistory = async () => {
     setHistLoading(true);
@@ -174,6 +195,7 @@ function MichaelStudyInner() {
       loadExisting();
     } else if (folderId) {
       loadLibrary();
+      fetchClassMeta(folderId);
       setScreen('setup');
     } else {
       loadLibrary();
@@ -217,9 +239,18 @@ function MichaelStudyInner() {
       detailed: 'Generate a detailed study guide with full explanations and examples.',
       mastery:  'Generate a comprehensive mastery-level guide with deep explanations across all materials.',
     };
+    const studentCtx = classMeta
+      ? `${classMeta.studentName} is a ${classMeta.studentGrade} student on a ${classMeta.studentTrack} track, targeting ${classMeta.studentProgram} (graduating ${classMeta.studentGradYear}).${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
+      : 'Michael is a 9th grade pre-med student targeting WVU School of Medicine.';
+    const classCtx = classMeta
+      ? `Class: ${classMeta.className}. Exam: ${classMeta.folderName}${classMeta.examDate ? ` (${new Date(classMeta.examDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})` : ''}. Professor: ${classMeta.professor || 'unknown'}.${classMeta.notes ? ` Professor notes: "${classMeta.notes}"` : ''}`
+      : '';
+    const goalCtx = classMeta
+      ? `Your ONLY goal: help ${classMeta.studentName} earn an A on ${classMeta.folderName} in ${classMeta.className}${classMeta.professor ? ` with ${classMeta.professor}` : ''}. Think like this professor — focus on their emphasis, their scope, what they actually test.`
+      : `Your goal: help Michael earn an A in this class. Focus only on what was actually taught.`;
     const base = fileCount > 1
-      ? `You are Ascend, a test-prep assistant for Michael, a pre-med high school freshman. Your goal is to help him get an A in THIS class with THIS professor. Analyze these ${fileCount} documents and identify the highest-yield topics — concepts that appear repeatedly, are emphasized, or are most likely to appear on an exam. Do NOT go deeper than what the professor's materials cover. Stay scoped to what was actually taught. ${level ? levelPrompts[level] : ''}`
-      : `You are Ascend, a test-prep assistant for Michael, a pre-med high school freshman. Your goal is to help him get an A in THIS class. Focus only on what is in these materials — identify the most testable concepts, likely exam topics, and high-frequency themes. Do not expand beyond the scope of what was taught. ${level ? levelPrompts[level] : 'Generate a focused study guide from the provided material.'}`;
+      ? `You are Ascend, an expert study assistant. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\nAnalyze these ${fileCount} documents and identify the highest-yield topics. Do NOT go deeper than what the professor's materials cover.\n\n${level ? levelPrompts[level] : ''}`
+      : `You are Ascend, an expert study assistant. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\nFocus only on what is in these materials. Do not expand beyond the scope of what was taught.\n\n${level ? levelPrompts[level] : 'Generate a focused study guide from the provided material.'}`;
     const q = addQuestions ? `\n\nAdd a "Practice Questions" section with ${questionFormat === 'Both' ? 'mixed multiple choice and short answer' : questionFormat.toLowerCase()} questions.${showAnswers ? ' Include answers and explanations.' : ' Do not include answers.'}` : '';
     const c = customInstructions.trim() ? `\n\nAdditional instructions: ${customInstructions.trim()}` : '';
     return base + c + q + '\n\nFormat with clear markdown headers and structure.';
