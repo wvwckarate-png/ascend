@@ -30,6 +30,8 @@ export default function BrynneAddClass() {
   const [professor, setProfessor] = useState('');
   const [classDays, setClassDays] = useState('');
   const [classFormat, setClassFormat] = useState('');
+  const [courseNumber, setCourseNumber] = useState('');
+  const [classLevel, setClassLevel] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -46,6 +48,8 @@ export default function BrynneAddClass() {
         professor: professor || null,
         class_time: classDays || null,
         class_format: classFormat || null,
+        course_number: courseNumber || null,
+        class_level: classLevel || null,
       });
       if (insertError) throw insertError;
       router.push('/brynne');
@@ -88,6 +92,20 @@ export default function BrynneAddClass() {
           <div style={cardStyle}>
             <label style={labelStyle}>Teacher <span style={{ color: '#9E9BB0', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
             <input value={professor} onChange={e => setProfessor(e.target.value)} placeholder="e.g. Mrs. Johnson" style={inputStyle} />
+          </div>
+          <div style={cardStyle}>
+            <label style={labelStyle}>Course Number <span style={{ color: '#9E9BB0', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
+            <input value={courseNumber} onChange={e => setCourseNumber(e.target.value)} placeholder="e.g. MATH 101" style={inputStyle} />
+          </div>
+          <div style={cardStyle}>
+            <label style={labelStyle}>Class Level <span style={{ color: '#9E9BB0', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {['AP', 'Honors', 'Dual Enrollment', 'Intro', 'Intermediate', 'Advanced'].map(l => (
+                <button key={l} onClick={() => setClassLevel(classLevel === l ? '' : l)} style={{ padding: '8px 14px', borderRadius: 999, border: `1.5px solid ${classLevel === l ? '#E8956D' : '#E8E5F0'}`, background: classLevel === l ? '#E8956D' : '#FAFAF8', color: classLevel === l ? 'white' : '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                  {l}
+                </button>
+              ))}
+            </div>
           </div>
           <div style={cardStyle}>
             <label style={labelStyle}>Class Days <span style={{ color: '#9E9BB0', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
