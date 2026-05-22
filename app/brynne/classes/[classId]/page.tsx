@@ -82,6 +82,8 @@ export default function BrynneClassBinder() {
   const [deleting,      setDeleting]      = useState(false);
   const [notes,         setNotes]         = useState('');
   const [notesSaving,   setNotesSaving]   = useState(false);
+  const [renamingId,    setRenamingId]    = useState<string | null>(null);
+  const [renameValue,   setRenameValue]   = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -120,6 +122,12 @@ export default function BrynneClassBinder() {
     setDeleting(true);
     await supabase.from('classes').update({ is_active: false }).eq('id', classId);
     router.push('/brynne/classes');
+  };
+
+  const renameFolder = async (folderId: string, name: string) => {
+    await supabase.from('exam_folders').update({ name: name.trim() }).eq('id', folderId);
+    setFolders(prev => prev.map(f => f.id === folderId ? { ...f, name: name.trim() } : f));
+    setRenamingId(null);
   };
 
   const sortedInsert = (prev: Folder[], newItems: Folder[]) =>
@@ -258,18 +266,47 @@ export default function BrynneClassBinder() {
               const countdown = daysUntil(folder.exam_date);
               const isUrgent  = countdown && countdown !== 'Today!' && parseInt(countdown) <= 7;
               return (
-                <div key={folder.id} onClick={() => router.push(`/brynne/classes/${classId}/${folder.id}`)} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '18px 20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'transform 0.15s' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateX(3px)'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateX(0)'}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 11, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color, flexShrink: 0 }}>{folder.name.slice(0, 1).toUpperCase()}</div>
-                    <div>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>{folder.name}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {folder.exam_date && <span style={{ fontSize: 11, color: '#9E9BB0' }}>{formatDate(folder.exam_date)}</span>}
-                        {countdown && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: countdown === 'Today!' ? '#FDF2F2' : light, color: countdown === 'Today!' ? '#C47878' : isUrgent ? '#C8965A' : color }}>{countdown}</span>}
-                      </div>
+                <div key={folder.id} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '18px 20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 11, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color, flexShrink: 0 }}>
+                      {folder.name.slice(0, 1).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {renamingId === folder.id ? (
+                        <div style={{ marginBottom: 2 }}>
+                          <input
+                            value={renameValue}
+                            onChange={e => setRenameValue(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && renameValue.trim()) renameFolder(folder.id, renameValue); if (e.key === 'Escape') setRenamingId(null); }}
+                            autoFocus
+                            style={{ width: '100%', padding: '4px 8px', border: `1.5px solid ${color}`, borderRadius: 7, fontFamily: 'var(--font-jakarta)', fontSize: 14, fontWeight: 800, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }}
+                          />
+                          <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                            <button onClick={() => { if (renameValue.trim()) renameFolder(folder.id, renameValue); }} style={{ flex: 1, fontSize: 10, fontWeight: 700, color: 'white', background: color, border: 'none', borderRadius: 6, padding: '4px 0', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Save</button>
+                            <button onClick={() => setRenamingId(null)} style={{ flex: 1, fontSize: 10, fontWeight: 700, color: '#9E9BB0', background: '#F3F1EC', border: 'none', borderRadius: 6, padding: '4px 0', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div onClick={() => router.push(`/brynne/classes/${classId}/${folder.id}`)} style={{ cursor: 'pointer' }}>
+                          <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>{folder.name}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            {folder.exam_date && <span style={{ fontSize: 11, color: '#9E9BB0' }}>{formatDate(folder.exam_date)}</span>}
+                            {countdown && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: countdown === 'Today!' ? '#FDF2F2' : light, color: countdown === 'Today!' ? '#C47878' : isUrgent ? '#C8965A' : color }}>{countdown}</span>}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <span style={{ color: '#C4C1D4', fontSize: 16 }}>›</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 10 }}>
+                    {renamingId !== folder.id && (
+                      <button onClick={() => { setRenamingId(folder.id); setRenameValue(folder.name); }} style={{ background: '#FFF3E8', border: 'none', borderRadius: 7, padding: '6px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="12" height="12" viewBox="0 0 28 28" fill="none"><path d="M4 24l4-1 13-13-3-3L5 20l-1 4z" stroke={color} strokeWidth="1.6" strokeLinejoin="round" fill="none"/><path d="M18 8l3 3" stroke={color} strokeWidth="1.6" strokeLinecap="round"/></svg>
+                      </button>
+                    )}
+                    {renamingId !== folder.id && (
+                      <span onClick={() => router.push(`/brynne/classes/${classId}/${folder.id}`)} style={{ color: '#C4C1D4', fontSize: 16, cursor: 'pointer' }}>›</span>
+                    )}
+                  </div>
                 </div>
               );
             })}
