@@ -50,6 +50,7 @@ function MatthewPracticeExamInner() {
   const searchParams = useSearchParams();
   const folderId   = searchParams.get('folderId');
   const folderName = searchParams.get('folderName');
+  const examIdParam = searchParams.get('examId');
 
   const [screen,        setScreen]        = useState<'history' | 'setup' | 'exam' | 'results'>('history');
   const [pastExams,     setPastExams]     = useState<PastExam[]>([]);
@@ -70,6 +71,7 @@ function MatthewPracticeExamInner() {
   const [renameValue,        setRenameValue]        = useState('');
   const [scheduleReview,     setScheduleReview]     = useState(false);
   const [reviewScheduled,    setReviewScheduled]    = useState(false);
+  const [classMeta, setClassMeta] = useState<{ className: string; professor: string; notes: string; folderName: string; examDate: string | null; studentName: string; studentGrade: string; studentTrack: string; studentSchool: string; studentProgram: string; studentGradYear: string; generationProfile: string; } | null>(null);
 
   // Library
   const [library,         setLibrary]         = useState<LibClass[]>([]);
@@ -101,7 +103,13 @@ function MatthewPracticeExamInner() {
   useEffect(() => {
     loadHistory();
     loadLibrary();
-    if (folderId) { setScreen('setup'); if (folderName) setTopic(folderName); }
+    if (examIdParam) {
+      const loadExam = async () => {
+        const { data } = await supabase.from('practice_exams').select('*').eq('id', examIdParam).single();
+        if (data) { openExam(data); }
+      };
+      loadExam();
+    } else if (folderId) { setScreen('setup'); if (folderName) setTopic(folderName); fetchClassMeta(folderId); }
   }, []);
 
   useEffect(() => {
@@ -112,6 +120,29 @@ function MatthewPracticeExamInner() {
     }
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [timerRunning, timeLeft]);
+
+  const fetchClassMeta = async (fId: string) => {
+    const [{ data: folder }, { data: student }] = await Promise.all([
+      supabase.from('exam_folders').select('name, exam_date, class_id').eq('id', fId).single(),
+      supabase.from('students').select('name, grade, track, target_school, target_program, grad_year, generation_profile').eq('id', 'matthew').single(),
+    ]);
+    if (!folder) return;
+    const { data: cls } = await supabase.from('classes').select('name, professor, notes').eq('id', folder.class_id).single();
+    if (cls) setClassMeta({
+      className:         cls.name,
+      professor:         cls.professor || '',
+      notes:             cls.notes || '',
+      folderName:        folder.name,
+      examDate:          folder.exam_date,
+      studentName:       student?.name || 'Matthew',
+      studentGrade:      student?.grade || '11th grade',
+      studentTrack:      student?.track || 'Pre-Dental',
+      studentSchool:     student?.target_school || 'WVU',
+      studentProgram:    student?.target_program || 'WVU School of Dentistry',
+      studentGradYear:   student?.grad_year ? String(student.grad_year) : '2026',
+      generationProfile: student?.generation_profile || '',
+    });
+  };
 
   const loadHistory = async () => {
     setHistLoading(true);
@@ -179,6 +210,15 @@ function MatthewPracticeExamInner() {
     const countStr = countMode === 'auto' ? 'an appropriate number of' : `exactly ${actualCount}`;
     const crossDoc = fileCount > 1 ? `Analyze all ${fileCount} documents and identify the highest-yield topics — concepts that appear repeatedly or are most likely to be tested. Weight your questions heavily toward these topics. ` : '';
     const custom   = customInstructions.trim() ? ` Additional instructions: ${customInstructions.trim()}.` : '';
+    const studentCtx = classMeta
+      ? `${classMeta.studentName} is a ${classMeta.studentGrade} student on a ${classMeta.studentTrack} track, targeting ${classMeta.studentProgram} (graduating ${classMeta.studentGradYear}).${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
+      : 'Matthew is an 11th grade pre-dental student targeting WVU School of Dentistry.';
+    const classCtx   = classMeta
+      ? `Class: ${classMeta.className}. Exam: ${classMeta.folderName}${classMeta.examDate ? ` (${new Date(classMeta.examDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})` : ''}. Professor: ${classMeta.professor || 'unknown'}.${classMeta.notes ? ` Professor notes: "${classMeta.notes}"` : ''}`
+      : '';
+    const goalCtx = classMeta
+      ? `Your ONLY goal: generate a realistic practice exam that mirrors how ${classMeta.professor || 'this professor'} actually tests in ${classMeta.className}. Think like this professor — their emphasis, their style, their scope. Every question should reflect how they actually assess students.`
+      : `Your goal: generate a realistic practice exam. Focus only on what was actually taught. Stay within the professor's scope.`;
     const formats  = typeList.map(t => {
       if (t === 'mc')    return `MC: {"type":"mc","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A","explanation":"Why this is correct and why others are wrong..."}`;
       if (t === 'tf')    return `TF: {"type":"tf","question":"...","answer":"True","explanation":"Why this statement is true/false..."}`;
@@ -186,7 +226,7 @@ function MatthewPracticeExamInner() {
       if (t === 'essay') return `Essay: {"type":"essay","question":"...","key_points":"Key points a strong essay response should address: 1)... 2)... 3)..."}`;
       return '';
     }).join('\n');
-    return `You are Ascend generating a practice exam for Matthew, a pre-dental high school junior. Your goal is to help him get an A in THIS class — focus only on what was actually taught in these materials. Do not go deeper than the professor's scope.${topic.trim() ? ` Topic: ${topic.trim()}.` : ''} ${crossDoc}Generate ${countStr} questions of these types: ${typeDescriptions}. ${typeList.length > 1 ? 'Distribute evenly across all types.' : ''} Make questions realistic to what a professor would actually test.${custom}\n\nReturn ONLY a JSON array, no markdown, no backticks. Use these exact formats:\n${formats}`;
+    return `You are Ascend generating a practice exam. ${studentCtx} ${classCtx}\n\n${goalCtx}${topic.trim() ? ` Topic focus: ${topic.trim()}.` : ''} ${crossDoc}Generate ${countStr} questions of these types: ${typeDescriptions}. ${typeList.length > 1 ? 'Distribute evenly across all types.' : ''} Make questions realistic to what this professor would actually test.${custom}\n\nReturn ONLY a JSON array, no markdown, no backticks. Use these exact formats:\n${formats}`;
   };
 
   const generate = async () => {

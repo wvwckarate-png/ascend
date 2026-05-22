@@ -28,11 +28,15 @@ const color = '#7B6FA0';
 const light = '#EDE9F7';
 
 export default function MatthewProfile() {
-  const [name,  setName]  = useState('Matthew');
-  const [grade, setGrade] = useState('Spring Valley High School · Class of 2026');
-  const [focus, setFocus] = useState('WVU School of Dentistry');
-  const [track, setTrack] = useState('Pre-Dental');
-  const [bio,   setBio]   = useState('DAT prep aligned. AP Physics 2, AP Bio, and AP Chem on deck for senior year.');
+  const [name,              setName]              = useState('Matthew');
+  const [grade,             setGrade]             = useState('Spring Valley High School · Class of 2026');
+  const [focus,             setFocus]             = useState('WVU School of Dentistry');
+  const [track,             setTrack]             = useState('Pre-Dental');
+  const [bio,               setBio]               = useState('DAT prep aligned. AP Physics 2, AP Bio, and AP Chem on deck for senior year.');
+  const [targetSchool,      setTargetSchool]      = useState('WVU');
+  const [targetProgram,     setTargetProgram]     = useState('WVU School of Dentistry');
+  const [gradYear,          setGradYear]          = useState('2026');
+  const [generationProfile, setGenerationProfile] = useState('');
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [draft,        setDraft]        = useState('');
@@ -45,13 +49,17 @@ export default function MatthewProfile() {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from('students').select('name, grade, focus, track, bio').eq('id', 'matthew').single();
+      const { data } = await supabase.from('students').select('name, grade, focus, track, bio, target_school, target_program, grad_year, generation_profile').eq('id', 'matthew').single();
       if (data) {
-        if (data.name)  setName(data.name);
-        if (data.grade) setGrade(data.grade);
-        if (data.focus) setFocus(data.focus);
-        if (data.track) setTrack(data.track);
-        if (data.bio)   setBio(data.bio);
+        if (data.name)               setName(data.name);
+        if (data.grade)              setGrade(data.grade);
+        if (data.focus)              setFocus(data.focus);
+        if (data.track)              setTrack(data.track);
+        if (data.bio)                setBio(data.bio);
+        if (data.target_school)      setTargetSchool(data.target_school);
+        if (data.target_program)     setTargetProgram(data.target_program);
+        if (data.grad_year)          setGradYear(String(data.grad_year));
+        if (data.generation_profile) setGenerationProfile(data.generation_profile);
       }
       const [{ count: guides }, { count: decks }, { count: exams }] = await Promise.all([
         supabase.from('study_guides').select('id', { count: 'exact', head: true }).eq('student_id', 'matthew'),
@@ -65,18 +73,23 @@ export default function MatthewProfile() {
     load();
   }, []);
 
-  const startEdit = (field: string, current: string) => { setEditingField(field); setDraft(current); };
+  const startEdit  = (field: string, current: string) => { setEditingField(field); setDraft(current); };
   const cancelEdit = () => { setEditingField(null); setDraft(''); };
 
   const saveField = async (field: string) => {
     if (!draft.trim()) return;
     setSaving(true);
-    await supabase.from('students').update({ [field]: draft.trim() }).eq('id', 'matthew');
-    if (field === 'name')  setName(draft.trim());
-    if (field === 'grade') setGrade(draft.trim());
-    if (field === 'focus') setFocus(draft.trim());
-    if (field === 'track') setTrack(draft.trim());
-    if (field === 'bio')   setBio(draft.trim());
+    const value = field === 'grad_year' ? parseInt(draft.trim()) : draft.trim();
+    await supabase.from('students').update({ [field]: value }).eq('id', 'matthew');
+    if (field === 'name')               setName(draft.trim());
+    if (field === 'grade')              setGrade(draft.trim());
+    if (field === 'focus')              setFocus(draft.trim());
+    if (field === 'track')              setTrack(draft.trim());
+    if (field === 'bio')                setBio(draft.trim());
+    if (field === 'target_school')      setTargetSchool(draft.trim());
+    if (field === 'target_program')     setTargetProgram(draft.trim());
+    if (field === 'grad_year')          setGradYear(draft.trim());
+    if (field === 'generation_profile') setGenerationProfile(draft.trim());
     setSaving(false);
     setEditingField(null);
     setDraft('');
@@ -160,8 +173,9 @@ export default function MatthewProfile() {
           )}
           {savedField === 'grade' && <div style={{ fontSize: 11, color: '#5FAD8E', fontWeight: 700, marginBottom: 4 }}>✅ Saved!</div>}
 
-          {/* Track + Focus tags */}
+          {/* Tags row */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+            {/* Track */}
             {editingField === 'track' ? (
               <div style={{ width: '100%', maxWidth: 320 }}>
                 <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('track'); if (e.key === 'Escape') cancelEdit(); }} placeholder="e.g. Pre-Dental" style={inputStyle} />
@@ -173,21 +187,49 @@ export default function MatthewProfile() {
                 <EditIcon />
               </div>
             )}
-            {savedField === 'track' && <div style={{ fontSize: 11, color: '#5FAD8E', fontWeight: 700 }}>✅ Saved!</div>}
 
-            {editingField === 'focus' ? (
+            {/* Target School */}
+            {editingField === 'target_school' ? (
               <div style={{ width: '100%', maxWidth: 320 }}>
-                <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('focus'); if (e.key === 'Escape') cancelEdit(); }} placeholder="e.g. WVU School of Dentistry" style={inputStyle} />
-                <SaveButtons field="focus" />
+                <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('target_school'); if (e.key === 'Escape') cancelEdit(); }} placeholder="e.g. WVU" style={inputStyle} />
+                <SaveButtons field="target_school" />
               </div>
             ) : (
-              <div onClick={() => startEdit('focus', focus)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 999, background: light, cursor: 'pointer' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color }}>{focus}</div>
+              <div onClick={() => startEdit('target_school', targetSchool)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 999, background: light, cursor: 'pointer' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color }}>{targetSchool}</div>
                 <EditIcon />
               </div>
             )}
-            {savedField === 'focus' && <div style={{ fontSize: 11, color: '#5FAD8E', fontWeight: 700 }}>✅ Saved!</div>}
+
+            {/* Target Program */}
+            {editingField === 'target_program' ? (
+              <div style={{ width: '100%', maxWidth: 320 }}>
+                <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('target_program'); if (e.key === 'Escape') cancelEdit(); }} placeholder="e.g. WVU School of Dentistry" style={inputStyle} />
+                <SaveButtons field="target_program" />
+              </div>
+            ) : (
+              <div onClick={() => startEdit('target_program', targetProgram)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 999, background: light, cursor: 'pointer' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color }}>{targetProgram}</div>
+                <EditIcon />
+              </div>
+            )}
+
+            {/* Grad Year */}
+            {editingField === 'grad_year' ? (
+              <div style={{ width: '100%', maxWidth: 320 }}>
+                <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('grad_year'); if (e.key === 'Escape') cancelEdit(); }} placeholder="e.g. 2026" style={inputStyle} />
+                <SaveButtons field="grad_year" />
+              </div>
+            ) : (
+              <div onClick={() => startEdit('grad_year', gradYear)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 999, background: '#F3F1EC', cursor: 'pointer' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#9E9BB0' }}>Class of {gradYear}</div>
+                <EditIcon />
+              </div>
+            )}
           </div>
+          {(savedField === 'track' || savedField === 'target_school' || savedField === 'target_program' || savedField === 'grad_year' || savedField === 'focus') && (
+            <div style={{ fontSize: 11, color: '#5FAD8E', fontWeight: 700, marginTop: 6 }}>✅ Saved!</div>
+          )}
         </div>
 
         {/* Stats grid */}
@@ -203,7 +245,36 @@ export default function MatthewProfile() {
           ))}
         </div>
 
-        {/* Goal / Bio */}
+        {/* Generation Profile */}
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 6 }}>Generation Profile</div>
+        <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 12, lineHeight: 1.5 }}>
+          This context is injected into every study guide, flashcard deck, and practice exam Ascend generates for you. Be specific — the more detail, the better the output.
+        </div>
+        <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 16, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+          {editingField === 'generation_profile' ? (
+            <div>
+              <textarea
+                autoFocus
+                value={draft}
+                onChange={e => setDraft(e.target.value)}
+                rows={5}
+                placeholder='e.g. "I am strongest in conceptual understanding but weak on calculations and application questions. My professors tend to test heavily on lecture material over the textbook. Flag anything that overlaps with DAT content."'
+                style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6 }}
+              />
+              <SaveButtons field="generation_profile" />
+            </div>
+          ) : (
+            <div onClick={() => startEdit('generation_profile', generationProfile)} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', cursor: 'pointer' }}>
+              <div style={{ fontSize: 13, color: generationProfile ? '#9E9BB0' : '#C4C1D4', lineHeight: 1.6, flex: 1, fontStyle: generationProfile ? 'normal' : 'italic' }}>
+                {generationProfile || 'Tap to add your generation profile — helps Ascend generate more targeted materials.'}
+              </div>
+              <div style={{ marginLeft: 12, flexShrink: 0, marginTop: 2 }}><EditIcon /></div>
+            </div>
+          )}
+          {savedField === 'generation_profile' && <div style={{ fontSize: 11, color: '#5FAD8E', fontWeight: 700, marginTop: 8 }}>✅ Saved!</div>}
+        </div>
+
+        {/* About / Bio */}
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 12 }}>About</div>
         <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 16, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
           {editingField === 'bio' ? (

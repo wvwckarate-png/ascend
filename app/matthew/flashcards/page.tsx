@@ -156,6 +156,7 @@ function MatthewFlashcardsInner() {
   const [loading,     setLoading]     = useState(false);
   const [saving,      setSaving]      = useState(false);
   const [error,       setError]       = useState('');
+  const [classMeta, setClassMeta] = useState<{ className: string; professor: string; notes: string; folderName: string; examDate: string | null; studentName: string; studentGrade: string; studentTrack: string; studentSchool: string; studentProgram: string; studentGradYear: string; generationProfile: string; } | null>(null);
   const [cards,       setCards]       = useState<Card[]>([]);
   const [queue,       setQueue]       = useState<Card[]>([]);
   const [qi,          setQi]          = useState(0);
@@ -167,8 +168,31 @@ function MatthewFlashcardsInner() {
   const [savedDeckId,     setSavedDeckId]     = useState<string | null>(null);
   const [scheduleReview,  setScheduleReview]  = useState(false);
 
+  const fetchClassMeta = async (fId: string) => {
+    const [{ data: folder }, { data: student }] = await Promise.all([
+      supabase.from('exam_folders').select('name, exam_date, class_id').eq('id', fId).single(),
+      supabase.from('students').select('name, grade, track, target_school, target_program, grad_year, generation_profile').eq('id', 'matthew').single(),
+    ]);
+    if (!folder) return;
+    const { data: cls } = await supabase.from('classes').select('name, professor, notes').eq('id', folder.class_id).single();
+    if (cls) setClassMeta({
+      className:         cls.name,
+      professor:         cls.professor || '',
+      notes:             cls.notes || '',
+      folderName:        folder.name,
+      examDate:          folder.exam_date,
+      studentName:       student?.name || 'Matthew',
+      studentGrade:      student?.grade || '11th grade',
+      studentTrack:      student?.track || 'Pre-Dental',
+      studentSchool:     student?.target_school || 'WVU',
+      studentProgram:    student?.target_program || 'WVU School of Dentistry',
+      studentGradYear:   student?.grad_year ? String(student.grad_year) : '2026',
+      generationProfile: student?.generation_profile || '',
+    });
+  };
+
   useEffect(() => { loadDecks(); loadLibrary(); }, []);
-  useEffect(() => { if (folderId) setScreen('generate'); }, [folderId]);
+  useEffect(() => { if (folderId) { setScreen('generate'); fetchClassMeta(folderId); } }, [folderId]);
   useEffect(() => {
     if (deckIdParam) {
       const loadDeck = async () => {
@@ -443,9 +467,18 @@ function MatthewFlashcardsInner() {
       const countPhrase = autoCount
         ? 'as many flashcards as needed to comprehensively cover all key concepts (determine the ideal number yourself)'
         : `${count} flashcards`;
+      const studentCtx = classMeta
+      ? `${classMeta.studentName} is a ${classMeta.studentGrade} student on a ${classMeta.studentTrack} track, targeting ${classMeta.studentProgram} (graduating ${classMeta.studentGradYear}).${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
+      : 'Matthew is an 11th grade pre-dental student targeting WVU School of Dentistry.';
+      const classCtx   = classMeta
+        ? `Class: ${classMeta.className}. Exam: ${classMeta.folderName}. Professor: ${classMeta.professor || 'unknown'}.${classMeta.notes ? ` Professor notes: "${classMeta.notes}"` : ''}`
+        : '';
+      const goalCtx = classMeta
+        ? `Goal: help Matthew earn an A on ${classMeta.folderName} in ${classMeta.className}${classMeta.professor ? ` with ${classMeta.professor}` : ''}. Think like this professor — focus on what they actually emphasize and test.`
+        : `Goal: help Matthew earn an A. Focus only on what was actually taught in these materials.`;
       const baseInstruction = totalSelected > 1
-        ? `You are Ascend, a test-prep assistant for Matthew, a pre-dental high school junior. Your goal is to help him get an A in THIS class. Analyze these ${allFiles.length} documents and identify the highest-yield concepts — topics that appear repeatedly, are emphasized, or are most likely to be tested. Generate ${countPhrase} focused strictly on these high-yield concepts. Do not go deeper than what the professor's materials cover.${topic.trim() ? ` Additional focus: ${topic.trim()}.` : ''}`
-        : `You are Ascend, a test-prep assistant for Matthew, a pre-dental high school junior. Generate ${countPhrase}${topic.trim() ? ` focused on: ${topic.trim()}` : ' from the uploaded material'}. Focus only on the most testable concepts from what was actually taught. Do not expand beyond the scope of the provided material.`;
+        ? `You are Ascend, an expert flashcard generator. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\nAnalyze these ${allFiles.length} documents and identify the highest-yield concepts — topics that appear repeatedly, are emphasized, or are most likely to be tested. Generate ${countPhrase} focused strictly on these high-yield concepts. Do not go deeper than what the professor's materials cover.${topic.trim() ? ` Additional focus: ${topic.trim()}.` : ''}`
+        : `You are Ascend, an expert flashcard generator. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\nGenerate ${countPhrase}${topic.trim() ? ` focused on: ${topic.trim()}` : ' from the uploaded material'}. Focus only on the most testable concepts from what was actually taught. Do not expand beyond the scope of the provided material.`;
       const custom = customInstructions.trim() ? ` Additional instructions: ${customInstructions.trim()}` : '';
       const prompt = baseInstruction + custom + ' Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]';
       let raw = '';
