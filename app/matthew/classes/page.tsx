@@ -137,6 +137,14 @@ export default function MatthewClasses() {
       if (gradeData) setGrades(gradeData);
 
       // Auto-detect BCPM from class name for non-grade-only classes
+      if (inactive) {
+        const inactiveToFlag = inactive.filter(c => !c.grade_only && !c.is_bcpm && isBCPMName(c.name));
+        if (inactiveToFlag.length > 0) {
+          await Promise.all(inactiveToFlag.map(c => supabase.from('classes').update({ is_bcpm: true }).eq('id', c.id)));
+          inactiveToFlag.forEach(c => { c.is_bcpm = true; });
+        }
+        setArchived(inactive);
+      }
       if (active) {
         const toFlag = active.filter(c => !c.grade_only && !c.is_bcpm && isBCPMName(c.name));
         if (toFlag.length > 0) {
@@ -145,7 +153,6 @@ export default function MatthewClasses() {
         }
         setClasses(active);
       }
-      if (inactive) setArchived(inactive);
       setLoading(false);
     };
     load();
@@ -197,9 +204,10 @@ export default function MatthewClasses() {
     setGpaSaving(false); setShowGPAModal(false);
   };
 
-  const overallGPA = computeGPA(classes, grades, 'all');
-  const scienceGPA = computeGPA(classes, grades, 'science');
-  const bcpmGPA    = computeGPA(classes, grades, 'bcpm');
+  const allClasses = [...classes, ...archived];
+  const overallGPA = computeGPA(allClasses, grades, 'all');
+  const scienceGPA = computeGPA(allClasses, grades, 'science');
+  const bcpmGPA    = computeGPA(allClasses, grades, 'bcpm');
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAF8' }}>
@@ -391,6 +399,16 @@ export default function MatthewClasses() {
               </button>
             </div>
 
+            {editGPAClass && (
+              <button onClick={async () => {
+                if (!confirm(`Remove ${editGPAClass.name} from GPA tracking?`)) return;
+                await supabase.from('classes').delete().eq('id', editGPAClass.id);
+                setClasses(prev => prev.filter(c => c.id !== editGPAClass.id));
+                setShowGPAModal(false);
+              }} style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: '#FDF2F2', color: '#C47878', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', marginBottom: 10 }}>
+                Delete this class
+              </button>
+            )}
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setShowGPAModal(false)} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
               <button onClick={saveGPAClass} disabled={!gpaName.trim() || gpaSaving} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !gpaName.trim() ? 0.4 : 1 }}>
