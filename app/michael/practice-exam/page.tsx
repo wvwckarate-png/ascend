@@ -280,6 +280,12 @@ function MichaelPracticeExamInner() {
     questions.forEach((q, i) => { if (q.type === 'mc' || q.type === 'tf') { objTotal++; if ((responses[i] || '') === q.answer) correct++; } });
     const scoreVal = objTotal > 0 ? Math.round((correct / objTotal) * 100) : null;
     await supabase.from('practice_exams').update({ responses: Object.fromEntries(Object.entries(responses)), score: scoreVal, status: 'completed', completed_at: new Date().toISOString() }).eq('id', examId);
+    const items = questions.map((q, i) => {
+      let isCorrect: boolean | null = null;
+      if (q.type === 'mc' || q.type === 'tf') isCorrect = (responses[i] || '') === q.answer;
+      return { exam_id: examId, student_id: 'michael', folder_id: activeExam?.folder_id || null, question_index: i, question_type: q.type, question_text: q.question, is_correct: isCorrect };
+    });
+    await supabase.from('practice_exam_items').insert(items);
     setSubmitting(false); setScreen('results'); loadHistory();
   };
 
