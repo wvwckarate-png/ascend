@@ -139,9 +139,10 @@ function classLabel(name: string) {
   return name.slice(0, 3).toUpperCase();
 }
 
-type ClassRow = { id: string; name: string; semester: string; professor: string; };
-type Folder   = { id: string; name: string; exam_date: string | null; };
-type Resource = { id: string; file_name: string; file_type: string; storage_url: string | null; created_at: string; };
+type ClassRow  = { id: string; name: string; semester: string; professor: string; };
+type Folder    = { id: string; name: string; exam_date: string | null; };
+type Resource  = { id: string; file_name: string; file_type: string; storage_url: string | null; created_at: string; };
+type WeakSpot  = { text: string; source: 'flashcard' | 'exam'; };
 
 const TABS = [
   { key: 'resources', label: 'Resources' },
@@ -178,7 +179,9 @@ export default function MichaelBinder() {
   const [folderDeck,  setFolderDeck]  = useState<{id:string;title:string;card_count:number} | null>(null);
   const [folderExam,  setFolderExam]  = useState<{id:string;title:string;status:string;score:number|null;questions:any[]} | null>(null);
   const [folderGuide, setFolderGuide] = useState<{id:string;title:string;created_at:string} | null>(null);
-  const [showUpload, setShowUpload] = useState(false);
+  const [weakSpots,   setWeakSpots]   = useState<WeakSpot[]>([]);
+  const [weakLoading, setWeakLoading] = useState(true);
+  const [showUpload,  setShowUpload]  = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -197,6 +200,25 @@ export default function MichaelBinder() {
       if (examData)     setFolderExam(examData);
       if (guideData)    setFolderGuide(guideData);
       setLoading(false);
+
+      // Weak spots
+      const weak: WeakSpot[] = [];
+      const { data: deckRows } = await supabase.from('flashcard_decks').select('id').eq('folder_id', folderId).eq('student_id', 'michael');
+      if (deckRows && deckRows.length > 0) {
+        const deckIdList = deckRows.map(d => d.id);
+        const { data: items } = await supabase.from('flashcard_items').select('card_id, times_seen, times_missed, is_retired').in('deck_id', deckIdList).eq('student_id', 'michael').gte('times_seen', 3).eq('is_retired', false);
+        if (items) {
+          const weakCardIds = items.filter(it => it.times_missed / it.times_seen >= 0.4).map(it => it.card_id);
+          if (weakCardIds.length > 0) {
+            const { data: cards } = await supabase.from('flashcard_cards').select('id, front').in('id', weakCardIds);
+            if (cards) cards.forEach(c => weak.push({ text: c.front, source: 'flashcard' }));
+          }
+        }
+      }
+      const { data: examWeak } = await supabase.from('practice_exam_items').select('question_text, question_type').eq('folder_id', folderId).eq('student_id', 'michael').eq('is_correct', false).in('question_type', ['mc', 'tf']);
+      if (examWeak) examWeak.forEach(q => weak.push({ text: q.question_text, source: 'exam' }));
+      setWeakSpots(weak.slice(0, 6));
+      setWeakLoading(false);
     };
     load();
   }, [classId, folderId]);
@@ -265,6 +287,38 @@ export default function MichaelBinder() {
                 ))}
               </div>
             </div>
+
+            {!weakLoading && weakSpots.length >= 3 && (
+              <div style={{ margin: '0 24px 0', borderTop: '1.5px solid #E8E5F0', paddingTop: 20, paddingBottom: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#C47878', flexShrink: 0 }} />
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' as const, color: '#C47878' }}>Weak Spots</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: '#9E9BB0' }}>{weakSpots.length} item{weakSpots.length !== 1 ? 's' : ''} flagged</div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+                  {weakSpots.map((w, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 12px', background: '#FDF2F2', borderRadius: 10, border: '1.5px solid #C4787820' }}>
+                      <div style={{ width: 18, height: 18, borderRadius: 5, background: w.source === 'flashcard' ? '#EDE9F7' : '#FFF3E8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                        <span style={{ fontSize: 9, fontWeight: 800, color: w.source === 'flashcard' ? '#7B6FA0' : '#C8965A' }}>{w.source === 'flashcard' ? 'FC' : 'EX'}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: '#1D1B26', lineHeight: 1.5, flex: 1 }}>{w.text.length > 120 ? w.text.slice(0, 120) + '...' : w.text}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 12 }}>Generate targeted material focused on these weak areas:</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => router.push(`/michael/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: '#7B6FA0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                    <IconCards c="#7B6FA0" size={13} />Flashcards
+                  </button>
+                  <button onClick={() => router.push(`/michael/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: '#7B6FA0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                    <IconExam c="#7B6FA0" size={13} />Practice Exam
+                  </button>
+                  <button onClick={() => router.push(`/michael/study?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: '#7B6FA0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                    <IconBrain c="#7B6FA0" size={13} />Study Guide
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div style={{ padding: '24px' }}>
 
