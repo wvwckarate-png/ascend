@@ -87,13 +87,14 @@ type Card        = { id?: string; front: string; back: string; front_image_url?:
 type Deck        = { id: string; title: string; source_files: string | null; card_count: number; created_at: string; class_name?: string | null; folder_name?: string | null; folder_id?: string | null; };
 type LibResource = { id: string; file_name: string; storage_url: string; folder_id: string; };
 type LibFolder   = { id: string; name: string; class_id: string; resources: LibResource[]; };
-type LibClass    = { id: string; name: string; folders: LibFolder[]; };
+type LibClass         = { id: string; name: string; folders: LibFolder[]; };
+type FlashcardItem    = { id: string; card_id: string; times_seen: number; times_correct: number; times_missed: number; interval_days: number; is_retired: boolean; };
 
-function requeue(q: Card[], idx: number, conf: number): Card[] {
+function requeue(q: Card[], idx: number, correct: boolean): Card[] {
   const card = q[idx];
   const rest = q.filter((_, i) => i !== idx);
-  if (conf === 3) return rest;
-  const pos = Math.min([3, 8, 18, 999][conf], rest.length);
+  if (correct) return rest;
+  const pos = Math.min(3, rest.length);
   rest.splice(pos, 0, card);
   return rest;
 }
@@ -167,6 +168,9 @@ function MatthewFlashcardsInner() {
   const [saved,       setSaved]       = useState(false);
   const [savedDeckId,     setSavedDeckId]     = useState<string | null>(null);
   const [scheduleReview,  setScheduleReview]  = useState(false);
+  const [flashcardItems,  setFlashcardItems]  = useState<Record<string, FlashcardItem>>({});
+  const [deckExamDate,    setDeckExamDate]    = useState<string | null>(null);
+  const [deckIsRetired,   setDeckIsRetired]   = useState(false);
 
   const fetchClassMeta = async (fId: string) => {
     const [{ data: folder }, { data: student }] = await Promise.all([
@@ -270,11 +274,73 @@ function MatthewFlashcardsInner() {
     setDeckLoading(false);
   };
 
-  const studyDeck = (deck: Deck, cards: Card[]) => {
-    setCards(cards); setQueue([...cards]);
-    setQi(0); setFlipped(false); setRatings({});
+  const studyDeck = async (deck: Deck, cards: Card[]) => {
+    setCards(cards); setQi(0); setFlipped(false); setRatings({});
     setSaved(true); setSavedDeckId(deck.id); setShowSave(false);
+
+    // Check exam date for retirement
+    let isRetired = false;
+    let examDate: string | null = null;
+    if (deck.folder_id) {
+      const { data: folder } = await supabase.from('exam_folders').select('exam_date').eq('id', deck.folder_id).single();
+      if (folder?.exam_date) {
+        examDate = folder.exam_date;
+        isRetired = new Date(folder.exam_date + 'T00:00:00') < new Date(new Date().toDateString());
+      }
+    }
+    setDeckExamDate(examDate);
+    setDeckIsRetired(isRetired);
+
+    // Load existing flashcard_items for this deck
+    const cardIds = cards.map(c => c.id).filter(Boolean);
+    if (cardIds.length > 0) {
+      const { data: items } = await supabase.from('flashcard_items').select('*').in('card_id', cardIds).eq('student_id', 'matthew');
+      if (items) {
+        const itemMap: Record<string, FlashcardItem> = {};
+        items.forEach(item => { itemMap[item.card_id] = item; });
+        setFlashcardItems(itemMap);
+      }
+    }
+
+    // Build smart queue: prioritize missed cards, skip retired
+    if (!isRetired) {
+      const sorted = [...cards].sort((a, b) => {
+        const aItem = a.id ? flashcardItems[a.id] : null;
+        const bItem = b.id ? flashcardItems[b.id] : null;
+        const aMissRate = aItem && aItem.times_seen > 0 ? aItem.times_missed / aItem.times_seen : 0.5;
+        const bMissRate = bItem && bItem.times_seen > 0 ? bItem.times_missed / bItem.times_seen : 0.5;
+        return bMissRate - aMissRate;
+      });
+      setQueue(sorted);
+    } else {
+      setQueue([...cards]);
+    }
+
     setScreen('study');
+  };
+
+  const recordRating = async (cardId: string, deckId: string, correct: boolean) => {
+    const existing = flashcardItems[cardId];
+    const now = new Date().toISOString();
+    if (existing) {
+      const newInterval = correct ? Math.min(existing.interval_days * 2, 365) : 1;
+      const nextReview = new Date(); nextReview.setDate(nextReview.getDate() + newInterval);
+      const updated = { ...existing, times_seen: existing.times_seen + 1, times_correct: correct ? existing.times_correct + 1 : existing.times_correct, times_missed: correct ? existing.times_missed : existing.times_missed + 1, last_seen: now, next_review: nextReview.toISOString(), interval_days: newInterval };
+      setFlashcardItems(prev => ({ ...prev, [cardId]: updated }));
+      await supabase.from('flashcard_items').update({ times_seen: updated.times_seen, times_correct: updated.times_correct, times_missed: updated.times_missed, last_seen: now, next_review: updated.next_review, interval_days: newInterval }).eq('id', existing.id);
+    } else {
+      const newInterval = correct ? 2 : 1;
+      const nextReview = new Date(); nextReview.setDate(nextReview.getDate() + newInterval);
+      const { data } = await supabase.from('flashcard_items').insert({ card_id: cardId, deck_id: deckId, student_id: 'matthew', times_seen: 1, times_correct: correct ? 1 : 0, times_missed: correct ? 0 : 1, last_seen: now, next_review: nextReview.toISOString(), interval_days: newInterval, is_retired: false }).select().single();
+      if (data) setFlashcardItems(prev => ({ ...prev, [cardId]: data }));
+    }
+  };
+
+  const markAsMastered = async (deckId: string, deckCards: Card[]) => {
+    if (!confirm('Mark this deck as mastered? Spaced repetition will stop for these cards.')) return;
+    const cardIds = deckCards.map(c => c.id).filter(Boolean);
+    await supabase.from('flashcard_items').update({ is_retired: true }).in('card_id', cardIds).eq('student_id', 'matthew');
+    setDeckIsRetired(true);
   };
 
   const renameDeck = async (deckId: string, title: string) => {
@@ -533,7 +599,12 @@ function MatthewFlashcardsInner() {
 
   const next    = () => { setFlipped(false); const isLast = mode === 'smart' ? qi + 1 >= queue.length : qi + 1 >= cards.length; if (isLast) { setScreen('done'); return; } setQi(i => i + 1); };
   const prev    = () => { if (qi > 0) { setQi(i => i - 1); setFlipped(false); } };
-  const rate    = (conf: number) => { setRatings(r => ({ ...r, [qi]: conf })); if (mode === 'smart') { const nq = requeue(queue, qi, conf); if (nq.length === 0) { setScreen('done'); return; } setQueue(nq); setFlipped(false); } else { next(); } };
+  const rate    = (correct: boolean) => {
+    const card = mode === 'smart' ? queue[qi] : cards[qi];
+    if (card.id && savedDeckId) recordRating(card.id, savedDeckId, correct);
+    setRatings(r => ({ ...r, [qi]: correct ? 1 : 0 }));
+    if (mode === 'smart') { const nq = requeue(queue, qi, correct); if (nq.length === 0) { setScreen('done'); return; } setQueue(nq); setFlipped(false); } else { next(); }
+  };
   const restart = () => { setQueue([...cards]); setQi(0); setFlipped(false); setRatings({}); setScreen('study'); };
 
   const curCard  = mode === 'smart' ? queue[qi] : cards[qi];
@@ -553,7 +624,7 @@ function MatthewFlashcardsInner() {
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setFlipped(f => !f); }
       if (e.key === 'ArrowUp')   { e.preventDefault(); next(); }
       if (e.key === 'ArrowDown') { e.preventDefault(); prev(); }
-      if (e.key === '1') rate(0); if (e.key === '2') rate(1); if (e.key === '3') rate(2); if (e.key === '4') rate(3);
+      if (e.key === '1') rate(false); if (e.key === '2') rate(true);
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
@@ -647,10 +718,15 @@ function MatthewFlashcardsInner() {
             <button onClick={() => { if (confirm('Delete this deck?')) deleteDeck(activeDeck.id); }} style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0, marginLeft: 12 }}>Delete</button>
           </div>
 
-          <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
             <button onClick={() => { if (deckCards.length > 0) studyDeck(activeDeck, deckCards); }} disabled={deckCards.length === 0} style={{ flex: 1, padding: '13px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: deckCards.length === 0 ? 0.4 : 1 }}>Study This Deck</button>
             <button onClick={() => { setShowAddCard(true); setEditCardId(null); setNewFront(''); setNewBack(''); }} style={{ padding: '13px 18px', borderRadius: 14, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Add Card</button>
           </div>
+          {deckIsRetired ? (
+            <div style={{ background: '#EDF7F2', borderRadius: 12, padding: '10px 14px', marginBottom: 20, fontSize: 12, fontWeight: 700, color: '#5FAD8E' }}>✅ Deck mastered — spaced repetition retired</div>
+          ) : (
+            <button onClick={() => markAsMastered(activeDeck.id, deckCards)} style={{ width: '100%', padding: '10px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', marginBottom: 20 }}>Mark as Mastered</button>
+          )}
 
           {deckLoading ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: '#9E9BB0', fontSize: 13 }}>Loading cards...</div>
@@ -1009,17 +1085,19 @@ function MatthewFlashcardsInner() {
             </div>
           </div>
 
-          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#C4C1D4', textAlign: 'center', marginBottom: 10 }}>How well did you know this?</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-            {([["Didn't Know", '#C47878'], ['Almost', '#C8965A'], ['Got It', '#5FAD8E'], ['Cold!', color]] as const).map(([label, btnColor], i) => (
-              <button key={i} onClick={() => rate(i)} style={{ padding: '12px 4px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: '#FFFFFF', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', textAlign: 'center' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: btnColor, marginBottom: 2 }}>{label}</div>
-                <div style={{ fontSize: 9, color: '#C4C1D4' }}>press {i + 1}</div>
-              </button>
-            ))}
+          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#C4C1D4', textAlign: 'center', marginBottom: 10 }}>How did you do?</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <button onClick={() => rate(false)} style={{ padding: '16px', borderRadius: 14, border: '1.5px solid #FDF2F2', background: '#FDF2F2', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', textAlign: 'center' }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#C47878', marginBottom: 2 }}>Missed It</div>
+              <div style={{ fontSize: 9, color: '#C4C1D4' }}>press 1</div>
+            </button>
+            <button onClick={() => rate(true)} style={{ padding: '16px', borderRadius: 14, border: '1.5px solid #EDF7F2', background: '#EDF7F2', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', textAlign: 'center' }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#5FAD8E', marginBottom: 2 }}>Got It</div>
+              <div style={{ fontSize: 9, color: '#C4C1D4' }}>press 2</div>
+            </button>
           </div>
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 16 }}>
-            {[['←/→', 'flip'], ['↑', 'next'], ['↓', 'back'], ['1-4', 'rate']].map(([key, label]) => (
+            {[['←/→', 'flip'], ['↑', 'next'], ['↓', 'back'], ['1', 'missed'], ['2', 'got it']].map(([key, label]) => (
               <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: '#C4C1D4' }}>
                 <span style={{ background: '#F3F1EC', border: '1px solid #E8E5F0', borderRadius: 4, padding: '1px 5px', fontFamily: 'monospace', fontSize: 9 }}>{key}</span>
                 {label}
