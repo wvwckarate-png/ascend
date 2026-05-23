@@ -271,7 +271,7 @@ export default function ParentDashboard() {
         <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '1px solid #F3F1EC', marginBottom: 12 }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26' }}>Version</span>
-            <span style={{ fontSize: 13, color: '#9E9BB0' }}>Ascend v2.1.3 · May 2026</span>
+            <span style={{ fontSize: 13, color: '#9E9BB0' }}>Ascend v2.3.5 · May 2026</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '1px solid #F3F1EC', marginBottom: 12 }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26' }}>Founded</span>

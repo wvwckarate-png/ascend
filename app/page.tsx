@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../lib/supabase';
 function Mountain() {
@@ -26,6 +26,16 @@ export default function Home() {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(false);
+
+  useEffect(() => {
+    if (!selected) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key >= '0' && e.key <= '9') handlePinDigit(e.key);
+      if (e.key === 'Backspace') setPin(p => p.slice(0, -1));
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [selected, pin, checking]);
 
   const handleStudentTap = async (s: typeof students[0]) => {
     const { data } = await supabase
@@ -167,7 +177,7 @@ export default function Home() {
       </div>
 
       <div style={{ fontSize: 10, color: 'var(--light)', marginTop: 40, letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.8 }}>
-        Ascend v2.2.7 · May 2026<br />
+        Ascend v2.3.5 · May 2026<br />
         Founded April 2026 · Forged in Focus
       </div>
     </main>
