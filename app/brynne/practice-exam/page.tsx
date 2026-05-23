@@ -301,6 +301,7 @@ function BrynnePracticeExamInner() {
   const retakeExam = async () => {
     if (!examId) return;
     await supabase.from('practice_exams').update({ responses: {}, score: null, status: 'in_progress', completed_at: null }).eq('id', examId);
+    await supabase.from('practice_exam_items').delete().eq('exam_id', examId);
     setResponses({}); setReviewed(new Set()); setShowExplanation(new Set()); setScheduleReview(false); setReviewScheduled(false);
     if (activeExam?.timer_seconds) { setTimeLeft(activeExam.timer_seconds); setTimerRunning(true); }
     setScreen('exam');
