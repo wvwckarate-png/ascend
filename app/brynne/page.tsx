@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import TabBar from '../components/TabBar';
 import UploadResourceModal from '../components/UploadResourceModal';
@@ -64,6 +64,30 @@ type ExamEvent = { id: string; name: string; exam_date: string; class_name: stri
 
 const color = '#E8956D';
 const light = '#FFF3E8';
+
+const QUOTES = [
+  { text: "Everything you learn is one more thing you know.", author: "Michael D. Peters, DVM" },
+  { text: "No one cares. Work harder.", author: "Cameron Hanes" },
+  { text: "You were worth building this.", author: "Dad" },
+  { text: "You were not born to be average. Work like you matter.", author: null },
+  { text: "If you did absolutely everything you were capable of, you can be proud of your performance. Accept nothing less.", author: null },
+  { text: "Stay hard.", author: "David Goggins" },
+  { text: "You have to be willing to go to war with yourself and create a whole new identity.", author: "David Goggins" },
+  { text: "You are in danger of living a life so comfortable and soft that you will die without ever realizing your true potential.", author: "David Goggins" },
+  { text: "The only way to get to the other side of this journey is by suffering. You have to suffer in order to grow.", author: "David Goggins" },
+  { text: "Self discipline is what separates the good from the truly great.", author: "David Goggins" },
+  { text: "The pain of discipline is far less than the pain of regret.", author: "David Goggins" },
+  { text: "Don't stop when you're tired. Stop when you're finished.", author: "David Goggins" },
+  { text: "The A you earn today is the application you submit in four years.", author: "Ascend" },
+  { text: "Nobody remembers how tired you were. They remember what you built.", author: "Ascend" },
+  { text: "Every card you flip is a question you won't miss on the real exam.", author: "Ascend" },
+  { text: "Hard is temporary. Regret is permanent.", author: "Ascend" },
+  { text: "You don't rise to the occasion. You fall to your preparation.", author: "Ascend" },
+  { text: "The gap between who you are and who you want to be is called work.", author: "Ascend" },
+  { text: "Your future patients deserve the doctor who studied.", author: "Ascend" },
+  { text: "Discipline is choosing your future self over your present comfort.", author: "Ascend" },
+  { text: "Forged in focus. Finished in excellence.", author: "Ascend" },
+];
 const CLASS_COLORS = ['#E8956D', '#C4A882', '#D4845A', '#C8965A', '#E0A882', '#D49E6D'];
 
 function classLabel(name: string) {
@@ -133,6 +157,20 @@ export default function BrynneDashboard() {
   const [showDone,   setShowDone]   = useState(false);
   const [showUpload,  setShowUpload]  = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [quoteIndex,  setQuoteIndex]  = useState(() => Math.floor(Math.random() * QUOTES.length));
+  const [quoteFade,   setQuoteFade]   = useState(true);
+  const quoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    quoteTimer.current = setTimeout(() => {
+      setQuoteFade(false);
+      setTimeout(() => {
+        setQuoteIndex(i => (i + 1) % QUOTES.length);
+        setQuoteFade(true);
+      }, 400);
+    }, 7000);
+    return () => { if (quoteTimer.current) clearTimeout(quoteTimer.current); };
+  }, [quoteIndex]);
 
   useEffect(() => {
     const load = async () => {
@@ -338,6 +376,18 @@ setLoading(false);
                   );
                 })}
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── QUOTE ── */}
+        <div style={{ textAlign: 'center', padding: '4px 8px', marginBottom: 16, minHeight: 60, transition: 'opacity 0.4s', opacity: quoteFade ? 1 : 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#6B6880', lineHeight: 1.6, fontStyle: 'italic', marginBottom: 4 }}>
+            "{QUOTES[quoteIndex].text}"
+          </div>
+          {QUOTES[quoteIndex].author && (
+            <div style={{ fontSize: 10, fontWeight: 700, color, letterSpacing: 0.5 }}>
+              — {QUOTES[quoteIndex].author}
             </div>
           )}
         </div>
