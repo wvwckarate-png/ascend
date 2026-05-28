@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import TabBar from '../components/TabBar';
 import UploadResourceModal from '../components/UploadResourceModal';
@@ -170,20 +170,7 @@ export default function MichaelDashboard() {
   const [showDone,   setShowDone]   = useState(false);
   const [showUpload,  setShowUpload]  = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  const [quoteIndex,  setQuoteIndex]  = useState(() => Math.floor(Math.random() * QUOTES.length));
-  const [quoteFade,   setQuoteFade]   = useState(true);
-  const quoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    quoteTimer.current = setTimeout(() => {
-      setQuoteFade(false);
-      setTimeout(() => {
-        setQuoteIndex(i => (i + 1) % QUOTES.length);
-        setQuoteFade(true);
-      }, 400);
-    }, 7000);
-    return () => { if (quoteTimer.current) clearTimeout(quoteTimer.current); };
-  }, [quoteIndex]);
+  const [quoteIndex] = useState(() => Math.floor(Math.random() * QUOTES.length));
 
   useEffect(() => {
     const load = async () => {
@@ -389,7 +376,7 @@ setLoading(false);
         </div>
 
         {/* ── QUOTE ── */}
-        <div style={{ textAlign: 'center', padding: '4px 8px', marginBottom: 16, minHeight: 60, transition: 'opacity 0.4s', opacity: quoteFade ? 1 : 0 }}>
+        <div style={{ textAlign: 'center', padding: '4px 8px', marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#6B6880', lineHeight: 1.6, fontStyle: 'italic', marginBottom: 4 }}>
             "{QUOTES[quoteIndex].text}"
           </div>
