@@ -368,6 +368,40 @@ setLoading(false);
           )}
         </div>
 
+        {/* ── EXAM COUNTDOWN ── */}
+        {(() => {
+          const upcoming = exams
+            .filter(e => e.exam_date >= todayStr)
+            .sort((a, b) => a.exam_date.localeCompare(b.exam_date))
+            .slice(0, 5);
+          if (upcoming.length === 0) return null;
+          return (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 10 }}>Next Tests</div>
+              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
+                {upcoming.map(e => {
+                  const diff = Math.ceil((new Date(e.exam_date + 'T00:00:00').getTime() - new Date(todayStr + 'T00:00:00').getTime()) / 86400000);
+                  const isUrgent = diff <= 7;
+                  const isToday  = diff === 0;
+                  return (
+                    <div
+                      key={e.id}
+                      onClick={() => router.push(`/brynne/classes`)}
+                      style={{ flexShrink: 0, width: 130, background: '#FFFFFF', border: `1.5px solid ${isUrgent ? '#C4787830' : '#E8E5F0'}`, borderRadius: 14, padding: '14px 12px', cursor: 'pointer', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}
+                    >
+                      <div style={{ fontSize: 22, fontWeight: 900, color: isToday ? '#C47878' : isUrgent ? '#C8965A' : color, marginBottom: 2, letterSpacing: '-0.5px' }}>
+                        {isToday ? 'Today!' : `${diff}d`}
+                      </div>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: '#1D1B26', lineHeight: 1.3, marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.name}</div>
+                      {e.class_name && <div style={{ fontSize: 10, fontWeight: 600, color, background: light, padding: '2px 7px', borderRadius: 999, display: 'inline-block' }}>{e.class_name}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ── QUOTE ── */}
         <div style={{ textAlign: 'center', padding: '4px 8px', marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#6B6880', lineHeight: 1.6, fontStyle: 'italic', marginBottom: 4 }}>
