@@ -52,9 +52,11 @@ const light = '#EDE9F7';
 
 function MichaelPracticeExamInner() {
   const searchParams = useSearchParams();
-  const folderId   = searchParams.get('folderId');
-  const folderName = searchParams.get('folderName');
-  const examIdParam = searchParams.get('examId');
+  const folderId      = searchParams.get('folderId');
+  const folderName    = searchParams.get('folderName');
+  const examIdParam   = searchParams.get('examId');
+  const weakSpotsRaw  = searchParams.get('weakSpots');
+  const weakSpotsList: string[] = weakSpotsRaw ? (() => { try { return JSON.parse(decodeURIComponent(weakSpotsRaw)); } catch { return []; } })() : [];
 
   const [screen,          setScreen]          = useState<'history' | 'setup' | 'exam' | 'results'>('history');
   const [pastExams,       setPastExams]       = useState<PastExam[]>([]);
@@ -228,7 +230,10 @@ function MichaelPracticeExamInner() {
     const goalCtx = classMeta
       ? `Your ONLY goal: generate a realistic practice exam that mirrors how ${classMeta.professor || 'this professor'} actually tests in ${classMeta.className}. Think like this professor — their emphasis, their style, their scope.`
       : `Your goal: generate a realistic practice exam. Focus only on what was actually taught.`;
-    return `You are Ascend generating a practice exam. ${studentCtx} ${classCtx}\n\n${goalCtx}${topic.trim() ? ` Topic focus: ${topic.trim()}.` : ''} ${crossDoc}Generate ${countStr} questions of these types: ${typeDescriptions}. ${typeList.length > 1 ? 'Distribute evenly across all types.' : ''} Make questions realistic to what this professor would actually test.${custom}\n\nReturn ONLY a JSON array, no markdown, no backticks. Use these exact formats:\n${formats}`;
+    const weakSpotsInject = weakSpotsList.length > 0
+      ? ` PRIORITY FOCUS — These are Michael's confirmed weak spots from prior study sessions: ${weakSpotsList.map((w, i) => `${i + 1}. ${w}`).join('; ')}. Weight at least half of the questions toward these specific concepts, approaching them from fresh angles to test genuine understanding.`
+      : '';
+    return `You are Ascend generating a practice exam. ${studentCtx} ${classCtx}\n\n${goalCtx}${topic.trim() ? ` Topic focus: ${topic.trim()}.` : ''} ${crossDoc}Generate ${countStr} questions of these types: ${typeDescriptions}. ${typeList.length > 1 ? 'Distribute evenly across all types.' : ''} Make questions realistic to what this professor would actually test.${weakSpotsInject}${custom}\n\nReturn ONLY a JSON array, no markdown, no backticks. Use these exact formats:\n${formats}`;
   };
 
   const generate = async () => {

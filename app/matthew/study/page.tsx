@@ -210,9 +210,11 @@ const PRINT_STYLES = `
 
 function MatthewStudyInner() {
   const searchParams = useSearchParams();
-  const folderId   = searchParams.get('folderId');
-  const folderName = searchParams.get('folderName');
-  const guideId    = searchParams.get('guideId');
+  const folderId      = searchParams.get('folderId');
+  const folderName    = searchParams.get('folderName');
+  const guideId       = searchParams.get('guideId');
+  const weakSpotsRaw  = searchParams.get('weakSpots');
+  const weakSpotsList: string[] = weakSpotsRaw ? (() => { try { return JSON.parse(decodeURIComponent(weakSpotsRaw)); } catch { return []; } })() : [];
 
   const [screen, setScreen] = useState<'history' | 'setup' | 'view'>('history');
   const [savedGuides,  setSavedGuides]  = useState<SavedGuide[]>([]);
@@ -400,7 +402,8 @@ function MatthewStudyInner() {
       : `You are Ascend, an expert study assistant. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\nFocus only on what is in these materials — identify the most testable concepts, likely exam topics, and high-frequency themes. Do not expand beyond the scope of what was taught.\n\n${level ? levelPrompts[level] : 'Generate a focused study guide from the provided material.'}`;
     const q = addQuestions ? `\n\nAdd a "Practice Questions" section with ${questionFormat === 'Both' ? 'mixed multiple choice and short answer' : questionFormat.toLowerCase()} questions.${showAnswers ? ' Include answers and explanations.' : ' Do not include answers.'}` : '';
     const c = customInstructions.trim() ? `\n\nAdditional instructions: ${customInstructions.trim()}` : '';
-    return base + c + q + '\n\nFormat with clear markdown headers and structure.';
+    const w = weakSpotsList.length > 0 ? `\n\nPRIORITY FOCUS — These are Matthew's confirmed weak spots from prior study sessions: ${weakSpotsList.map((ws, i) => `${i + 1}. ${ws}`).join('; ')}. Dedicate a clearly labeled section to these topics, providing thorough explanations and examples to close these gaps.` : '';
+    return base + c + w + q + '\n\nFormat with clear markdown headers and structure.';
   };
 
   const handleGenerate = async () => {

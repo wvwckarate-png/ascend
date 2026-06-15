@@ -104,9 +104,11 @@ const light = '#EDE9F7';
 
 function MichaelFlashcardsInner() {
   const searchParams = useSearchParams();
-  const folderId    = searchParams.get('folderId');
-  const folderName  = searchParams.get('folderName');
-  const deckIdParam = searchParams.get('deckId');
+  const folderId      = searchParams.get('folderId');
+  const folderName    = searchParams.get('folderName');
+  const deckIdParam   = searchParams.get('deckId');
+  const weakSpotsRaw  = searchParams.get('weakSpots');
+  const weakSpotsList: string[] = weakSpotsRaw ? (() => { try { return JSON.parse(decodeURIComponent(weakSpotsRaw)); } catch { return []; } })() : [];
 
   const [screen, setScreen] = useState<'decks' | 'generate' | 'study' | 'done' | 'deck-detail'>('decks');
 
@@ -530,9 +532,12 @@ function MichaelFlashcardsInner() {
       const goalCtx = classMeta
         ? `Goal: help ${classMeta.studentName} earn an A on ${classMeta.folderName} in ${classMeta.className}${classMeta.professor ? ` with ${classMeta.professor}` : ''}. Think like this professor — focus on what they actually emphasize and test.`
         : `Goal: help Michael earn an A. Focus only on what was actually taught in these materials.`;
+      const weakSpotsInject = weakSpotsList.length > 0
+        ? ` PRIORITY FOCUS — These are Michael's confirmed weak spots from prior study sessions: ${weakSpotsList.map((w, i) => `${i + 1}. ${w}`).join('; ')}. Generate at least half of the flashcards targeting these specific concepts. Phrase them differently from how they were previously seen to reinforce learning from a new angle.`
+        : '';
       const baseInstruction = totalSelected > 1
-        ? `You are Ascend, an expert flashcard generator. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\nAnalyze these ${allFiles.length} documents and identify the highest-yield concepts. Generate ${countPhrase} focused strictly on these high-yield concepts. Do not go deeper than what the professor's materials cover.${topic.trim() ? ` Additional focus: ${topic.trim()}.` : ''}`
-        : `You are Ascend, an expert flashcard generator. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\nGenerate ${countPhrase}${topic.trim() ? ` focused on: ${topic.trim()}` : ' from the uploaded material'}. Focus only on the most testable concepts from what was actually taught.`;
+        ? `You are Ascend, an expert flashcard generator. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\nAnalyze these ${allFiles.length} documents and identify the highest-yield concepts. Generate ${countPhrase} focused strictly on these high-yield concepts. Do not go deeper than what the professor's materials cover.${topic.trim() ? ` Additional focus: ${topic.trim()}.` : ''}${weakSpotsInject}`
+        : `You are Ascend, an expert flashcard generator. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\nGenerate ${countPhrase}${topic.trim() ? ` focused on: ${topic.trim()}` : ' from the uploaded material'}. Focus only on the most testable concepts from what was actually taught.${weakSpotsInject}`;
       const custom = customInstructions.trim() ? ` Additional instructions: ${customInstructions.trim()}` : '';
       const prompt = baseInstruction + custom + ' Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]';
       let raw = '';

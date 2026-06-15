@@ -501,13 +501,13 @@ export default function BrynneBinder() {
                 </div>
                 <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 12 }}>Let's make some targeted study materials for these! 🌟</div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={() => router.push(`/brynne/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                  <button onClick={() => router.push(`/brynne/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}&weakSpots=${encodeURIComponent(JSON.stringify(weakSpots.map(w => w.text)))}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
                     <IconCards c={color} size={13} />Flashcards
                   </button>
-                  <button onClick={() => router.push(`/brynne/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                  <button onClick={() => router.push(`/brynne/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}&weakSpots=${encodeURIComponent(JSON.stringify(weakSpots.map(w => w.text)))}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
                     <IconExam c={color} size={13} />Practice Test
                   </button>
-                  <button onClick={() => router.push(`/brynne/study?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                  <button onClick={() => router.push(`/brynne/study?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}&weakSpots=${encodeURIComponent(JSON.stringify(weakSpots.map(w => w.text)))}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
                     <IconBrain c={color} size={13} />Study Guide
                   </button>
                 </div>

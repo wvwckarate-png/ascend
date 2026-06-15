@@ -339,6 +339,22 @@ export default function MatthewBinder() {
 
         storageUrl = urlData.publicUrl;
 
+        if (upType === 'audio') {
+          try {
+            const audioForm = new FormData();
+            audioForm.append('file', upFile);
+            const transcribeRes = await fetch('/api/transcribe-audio', { method: 'POST', body: audioForm });
+            const transcribeData = await transcribeRes.json();
+            if (transcribeData.transcript) {
+              const { data } = await supabase.from('resources').insert({ folder_id: folderId, file_name: upName.trim(), file_type: 'audio', storage_url: storageUrl, transcript: transcribeData.transcript }).select().single();
+              if (data) setResources(prev => [data, ...prev]);
+              setUpSaved(true);
+              setTimeout(() => { setShowUpload(false); resetUpload(); }, 900);
+              return;
+            }
+          } catch { /* fall through */ }
+        }
+
         if (upType === 'image') {
           try {
             const imageForm = new FormData();
@@ -524,13 +540,13 @@ export default function MatthewBinder() {
                 </div>
                 <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 12 }}>Generate targeted material focused on these weak areas:</div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={() => router.push(`/matthew/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: '#7B6FA0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                  <button onClick={() => router.push(`/matthew/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}&weakSpots=${encodeURIComponent(JSON.stringify(weakSpots.map(w => w.text)))}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: '#7B6FA0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
                     <IconCards c="#7B6FA0" size={13} />Flashcards
                   </button>
-                  <button onClick={() => router.push(`/matthew/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: '#7B6FA0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                  <button onClick={() => router.push(`/matthew/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}&weakSpots=${encodeURIComponent(JSON.stringify(weakSpots.map(w => w.text)))}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: '#7B6FA0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
                     <IconExam c="#7B6FA0" size={13} />Practice Exam
                   </button>
-                  <button onClick={() => router.push(`/matthew/study?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: '#7B6FA0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                  <button onClick={() => router.push(`/matthew/study?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}&weakSpots=${encodeURIComponent(JSON.stringify(weakSpots.map(w => w.text)))}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: '#7B6FA0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
                     <IconBrain c="#7B6FA0" size={13} />Study Guide
                   </button>
                 </div>
@@ -735,7 +751,7 @@ export default function MatthewBinder() {
               </div>
             )}
 
-            {upType && upType !== 'gdoc' && (
+            {upType && upType !== 'link' && (
               <div style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>File</label>
                 <input ref={fileInputRef} type="file" accept={selectedType?.accept || '*'} onChange={handleFileChange} style={{ display: 'none' }} />
