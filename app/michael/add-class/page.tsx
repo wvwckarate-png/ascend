@@ -34,7 +34,19 @@ function IconFileUpload({ size = 28 }: { size?: number }) {
   );
 }
 
-const SEMESTERS = ['Fall 2025','Spring 2026','Summer 2026','Fall 2026','Spring 2027','Summer 2027'];
+function getRelevantSemesters(): string[] {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const all: string[] = [];
+  for (let y = year - 1; y <= year + 2; y++) {
+    all.push(`Spring ${y}`, `Summer ${y}`, `Fall ${y}`);
+  }
+  const label = month <= 5 ? `Spring ${year}` : month <= 7 ? `Summer ${year}` : `Fall ${year}`;
+  const idx = all.indexOf(label);
+  return all.slice(Math.max(0, idx - 1), idx + 3);
+}
+const SEMESTERS = getRelevantSemesters();
 const CLASS_FORMATS = ['In Person','Online','Hybrid'];
 const CLASS_DAYS = ['Mon/Wed/Fri','Tue/Thu','Mon/Wed','Once a Week','Asynchronous','Other'];
 const color = '#7B6FA0';
