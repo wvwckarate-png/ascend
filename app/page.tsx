@@ -15,9 +15,9 @@ function Mountain() {
 }
 
 const students = [
-  { id: 'matthew', name: 'Matthew', grade: 'Junior · 11th Grade', goal: 'WVU School of Dentistry', avatar: '/eagle.png', flip: false },
-  { id: 'michael', name: 'Michael', grade: 'Incoming 9th Grade', goal: 'WVU School of Medicine', avatar: '/lion.png', flip: true },
-  { id: 'brynne',  name: 'Brynne',  grade: '5th Grade',          goal: 'Future WVU Physician',  avatar: '/dragon.png', flip: false },
+  { id: 'matthew', name: 'Matthew', grade: 'Senior · 12th Grade', goal: 'Future Dentist', avatar: '/eagle.png', flip: false },
+  { id: 'michael', name: 'Michael', grade: 'Freshman · 9th Grade', goal: 'Future Physician', avatar: '/lion.png', flip: true },
+  { id: 'brynne',  name: 'Brynne',  grade: 'Dragon · 6th Grade',          goal: 'Future Physician',  avatar: '/dragon.png', flip: false },
 ];
 
 export default function Home() {
@@ -177,7 +177,7 @@ export default function Home() {
       </div>
 
       <div style={{ fontSize: 10, color: 'var(--light)', marginTop: 40, letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.8 }}>
-        Ascend v2.4.6 · June 2026<br />
+        Ascend v2.4.7 · June 2026<br />
         Founded April 2026 · Forged in Focus
       </div>
     </main>
