@@ -64,6 +64,150 @@ type SavedGuide  = { id: string; title: string; created_at: string; source_filen
 const color = '#E8956D';
 const light = '#FFF3E8';
 
+const PRINT_STYLES = `
+  @media print {
+    @page {
+      margin: 18mm 16mm 18mm 16mm;
+    }
+    body * { visibility: hidden !important; }
+    #ascend-print-zone, #ascend-print-zone * { visibility: visible !important; }
+    #ascend-print-zone {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100% !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    #ascend-print-zone h1 {
+      font-size: 20pt !important;
+      font-weight: 800 !important;
+      color: #000 !important;
+      border-bottom: 2pt solid #000 !important;
+      padding-bottom: 4pt !important;
+      margin-top: 18pt !important;
+      margin-bottom: 8pt !important;
+      page-break-after: avoid !important;
+    }
+    #ascend-print-zone h2 {
+      font-size: 14pt !important;
+      font-weight: 700 !important;
+      color: #000 !important;
+      margin-top: 14pt !important;
+      margin-bottom: 5pt !important;
+      page-break-after: avoid !important;
+    }
+    #ascend-print-zone h3 {
+      font-size: 11pt !important;
+      font-weight: 700 !important;
+      color: #000 !important;
+      margin-top: 10pt !important;
+      margin-bottom: 3pt !important;
+      page-break-after: avoid !important;
+    }
+    #ascend-print-zone p {
+      font-size: 10pt !important;
+      line-height: 1.6 !important;
+      color: #000 !important;
+      margin-bottom: 6pt !important;
+    }
+    #ascend-print-zone strong {
+      font-weight: 700 !important;
+      color: #000 !important;
+    }
+    #ascend-print-zone em {
+      font-style: italic !important;
+    }
+    #ascend-print-zone ul {
+      padding-left: 18pt !important;
+      margin-bottom: 6pt !important;
+      list-style-type: disc !important;
+    }
+    #ascend-print-zone ol {
+      padding-left: 18pt !important;
+      margin-bottom: 6pt !important;
+      list-style-type: decimal !important;
+    }
+    #ascend-print-zone li {
+      font-size: 10pt !important;
+      line-height: 1.55 !important;
+      color: #000 !important;
+      margin-bottom: 2pt !important;
+    }
+    #ascend-print-zone table {
+      width: 100% !important;
+      border-collapse: collapse !important;
+      margin-bottom: 10pt !important;
+      font-size: 9.5pt !important;
+      page-break-inside: avoid !important;
+    }
+    #ascend-print-zone th {
+      background: #e8e8e8 !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      font-weight: 700 !important;
+      border: 1pt solid #999 !important;
+      padding: 4pt 6pt !important;
+      text-align: left !important;
+      color: #000 !important;
+    }
+    #ascend-print-zone td {
+      border: 1pt solid #bbb !important;
+      padding: 4pt 6pt !important;
+      color: #000 !important;
+      vertical-align: top !important;
+    }
+    #ascend-print-zone tr:nth-child(even) td {
+      background: #f4f4f4 !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    #ascend-print-zone blockquote {
+      border-left: 3pt solid #555 !important;
+      margin: 8pt 0 !important;
+      padding: 4pt 0 4pt 10pt !important;
+      background: #f2f2f2 !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      page-break-inside: avoid !important;
+    }
+    #ascend-print-zone blockquote p {
+      font-size: 9.5pt !important;
+      font-style: italic !important;
+      color: #222 !important;
+      margin: 0 !important;
+    }
+    #ascend-print-zone hr {
+      border: none !important;
+      border-top: 1pt solid #ccc !important;
+      margin: 10pt 0 !important;
+    }
+    #ascend-print-zone code {
+      font-family: monospace !important;
+      font-size: 9pt !important;
+      background: #f0f0f0 !important;
+      padding: 1pt 3pt !important;
+      border-radius: 2pt !important;
+    }
+    #ascend-print-header {
+      display: block !important;
+      border-bottom: 1.5pt solid #000 !important;
+      padding-bottom: 6pt !important;
+      margin-bottom: 14pt !important;
+    }
+    #ascend-print-header .guide-title {
+      font-size: 11pt !important;
+      font-weight: 800 !important;
+      color: #000 !important;
+    }
+    #ascend-print-header .guide-meta {
+      font-size: 8.5pt !important;
+      color: #444 !important;
+      margin-top: 2pt !important;
+    }
+  }
+`;
+
 function BrynneStudyInner() {
   const searchParams = useSearchParams();
   const folderId   = searchParams.get('folderId');
@@ -263,7 +407,6 @@ function BrynneStudyInner() {
     try {
       const allResources = library.flatMap(c => c.folders.flatMap(f => f.resources));
       const selectedResources = allResources.filter(r => selectedIds.has(r.id));
-      // Fetch transcripts from selected folders
       const selectedFolderIds = [...new Set(selectedResources.map(r => r.folder_id))];
       let transcripts: { name: string; text: string }[] = [];
       if (selectedFolderIds.length > 0) {
@@ -276,7 +419,6 @@ function BrynneStudyInner() {
           transcripts = transcriptResources.map(r => ({ name: r.file_name, text: r.transcript }));
         }
       }
-
       const fetchedFiles: File[] = [];
       for (const r of selectedResources) {
         if (!r.storage_url) continue;
@@ -314,17 +456,10 @@ function BrynneStudyInner() {
     finally { setSaving(false); }
   };
 
-  const handlePrint    = useReactToPrint({ contentRef: printRef, documentTitle: guideName || 'Ascend Study Guide' });
-  const handleCopy     = async () => { await navigator.clipboard.writeText(studyGuide); setCopied(true); setTimeout(() => setCopied(false), 2000); };
-  const handleShare    = async () => { if (navigator.share) { await navigator.share({ title: guideName || 'Ascend Study Guide', text: studyGuide }); } else handleCopy(); };
-  const handleDownload = async () => {
-    const { jsPDF } = await import('jspdf');
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const lines = doc.splitTextToSize(studyGuide.replace(/[#*`]/g, ''), 170);
-    let y = 20; doc.setFontSize(11);
-    lines.forEach((line: string) => { if (y > 270) { doc.addPage(); y = 20; } doc.text(line, 20, y); y += 6; });
-    doc.save(`${guideName || 'Ascend Study Guide'}.pdf`);
-  };
+  const handlePrint = useReactToPrint({ contentRef: printRef, documentTitle: guideName || 'Ascend Study Guide' });
+  const handlePDF   = () => { window.print(); };
+  const handleCopy  = async () => { await navigator.clipboard.writeText(studyGuide); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  const handleShare = async () => { if (navigator.share) { await navigator.share({ title: guideName || 'Ascend Study Guide', text: studyGuide }); } else handleCopy(); };
 
   const canGenerate   = selectedIds.size > 0 || newFiles.length > 0 || customInstructions.trim().length > 0;
   const totalSelected = selectedIds.size + newFiles.length;
@@ -332,6 +467,8 @@ function BrynneStudyInner() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAF8' }}>
+      <style>{PRINT_STYLES}</style>
+
       <nav style={{ height: 58, display: 'flex', alignItems: 'center', padding: '0 20px', gap: 10, background: 'rgba(250,250,248,0.95)', backdropFilter: 'blur(16px)', borderBottom: '1px solid #E8E5F0', position: 'sticky', top: 0, zIndex: 90 }}>
         <Link href="/brynne" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
           <Mountain />
@@ -607,20 +744,32 @@ function BrynneStudyInner() {
               <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}><IconPrint size={14} /> Print</button>
               <button onClick={handleShare} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}><IconShare size={14} /> Share</button>
               <button onClick={handleCopy} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: `1.5px solid ${copied ? '#5FAD8E' : '#E8E5F0'}`, background: copied ? '#EDF7F2' : '#FAFAF8', color: copied ? '#5FAD8E' : '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}><IconCopy c={copied ? '#5FAD8E' : '#6B6880'} size={14} /> {copied ? 'Copied!' : 'Copy'}</button>
-              <button onClick={handleDownload} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}><IconDownload size={14} /> PDF</button>
+              <button onClick={handlePDF} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}><IconDownload size={14} /> PDF</button>
             </div>
-            <div ref={printRef} style={{ padding: '4px' }}>
-              <ReactMarkdown components={{
-                h1: ({children}) => <h1 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.4rem', fontWeight: 800, color, marginTop: '1.5rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: `2px solid ${light}` }}>{children}</h1>,
-                h2: ({children}) => <h2 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.1rem', fontWeight: 800, color, marginTop: '1.25rem', marginBottom: '0.5rem' }}>{children}</h2>,
-                h3: ({children}) => <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1D1B26', marginTop: '1rem', marginBottom: '0.25rem' }}>{children}</h3>,
-                p:  ({children}) => <p  style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: '0.75rem' }}>{children}</p>,
-                strong: ({children}) => <strong style={{ fontWeight: 700, color: '#1D1B26' }}>{children}</strong>,
-                ul: ({children}) => <ul style={{ paddingLeft: '1.25rem', marginBottom: '0.75rem', listStyleType: 'disc' }}>{children}</ul>,
-                ol: ({children}) => <ol style={{ paddingLeft: '1.25rem', marginBottom: '0.75rem', listStyleType: 'decimal' }}>{children}</ol>,
-                li: ({children}) => <li style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: '0.2rem' }}>{children}</li>,
-                hr: () => <hr style={{ border: 'none', borderTop: '1px solid #E8E5F0', margin: '1.5rem 0' }} />,
-              }}>{studyGuide}</ReactMarkdown>
+
+            <div id="ascend-print-zone">
+              <div id="ascend-print-header" style={{ display: 'none' }}>
+                <div className="guide-title">{guideName || 'Study Guide'} — Brynne Peters</div>
+                <div className="guide-meta">Pre-Med Track · Ascend · studywithascend.com</div>
+              </div>
+              <div ref={printRef} style={{ padding: '4px' }}>
+                <ReactMarkdown components={{
+                  h1: ({children}) => <h1 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.4rem', fontWeight: 800, color, marginTop: '1.5rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: `2px solid ${light}` }}>{children}</h1>,
+                  h2: ({children}) => <h2 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.1rem', fontWeight: 800, color, marginTop: '1.25rem', marginBottom: '0.5rem' }}>{children}</h2>,
+                  h3: ({children}) => <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1D1B26', marginTop: '1rem', marginBottom: '0.25rem' }}>{children}</h3>,
+                  p:  ({children}) => <p  style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: '0.75rem' }}>{children}</p>,
+                  strong: ({children}) => <strong style={{ fontWeight: 700, color: '#1D1B26' }}>{children}</strong>,
+                  ul: ({children}) => <ul style={{ paddingLeft: '1.25rem', marginBottom: '0.75rem', listStyleType: 'disc' }}>{children}</ul>,
+                  ol: ({children}) => <ol style={{ paddingLeft: '1.25rem', marginBottom: '0.75rem', listStyleType: 'decimal' }}>{children}</ol>,
+                  li: ({children}) => <li style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: '0.2rem' }}>{children}</li>,
+                  hr: () => <hr style={{ border: 'none', borderTop: '1px solid #E8E5F0', margin: '1.5rem 0' }} />,
+                  table: ({children}) => <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1rem', fontSize: '0.875rem' }}>{children}</table>,
+                  thead: ({children}) => <thead style={{ background: light }}>{children}</thead>,
+                  th: ({children}) => <th style={{ border: '1px solid #C4C1D4', padding: '6px 10px', fontWeight: 700, color: '#1D1B26', textAlign: 'left', fontSize: '0.825rem' }}>{children}</th>,
+                  td: ({children}) => <td style={{ border: '1px solid #E8E5F0', padding: '6px 10px', color: '#1D1B26', fontSize: '0.825rem', verticalAlign: 'top' }}>{children}</td>,
+                  blockquote: ({children}) => <blockquote style={{ borderLeft: '3px solid #E8956D', margin: '1rem 0', padding: '8px 0 8px 14px', background: '#FFF3E8', borderRadius: '0 8px 8px 0' }}>{children}</blockquote>,
+                }}>{studyGuide}</ReactMarkdown>
+              </div>
             </div>
           </div>
         </main>
