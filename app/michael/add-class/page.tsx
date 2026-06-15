@@ -30,6 +30,8 @@ type ParsedSyllabus = {
   exams: ParsedItem[];
   assignments: ParsedItem[];
   gradingSchema: Record<string, number>;
+  professorEmail: string | null;
+  officeHours: string | null;
   courseDescription: string | null;
 };
 
@@ -81,10 +83,29 @@ export default function MichaelAddClass() {
       if (parsedData && newClass) {
         const examItems = parsedData.exams.filter((_, i) => selectedExams.has(i));
         if (examItems.length > 0) {
-          await supabase.from('exam_folders').insert(
-            examItems.map(e => ({ class_id: newClass.id, name: e.name, exam_date: e.date || null }))
-          );
+          const { data: insertedFolders } = await supabase
+            .from('exam_folders')
+            .insert(examItems.map(e => ({ class_id: newClass.id, name: e.name, exam_date: e.date || null })))
+            .select();
+
+          if (insertedFolders && insertedFolders.length > 0) {
+            const calendarTasks = insertedFolders
+              .filter(f => f.exam_date)
+              .map(f => ({
+                student_id: 'michael',
+                title: `${f.name} — ${className}`,
+                due_date: f.exam_date,
+                task_type: 'exam',
+                completed: false,
+                class_name: className,
+                folder_id: f.id,
+              }));
+            if (calendarTasks.length > 0) {
+              await supabase.from('tasks').insert(calendarTasks);
+            }
+          }
         }
+
         const assignmentItems = parsedData.assignments.filter((_, i) => selectedAssignments.has(i));
         if (assignmentItems.length > 0) {
           await supabase.from('tasks').insert(
@@ -262,7 +283,7 @@ export default function MichaelAddClass() {
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26' }}>{exam.name}</div>
-                        <div style={{ fontSize: 11, color: '#9E9BB0' }}>{formatDate(exam.date)}</div>
+                        <div style={{ fontSize: 11, color: '#9E9BB0' }}>{formatDate(exam.date)}{exam.date ? ' · Added to calendar' : ''}</div>
                       </div>
                       <div style={{ fontSize: 10, fontWeight: 700, color, background: light, padding: '2px 8px', borderRadius: 999, flexShrink: 0 }}>{exam.type}</div>
                     </div>

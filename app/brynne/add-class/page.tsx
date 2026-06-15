@@ -30,6 +30,8 @@ type ParsedSyllabus = {
   exams: ParsedItem[];
   assignments: ParsedItem[];
   gradingSchema: Record<string, number>;
+  professorEmail: string | null;
+  officeHours: string | null;
   courseDescription: string | null;
 };
 
@@ -81,10 +83,29 @@ export default function BrynneAddClass() {
       if (parsedData && newClass) {
         const examItems = parsedData.exams.filter((_, i) => selectedExams.has(i));
         if (examItems.length > 0) {
-          await supabase.from('exam_folders').insert(
-            examItems.map(e => ({ class_id: newClass.id, name: e.name, exam_date: e.date || null }))
-          );
+          const { data: insertedFolders } = await supabase
+            .from('exam_folders')
+            .insert(examItems.map(e => ({ class_id: newClass.id, name: e.name, exam_date: e.date || null })))
+            .select();
+
+          if (insertedFolders && insertedFolders.length > 0) {
+            const calendarTasks = insertedFolders
+              .filter(f => f.exam_date)
+              .map(f => ({
+                student_id: 'brynne',
+                title: `${f.name} — ${className}`,
+                due_date: f.exam_date,
+                task_type: 'exam',
+                completed: false,
+                class_name: className,
+                folder_id: f.id,
+              }));
+            if (calendarTasks.length > 0) {
+              await supabase.from('tasks').insert(calendarTasks);
+            }
+          }
         }
+
         const assignmentItems = parsedData.assignments.filter((_, i) => selectedAssignments.has(i));
         if (assignmentItems.length > 0) {
           await supabase.from('tasks').insert(
@@ -157,15 +178,15 @@ export default function BrynneAddClass() {
       <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
         <div style={{ marginBottom: 28 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Brynne</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Add a Class! 🌟</div>
-          <div style={{ fontSize: 13, color: '#9E9BB0' }}>Upload your syllabus and Ascend will auto-create your folders and tasks! 🌟</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Add a Class</div>
+          <div style={{ fontSize: 13, color: '#9E9BB0' }}>Upload your syllabus and Ascend will auto-create your exam folders and tasks!</div>
         </div>
 
         {!showPreview ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={cardStyle}>
               <label style={labelStyle}>Class Name <span style={{ color }}>*</span></label>
-              <input value={className} onChange={e => setClassName(e.target.value)} placeholder="e.g. Science Class" style={inputStyle} />
+              <input value={className} onChange={e => setClassName(e.target.value)} placeholder="e.g. Algebra 1" style={inputStyle} />
             </div>
             <div style={cardStyle}>
               <label style={labelStyle}>Semester <span style={{ color }}>*</span></label>
@@ -214,7 +235,7 @@ export default function BrynneAddClass() {
               <div onClick={() => document.getElementById('syllabus-brynne')?.click()} style={{ padding: '20px', borderRadius: 12, border: `2px dashed ${file ? color : '#E8E5F0'}`, background: file ? light : '#FAFAF8', textAlign: 'center', cursor: 'pointer' }}>
                 <div style={{ fontSize: 22, marginBottom: 6 }}>{file ? '✅' : '📄'}</div>
                 <div style={{ fontSize: 13, color: file ? color : '#9E9BB0', fontWeight: file ? 700 : 400 }}>{file ? file.name : 'Tap to upload your syllabus PDF'}</div>
-                {file && <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 4 }}>Ascend will auto-create your folders and tasks! 🌟</div>}
+                {file && <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 4 }}>Ascend will auto-create exam folders and tasks!</div>}
                 <input id="syllabus-brynne" type="file" accept=".pdf" style={{ display: 'none' }} onChange={e => { setFile(e.target.files?.[0] || null); setShowPreview(false); setParsed(null); }} />
               </div>
               {file && <button onClick={() => { setFile(null); setShowPreview(false); setParsed(null); }} style={{ marginTop: 8, fontSize: 11, color: '#9E9BB0', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Remove file</button>}
@@ -223,20 +244,20 @@ export default function BrynneAddClass() {
             {parsing ? (
               <div style={{ textAlign: 'center', padding: '20px 0' }}>
                 <div style={{ width: 28, height: 28, border: '2.5px solid #E8E5F0', borderTopColor: color, borderRadius: '50%', margin: '0 auto 10px', animation: 'spin 0.75s linear infinite' }} />
-                <div style={{ fontSize: 13, color: '#9E9BB0' }}>Reading your syllabus... 🌟</div>
+                <div style={{ fontSize: 13, color: '#9E9BB0' }}>Reading your syllabus...</div>
                 <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
               </div>
             ) : (
               <button onClick={handleSubmit} disabled={!className || !semester} style={{ padding: '14px', borderRadius: 14, border: 'none', background: color, color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !className || !semester ? 0.4 : 1 }}>
-                {file ? 'Add Class & Import Syllabus 🌟' : 'Add My Class! ✨'}
+                {file ? 'Add Class & Import Syllabus' : 'Add Class'}
               </button>
             )}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ background: light, border: `1.5px solid ${color}40`, borderRadius: 16, padding: '16px 18px' }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color, marginBottom: 4 }}>Syllabus read! ✅</div>
-              <div style={{ fontSize: 12, color: '#6B6880' }}>Found {parsed?.exams.length || 0} exam folder{parsed?.exams.length !== 1 ? 's' : ''} and {parsed?.assignments.length || 0} task{parsed?.assignments.length !== 1 ? 's' : ''}. Pick what to add!</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color, marginBottom: 4 }}>Syllabus parsed ✓</div>
+              <div style={{ fontSize: 12, color: '#6B6880' }}>Found {parsed?.exams.length || 0} exam folder{parsed?.exams.length !== 1 ? 's' : ''} and {parsed?.assignments.length || 0} task{parsed?.assignments.length !== 1 ? 's' : ''}. Select what to import!</div>
             </div>
 
             {parsed?.courseDescription && (
@@ -262,7 +283,7 @@ export default function BrynneAddClass() {
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26' }}>{exam.name}</div>
-                        <div style={{ fontSize: 11, color: '#9E9BB0' }}>{formatDate(exam.date)}</div>
+                        <div style={{ fontSize: 11, color: '#9E9BB0' }}>{formatDate(exam.date)}{exam.date ? ' · Added to calendar' : ''}</div>
                       </div>
                       <div style={{ fontSize: 10, fontWeight: 700, color, background: light, padding: '2px 8px', borderRadius: 999, flexShrink: 0 }}>{exam.type}</div>
                     </div>
@@ -319,7 +340,7 @@ export default function BrynneAddClass() {
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setShowPreview(false)} style={{ flex: 1, padding: '13px', borderRadius: 14, border: '1.5px solid #E8E5F0', background: '#F3F1EC', color: '#6B6880', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>← Back</button>
               <button onClick={() => saveClass(parsed)} disabled={loading} style={{ flex: 2, padding: '13px', borderRadius: 14, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: loading ? 0.7 : 1 }}>
-                {loading ? 'Saving... ✨' : `Add Class${totalSelected > 0 ? ` + ${totalSelected} Item${totalSelected !== 1 ? 's' : ''} 🌟` : ' ✨'}`}
+                {loading ? 'Saving...' : `Add Class${totalSelected > 0 ? ` + ${totalSelected} Item${totalSelected !== 1 ? 's' : ''}` : ''}`}
               </button>
             </div>
             <button onClick={() => saveClass(null)} style={{ fontSize: 12, color: '#9E9BB0', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', textAlign: 'center' as const, padding: '4px' }}>

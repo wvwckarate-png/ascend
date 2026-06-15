@@ -121,14 +121,23 @@ function IconCloudUpload({ c, size = 28 }: { c: string; size?: number }) {
   );
 }
 
+function IconEdit({ c, size = 14 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <path d="M4 24l4-1 13-13-3-3L5 20l-1 4z" stroke={c} strokeWidth="1.6" strokeLinejoin="round" fill="none"/>
+      <path d="M18 8l3 3" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
 function FileTypeIcon({ type, c, size = 20 }: { type: string; c: string; size?: number }) {
-  if (type === 'pdf')   return <IconFilePDF c={c} size={size} />;
-  if (type === 'pptx')  return <IconSlides  c={c} size={size} />;
-  if (type === 'audio') return <IconMic     c={c} size={size} />;
-  if (type === 'image') return <IconPhoto   c={c} size={size} />;
-  if (type === 'gdoc')  return <IconLink    c={c} size={size} />;
-  if (type === 'link')  return <IconLink    c={c} size={size} />;
-  if (type === 'youtube') return <IconLink  c={c} size={size} />;
+  if (type === 'pdf')     return <IconFilePDF c={c} size={size} />;
+  if (type === 'pptx')   return <IconSlides  c={c} size={size} />;
+  if (type === 'audio')  return <IconMic     c={c} size={size} />;
+  if (type === 'image')  return <IconPhoto   c={c} size={size} />;
+  if (type === 'gdoc')   return <IconLink    c={c} size={size} />;
+  if (type === 'link')   return <IconLink    c={c} size={size} />;
+  if (type === 'youtube') return <IconLink   c={c} size={size} />;
   return <IconFilePDF c={c} size={size} />;
 }
 
@@ -167,11 +176,11 @@ const TABS = [
 ];
 
 const FILE_TYPES = [
-  { key: 'pdf',   label: 'PDF',        accept: '.pdf' },
-  { key: 'pptx',  label: 'Slides',     accept: '.pptx,.ppt' },
-  { key: 'audio', label: 'Audio',      accept: '.mp3,.m4a,.wav,.ogg' },
-  { key: 'image', label: 'Image',      accept: '.png,.jpg,.jpeg,.webp' },
-  { key: 'link',  label: 'Link',       accept: '' },
+  { key: 'pdf',   label: 'PDF',    accept: '.pdf' },
+  { key: 'pptx',  label: 'Slides', accept: '.pptx,.ppt' },
+  { key: 'audio', label: 'Audio',  accept: '.mp3,.m4a,.wav,.ogg' },
+  { key: 'image', label: 'Image',  accept: '.png,.jpg,.jpeg,.webp' },
+  { key: 'link',  label: 'Link',   accept: '' },
 ];
 
 function formatDate(d: string | null) {
@@ -213,6 +222,13 @@ export default function MatthewBinder() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [upError,        setUpError]        = useState('');
   const [upSaved,        setUpSaved]        = useState(false);
+
+  // Date editing state
+  const [editingDate,   setEditingDate]   = useState(false);
+  const [newDate,       setNewDate]       = useState('');
+  const [savingDate,    setSavingDate]    = useState(false);
+  const [dateSaved,     setDateSaved]     = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -226,7 +242,7 @@ export default function MatthewBinder() {
         supabase.from('study_guides').select('id, title, created_at').eq('folder_id', folderId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
       ]);
       if (classData)    setCls(classData);
-      if (folderData)   setFolder(folderData);
+      if (folderData)   { setFolder(folderData); setNewDate(folderData.exam_date || ''); }
       if (resourceData) setResources(resourceData);
       if (deckData)     setFolderDeck(deckData);
       if (examData)     setFolderExam(examData);
@@ -254,6 +270,24 @@ export default function MatthewBinder() {
     };
     load();
   }, [classId, folderId]);
+
+  const handleSaveDate = async () => {
+    if (!folder) return;
+    setSavingDate(true);
+    const dateToSave = newDate || null;
+
+    // Update exam_folders
+    await supabase.from('exam_folders').update({ exam_date: dateToSave }).eq('id', folderId);
+
+    // Update linked calendar task via folder_id
+    await supabase.from('tasks').update({ due_date: dateToSave }).eq('folder_id', folderId).eq('student_id', 'matthew');
+
+    setFolder(prev => prev ? { ...prev, exam_date: dateToSave } : prev);
+    setSavingDate(false);
+    setDateSaved(true);
+    setEditingDate(false);
+    setTimeout(() => setDateSaved(false), 2000);
+  };
 
   const deleteResource = async (id: string) => {
     await supabase.from('resources').delete().eq('id', id);
@@ -305,7 +339,6 @@ export default function MatthewBinder() {
 
         storageUrl = urlData.publicUrl;
 
-        // Claude vision text extraction for images
         if (upType === 'image') {
           try {
             const imageForm = new FormData();
@@ -319,10 +352,9 @@ export default function MatthewBinder() {
               setTimeout(() => { setShowUpload(false); resetUpload(); }, 900);
               return;
             }
-          } catch { /* fall through to normal save */ }
+          } catch { /* fall through */ }
         }
 
-        // Mammoth text extraction for PPTX/slides
         if (upType === 'pptx') {
           try {
             const pptxForm = new FormData();
@@ -336,7 +368,7 @@ export default function MatthewBinder() {
               setTimeout(() => { setShowUpload(false); resetUpload(); }, 900);
               return;
             }
-          } catch { /* fall through to normal save */ }
+          } catch { /* fall through */ }
         }
 
       } else if (upType === 'link' && upLink.trim()) {
@@ -349,12 +381,7 @@ export default function MatthewBinder() {
           });
           const data = await res.json();
           if (data.transcript) {
-            // Store transcript in resources table
-            const { data: saved } = await supabase
-              .from('resources')
-              .insert({ folder_id: folderId, file_name: upName.trim(), file_type: 'youtube', storage_url: upLink.trim(), transcript: data.transcript })
-              .select()
-              .single();
+            const { data: saved } = await supabase.from('resources').insert({ folder_id: folderId, file_name: upName.trim(), file_type: 'youtube', storage_url: upLink.trim(), transcript: data.transcript }).select().single();
             if (saved) setResources(prev => [saved, ...prev]);
             setUpSaved(true);
             setTimeout(() => { setShowUpload(false); resetUpload(); }, 900);
@@ -369,12 +396,7 @@ export default function MatthewBinder() {
         }
       }
 
-      const { data } = await supabase
-        .from('resources')
-        .insert({ folder_id: folderId, file_name: upName.trim(), file_type: upType, storage_url: storageUrl })
-        .select()
-        .single();
-
+      const { data } = await supabase.from('resources').insert({ folder_id: folderId, file_name: upName.trim(), file_type: upType, storage_url: storageUrl }).select().single();
       if (data) setResources(prev => [data, ...prev]);
       setUpSaved(true);
       setTimeout(() => { setShowUpload(false); resetUpload(); }, 900);
@@ -423,11 +445,43 @@ export default function MatthewBinder() {
                     {cls.semester && <div style={{ fontSize: 11, color: '#C4C1D4', marginTop: 3 }}>{cls.semester}</div>}
                   </div>
                 </div>
+
+                {/* Date section with edit */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0, paddingTop: 4 }}>
-                  {folder.exam_date && <div style={{ fontSize: 13, fontWeight: 700, color: '#6B6880' }}>{formatDate(folder.exam_date)}</div>}
-                  {countdown && (
-                    <div style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: countdown === 'Today' ? '#FDF2F2' : isUrgent ? '#FFF3E8' : '#EDE9F7', color: countdown === 'Today' ? '#C47878' : isUrgent ? '#C8965A' : '#7B6FA0' }}>
-                      {countdown}
+                  {editingDate ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                      <input
+                        type="date"
+                        value={newDate}
+                        onChange={e => setNewDate(e.target.value)}
+                        style={{ padding: '5px 10px', border: '1.5px solid #7B6FA0', borderRadius: 8, fontFamily: 'var(--font-jakarta)', fontSize: 12, color: '#1D1B26', background: '#FAFAF8', outline: 'none' }}
+                      />
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={() => { setEditingDate(false); setNewDate(folder.exam_date || ''); }} style={{ fontSize: 11, fontWeight: 700, color: '#9E9BB0', background: '#F3F1EC', border: 'none', borderRadius: 7, padding: '4px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Cancel</button>
+                        <button onClick={handleSaveDate} disabled={savingDate} style={{ fontSize: 11, fontWeight: 700, color: 'white', background: '#7B6FA0', border: 'none', borderRadius: 7, padding: '4px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: savingDate ? 0.6 : 1 }}>
+                          {savingDate ? 'Saving...' : 'Save'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {folder.exam_date
+                          ? <div style={{ fontSize: 13, fontWeight: 700, color: '#6B6880' }}>{formatDate(folder.exam_date)}</div>
+                          : <div style={{ fontSize: 12, color: '#C4C1D4' }}>No date set</div>
+                        }
+                        <button onClick={() => setEditingDate(true)} style={{ background: '#F3F1EC', border: 'none', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <IconEdit c="#9E9BB0" size={12} />
+                        </button>
+                      </div>
+                      {countdown && (
+                        <div style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: countdown === 'Today' ? '#FDF2F2' : isUrgent ? '#FFF3E8' : '#EDE9F7', color: countdown === 'Today' ? '#C47878' : isUrgent ? '#C8965A' : '#7B6FA0' }}>
+                          {countdown}
+                        </div>
+                      )}
+                      {dateSaved && (
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#5FAD8E' }}>✓ Date updated</div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -470,26 +524,14 @@ export default function MatthewBinder() {
                 </div>
                 <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 12 }}>Generate targeted material focused on these weak areas:</div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    onClick={() => router.push(`/matthew/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}`)}
-                    style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: '#7B6FA0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
-                  >
-                    <IconCards c="#7B6FA0" size={13} />
-                    Flashcards
+                  <button onClick={() => router.push(`/matthew/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: '#7B6FA0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                    <IconCards c="#7B6FA0" size={13} />Flashcards
                   </button>
-                  <button
-                    onClick={() => router.push(`/matthew/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}`)}
-                    style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: '#7B6FA0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
-                  >
-                    <IconExam c="#7B6FA0" size={13} />
-                    Practice Exam
+                  <button onClick={() => router.push(`/matthew/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: '#7B6FA0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                    <IconExam c="#7B6FA0" size={13} />Practice Exam
                   </button>
-                  <button
-                    onClick={() => router.push(`/matthew/study?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}`)}
-                    style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: '#7B6FA0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
-                  >
-                    <IconBrain c="#7B6FA0" size={13} />
-                    Study Guide
+                  <button onClick={() => router.push(`/matthew/study?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: '#7B6FA0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                    <IconBrain c="#7B6FA0" size={13} />Study Guide
                   </button>
                 </div>
               </div>
@@ -659,23 +701,15 @@ export default function MatthewBinder() {
 
       {/* Upload Modal */}
       {showUpload && (
-        <div
-          onClick={e => { if (e.target === e.currentTarget) { setShowUpload(false); resetUpload(); }}}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
-        >
+        <div onClick={e => { if (e.target === e.currentTarget) { setShowUpload(false); resetUpload(); }}} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '24px 20px 32px', width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(29,27,38,0.18)', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 20px' }} />
             <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>Add Resource</div>
             <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>What type of resource is this?</div>
 
-            {/* File type selector */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 20 }}>
               {FILE_TYPES.map(ft => (
-                <div
-                  key={ft.key}
-                  onClick={() => { setUpType(ft.key); setUpFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
-                  style={{ padding: '12px 6px', borderRadius: 12, border: `1.5px solid ${upType === ft.key ? '#7B6FA0' : '#E8E5F0'}`, background: upType === ft.key ? '#EDE9F7' : '#FAFAF8', cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s' }}
-                >
+                <div key={ft.key} onClick={() => { setUpType(ft.key); setUpFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} style={{ padding: '12px 6px', borderRadius: 12, border: `1.5px solid ${upType === ft.key ? '#7B6FA0' : '#E8E5F0'}`, background: upType === ft.key ? '#EDE9F7' : '#FAFAF8', cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s' }}>
                   <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 5 }}>
                     <FileTypeIcon type={ft.key} c={upType === ft.key ? '#7B6FA0' : '#C4C1D4'} size={22} />
                   </div>
@@ -684,28 +718,15 @@ export default function MatthewBinder() {
               ))}
             </div>
 
-            {/* Name */}
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Name</label>
-              <input
-                autoFocus
-                value={upName}
-                onChange={e => setUpName(e.target.value)}
-                placeholder='e.g. "Lecture 8 - Krebs Cycle"'
-                style={{ width: '100%', padding: '12px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }}
-              />
+              <input autoFocus value={upName} onChange={e => setUpName(e.target.value)} placeholder='e.g. "Lecture 8 - Krebs Cycle"' style={{ width: '100%', padding: '12px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
             </div>
 
-            {/* Google Doc link */}
             {upType === 'link' && (
               <div style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Link <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(YouTube, Google Doc, article, lecture recording)</span></label>
-                <input
-                  value={upLink}
-                  onChange={e => setUpLink(e.target.value)}
-                  placeholder="https://..."
-                  style={{ width: '100%', padding: '12px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }}
-                />
+                <input value={upLink} onChange={e => setUpLink(e.target.value)} placeholder="https://..." style={{ width: '100%', padding: '12px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
                 {upLink && upLink.includes('youtube.com') || upLink.includes('youtu.be') ? (
                   <div style={{ marginTop: 8, fontSize: 11, fontWeight: 600, color: '#7B6FA0', background: '#EDE9F7', padding: '6px 10px', borderRadius: 8 }}>
                     YouTube detected — Ascend will fetch the transcript automatically
@@ -714,17 +735,10 @@ export default function MatthewBinder() {
               </div>
             )}
 
-            {/* File picker */}
             {upType && upType !== 'gdoc' && (
               <div style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>File</label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept={selectedType?.accept || '*'}
-                  onChange={handleFileChange}
-                  style={{ display: 'none' }}
-                />
+                <input ref={fileInputRef} type="file" accept={selectedType?.accept || '*'} onChange={handleFileChange} style={{ display: 'none' }} />
                 {upFile ? (
                   <div style={{ padding: '14px 16px', borderRadius: 12, border: '1.5px solid #7B6FA0', background: '#EDE9F7', display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -737,12 +751,7 @@ export default function MatthewBinder() {
                     <button onClick={() => { setUpFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} style={{ fontSize: 13, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>✕</button>
                   </div>
                 ) : (
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    style={{ border: '2px dashed #E8E5F0', borderRadius: 12, padding: '28px 20px', textAlign: 'center', cursor: 'pointer', background: '#FAFAF8' }}
-                    onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.borderColor = '#7B6FA0'}
-                    onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.borderColor = '#E8E5F0'}
-                  >
+                  <div onClick={() => fileInputRef.current?.click()} style={{ border: '2px dashed #E8E5F0', borderRadius: 12, padding: '28px 20px', textAlign: 'center', cursor: 'pointer', background: '#FAFAF8' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.borderColor = '#7B6FA0'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.borderColor = '#E8E5F0'}>
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
                       <IconCloudUpload c="#C4C1D4" size={40} />
                     </div>
@@ -753,7 +762,6 @@ export default function MatthewBinder() {
               </div>
             )}
 
-            {/* Progress bar */}
             {uploading && uploadProgress > 0 && uploadProgress < 100 && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -766,7 +774,6 @@ export default function MatthewBinder() {
               </div>
             )}
 
-            {/* Error */}
             {upError && (
               <div style={{ background: '#FDF2F2', border: '1.5px solid rgba(196,120,120,0.25)', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#C47878', fontWeight: 600, marginBottom: 14 }}>
                 {upError}
@@ -774,18 +781,8 @@ export default function MatthewBinder() {
             )}
 
             <div style={{ display: 'flex', gap: 10 }}>
-              <button
-                onClick={() => { setShowUpload(false); resetUpload(); }}
-                disabled={uploading}
-                style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddResource}
-                disabled={!upName.trim() || !upType || uploading || upSaved || (upType === 'link' ? !upLink.trim() : false)}
-                style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: upSaved ? '#5FAD8E' : !upName.trim() || !upType ? '#F3F1EC' : 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: !upName.trim() || !upType ? '#C4C1D4' : 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: uploading ? 0.7 : 1 }}
-              >
+              <button onClick={() => { setShowUpload(false); resetUpload(); }} disabled={uploading} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={handleAddResource} disabled={!upName.trim() || !upType || uploading || upSaved || (upType === 'link' ? !upLink.trim() : false)} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: upSaved ? '#5FAD8E' : !upName.trim() || !upType ? '#F3F1EC' : 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: !upName.trim() || !upType ? '#C4C1D4' : 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: uploading ? 0.7 : 1 }}>
                 {upSaved ? 'Saved!' : uploading ? 'Uploading...' : upFile ? 'Upload & Save' : 'Save Resource'}
               </button>
             </div>
