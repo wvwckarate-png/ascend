@@ -33,6 +33,10 @@ function IconTimer({ c, size = 16 }: { c: string; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 28 28" fill="none"><circle cx="14" cy="16" r="10" stroke={c} strokeWidth="1.6" fill="none"/><path d="M14 10v6l4 3" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><line x1="11" y1="3" x2="17" y2="3" stroke={c} strokeWidth="1.6" strokeLinecap="round"/><line x1="14" y1="3" x2="14" y2="6" stroke={c} strokeWidth="1.6" strokeLinecap="round"/></svg>;
 }
 
+function IconSave({ c, size = 16 }: { c: string; size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 28 28" fill="none"><path d="M5 4h13l5 5v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke={c} strokeWidth="1.6" strokeLinejoin="round" fill="none"/><path d="M9 4v6h10V4" stroke={c} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/><rect x="8" y="16" width="12" height="8" rx="1" stroke={c} strokeWidth="1.4" fill="none"/></svg>;
+}
+
 type MCQuestion   = { type: 'mc'; question: string; options: { A: string; B: string; C: string; D: string }; answer: string; explanation: string; };
 type TFQuestion   = { type: 'tf'; question: string; answer: string; explanation: string; };
 type SAQuestion   = { type: 'sa'; question: string; model_answer: string; };
@@ -120,6 +124,15 @@ function MatthewPracticeExamInner() {
     }
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [timerRunning, timeLeft]);
+
+  // Auto-save every 30 seconds while on exam screen
+  useEffect(() => {
+    if (screen !== 'exam' || !examId) return;
+    const interval = setInterval(async () => {
+      await supabase.from('practice_exams').update({ responses: Object.fromEntries(Object.entries(responses)) }).eq('id', examId);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [screen, examId, responses]);
 
   const fetchClassMeta = async (fId: string) => {
     const [{ data: folder }, { data: student }] = await Promise.all([
@@ -591,6 +604,14 @@ function MatthewPracticeExamInner() {
       {/* ── EXAM SCREEN ── */}
       {screen === 'exam' && questions.length > 0 && (
         <main style={{ maxWidth: 680, margin: '0 auto', padding: '20px 20px 120px' }}>
+          {/* Resume banner */}
+          {Object.keys(responses).length > 0 && (
+            <div style={{ background: '#EDE9F7', border: '1.5px solid #7B6FA040', borderRadius: 12, padding: '10px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#7B6FA0' }}>Resuming — {Object.keys(responses).length} of {questions.length} answered</div>
+              <div style={{ fontSize: 11, color: '#9E9BB0' }}>Progress saved</div>
+            </div>
+          )}
+
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
             <div>
@@ -675,7 +696,8 @@ function MatthewPracticeExamInner() {
           {/* Floating save button */}
           <div style={{ position: 'fixed', bottom: 80, right: 20, zIndex: 150 }}>
             <button onClick={saveProgress} disabled={saving} style={{ padding: '10px 16px', borderRadius: 999, background: saveFlash ? '#5FAD8E' : 'linear-gradient(135deg, #7B6FA0, #5A5078)', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', boxShadow: '0 4px 16px rgba(29,27,38,0.2)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              {saveFlash ? '✅ Saved' : saving ? 'Saving...' : '💾 Save Progress'}
+              <IconSave c="white" size={14} />
+              {saveFlash ? 'Saved' : saving ? 'Saving...' : 'Save Progress'}
             </button>
           </div>
         </main>
