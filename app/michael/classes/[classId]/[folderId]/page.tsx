@@ -170,9 +170,9 @@ type WeakSpot = { text: string; source: 'flashcard' | 'exam'; };
 
 const TABS = [
   { key: 'resources', label: 'Resources' },
+  { key: 'guide',     label: 'Study Guide' },
   { key: 'cards',     label: 'Flashcards' },
   { key: 'exam',      label: 'Practice Exam' },
-  { key: 'guide',     label: 'Study Guide' },
 ];
 
 const FILE_TYPES = [
