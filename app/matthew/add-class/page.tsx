@@ -15,6 +15,25 @@ function Mountain() {
   );
 }
 
+function IconCheckCircle({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <circle cx="14" cy="14" r="11" stroke="#7B6FA0" strokeWidth="1.6" fill="#EDE9F7"/>
+      <path d="M9 14l3.5 3.5 6.5-6.5" stroke="#7B6FA0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+function IconFileUpload({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <path d="M6 4h10l6 6v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="#C4C1D4" strokeWidth="1.6" strokeLinejoin="round" fill="none"/>
+      <path d="M16 4v6h6" stroke="#C4C1D4" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M14 13v7" stroke="#C4C1D4" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M11 16l3-3 3 3" stroke="#C4C1D4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
 const SEMESTERS = ['Fall 2025','Spring 2026','Summer 2026','Fall 2026','Spring 2027','Summer 2027'];
 const CLASS_FORMATS = ['In Person','Online','Hybrid'];
 const CLASS_DAYS = ['Mon/Wed/Fri','Tue/Thu','Mon/Wed','Once a Week','Asynchronous','Other'];
@@ -236,7 +255,7 @@ export default function MatthewAddClass() {
             <div style={cardStyle}>
               <label style={labelStyle}>Syllabus <span style={{ color: '#9E9BB0', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
               <div onClick={() => document.getElementById('syllabus-matthew')?.click()} style={{ padding: '20px', borderRadius: 12, border: `2px dashed ${file ? color : '#E8E5F0'}`, background: file ? light : '#FAFAF8', textAlign: 'center', cursor: 'pointer' }}>
-                <div style={{ fontSize: 22, marginBottom: 6 }}>{file ? '✅' : '📄'}</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}>{file ? <IconCheckCircle size={28} /> : <IconFileUpload size={28} />}</div>
                 <div style={{ fontSize: 13, color: file ? color : '#9E9BB0', fontWeight: file ? 700 : 400 }}>{file ? file.name : 'Tap to upload your syllabus PDF'}</div>
                 {file && <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 4 }}>Ascend will auto-create exam folders and tasks</div>}
                 <input id="syllabus-matthew" type="file" accept=".pdf" style={{ display: 'none' }} onChange={e => { setFile(e.target.files?.[0] || null); setShowPreview(false); setParsed(null); }} />
