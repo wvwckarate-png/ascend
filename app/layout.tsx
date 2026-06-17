@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import RDKitLoader from './components/RDKitLoader';
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
@@ -16,7 +17,6 @@ export const metadata: Metadata = {
     apple: '/apple-touch-icon.png',
   },
   manifest: '/manifest.json',
-  themeColor: '#7B6FA0',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -31,7 +31,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <script
+          src="https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js"
+        />
+      </head>
       <body className={jakarta.variable}>
+        <RDKitLoader />
         {children}
       </body>
     </html>
