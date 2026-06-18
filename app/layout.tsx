@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from 'next/script';
 import RDKitLoader from './components/RDKitLoader';
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
@@ -31,12 +32,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
-        <script
-          src="https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js"
-        />
-      </head>
+      
       <body className={jakarta.variable}>
+        <Script
+          src="https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js"
+          strategy="afterInteractive"
+        />
         <RDKitLoader />
         {children}
       </body>

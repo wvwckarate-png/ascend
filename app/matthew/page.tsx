@@ -158,7 +158,10 @@ export default function MatthewDashboard() {
   const [showDone,   setShowDone]   = useState(false);
   const [showUpload,   setShowUpload]   = useState(false);
   const [selectedDay,  setSelectedDay]  = useState<string | null>(null);
-  const [quoteIndex] = useState(() => Math.floor(Math.random() * QUOTES.length));
+  const [quoteIndex, setQuoteIndex] = useState(0);
+  useEffect(() => {
+    setQuoteIndex(Math.floor(Math.random() * QUOTES.length));
+  }, []);
 
 useEffect(() => {
     const load = async () => {      const { data: studentData } = await supabase.from('students').select('name, grade, focus').eq('id', 'matthew').single();
