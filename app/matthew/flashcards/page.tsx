@@ -155,6 +155,7 @@ function MatthewFlashcardsInner() {
   const [autoCount,          setAutoCount]          = useState(false);
   const [mode,               setMode]               = useState<'basic' | 'smart'>('smart');
   const [customInstructions, setCustomInstructions] = useState('');
+  const [chemMode,           setChemMode]           = useState(false);
 
   const [loading,     setLoading]     = useState(false);
   const [saving,      setSaving]      = useState(false);
@@ -544,6 +545,9 @@ function MatthewFlashcardsInner() {
       const goalCtx = classMeta
         ? `Goal: help Matthew earn an A on ${classMeta.folderName} in ${classMeta.className}${classMeta.professor ? ` with ${classMeta.professor}` : ''}. Think like this professor — focus on what they actually emphasize and test.`
         : `Goal: help Matthew earn an A. Focus only on what was actually taught in these materials.`;
+      const chemInject = chemMode
+        ? ' CHEMISTRY MODE — When referencing molecules, compounds, or chemical structures, include their SMILES string formatted exactly as [SMILES: xxx] inline in your response so they can be rendered as structural diagrams. Use standard SMILES notation.'
+        : '';
       const weakSpotsInject = weakSpotsList.length > 0
         ? ` PRIORITY FOCUS — These are Matthew's confirmed weak spots from prior study sessions: ${weakSpotsList.map((w, i) => `${i + 1}. ${w}`).join('; ')}. Generate at least half of the flashcards targeting these specific concepts. Phrase them differently from how they were previously seen to reinforce learning from a new angle.`
         : '';
@@ -551,7 +555,7 @@ function MatthewFlashcardsInner() {
         ? `You are Ascend, an expert flashcard generator. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\nAnalyze these ${allFiles.length} documents and identify the highest-yield concepts — topics that appear repeatedly, are emphasized, or are most likely to be tested. Generate ${countPhrase} focused strictly on these high-yield concepts. Do not go deeper than what the professor's materials cover.${topic.trim() ? ` Additional focus: ${topic.trim()}.` : ''}${weakSpotsInject}`
         : `You are Ascend, an expert flashcard generator. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\nGenerate ${countPhrase}${topic.trim() ? ` focused on: ${topic.trim()}` : ' from the uploaded material'}. Focus only on the most testable concepts from what was actually taught. Do not expand beyond the scope of the provided material.${weakSpotsInject}`;
       const custom = customInstructions.trim() ? ` Additional instructions: ${customInstructions.trim()}` : '';
-      const prompt = baseInstruction + custom + ' Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]';
+      const prompt = baseInstruction + custom + chemInject + ' Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]';
       let raw = '';
       if (allFiles.length > 0 || transcripts.length > 0) {
         const formData = new FormData();
@@ -971,6 +975,18 @@ function MatthewFlashcardsInner() {
               ))}
             </div>
             {autoCount && <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 8 }}>Ascend will decide the ideal number based on your material.</div>}
+          </div>
+
+          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '16px 20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+            <div onClick={() => setChemMode(m => !m)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 2 }}>Chemistry Mode</div>
+                <div style={{ fontSize: 11, color: '#9E9BB0' }}>Include molecular structure diagrams in cards</div>
+              </div>
+              <div style={{ width: 40, height: 22, borderRadius: 999, background: chemMode ? color : '#E8E5F0', transition: 'background 0.2s', position: 'relative', flexShrink: 0 }}>
+                <div style={{ position: 'absolute', top: 3, left: chemMode ? 20 : 3, width: 16, height: 16, borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />
+              </div>
+            </div>
           </div>
 
           {error && <p style={{ fontSize: 13, color: '#C47878', marginBottom: 12 }}>{error}</p>}
