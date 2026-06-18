@@ -70,6 +70,7 @@ function MatthewPracticeExamInner() {
   const [count,              setCount]              = useState(20);
   const [customCount,        setCustomCount]        = useState('');
   const [customInstructions, setCustomInstructions] = useState('');
+  const [chemMode,           setChemMode]           = useState(false);
   const [timerEnabled,       setTimerEnabled]       = useState(false);
   const [timerMinutes,       setTimerMinutes]       = useState(30);
   const [examNameInput,      setExamNameInput]      = useState('');
@@ -244,7 +245,8 @@ function MatthewPracticeExamInner() {
     const weakSpotsInject = weakSpotsList.length > 0
       ? ` PRIORITY FOCUS — These are Matthew's confirmed weak spots from prior study sessions: ${weakSpotsList.map((w, i) => `${i + 1}. ${w}`).join('; ')}. Weight at least half of the questions toward these specific concepts, approaching them from fresh angles to test genuine understanding.`
       : '';
-    return `You are Ascend generating a practice exam. ${studentCtx} ${classCtx}\n\n${goalCtx}${topic.trim() ? ` Topic focus: ${topic.trim()}.` : ''} ${crossDoc}Generate ${countStr} questions of these types: ${typeDescriptions}. ${typeList.length > 1 ? 'Distribute evenly across all types.' : ''} Make questions realistic to what this professor would actually test.${weakSpotsInject}${custom}\n\nReturn ONLY a JSON array, no markdown, no backticks. Use these exact formats:\n${formats}`;
+    const chemInject = chemMode ? ' CHEMISTRY MODE — When referencing molecules, compounds, or chemical structures, include their SMILES string formatted exactly as [SMILES: xxx] inline so they can be rendered as structural diagrams. Use standard SMILES notation.' : '';
+    return `You are Ascend generating a practice exam. ${studentCtx} ${classCtx}\n\n${goalCtx}${topic.trim() ? ` Topic focus: ${topic.trim()}.` : ''} ${crossDoc}Generate ${countStr} questions of these types: ${typeDescriptions}. ${typeList.length > 1 ? 'Distribute evenly across all types.' : ''} Make questions realistic to what this professor would actually test.${weakSpotsInject}${chemInject}${custom}\n\nReturn ONLY a JSON array, no markdown, no backticks. Use these exact formats:\n${formats}`;
   };
 
   const generate = async () => {
@@ -587,6 +589,18 @@ function MatthewPracticeExamInner() {
             </div>
             <div onClick={() => setTimerEnabled(t => !t)} style={{ width: 36, height: 20, borderRadius: 999, background: timerEnabled ? color : '#E8E5F0', transition: 'background 0.2s', position: 'relative', cursor: 'pointer', flexShrink: 0 }}>
               <div style={{ position: 'absolute', top: 2, left: timerEnabled ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />
+            </div>
+          </div>
+
+          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '16px 20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+            <div onClick={() => setChemMode(m => !m)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Chemistry Mode</div>
+                <div style={{ fontSize: 11, color: '#9E9BB0' }}>Include molecular structure diagrams in questions</div>
+              </div>
+              <div style={{ width: 40, height: 22, borderRadius: 999, background: chemMode ? color : '#E8E5F0', transition: 'background 0.2s', position: 'relative', flexShrink: 0 }}>
+                <div style={{ position: 'absolute', top: 3, left: chemMode ? 20 : 3, width: 16, height: 16, borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />
+              </div>
             </div>
           </div>
 

@@ -232,6 +232,7 @@ function BrynneStudyInner() {
 
   const [level,              setLevel]              = useState('detailed');
   const [customInstructions, setCustomInstructions] = useState('');
+  const [chemMode,           setChemMode]           = useState(false);
   const [addQuestions,       setAddQuestions]       = useState(false);
   const [questionFormat,     setQuestionFormat]     = useState('Multiple Choice');
   const [showAnswers,        setShowAnswers]        = useState(true);
@@ -400,7 +401,8 @@ function BrynneStudyInner() {
     const q = addQuestions ? `\n\nAdd a "Practice Questions" section with ${questionFormat === 'Both' ? 'mixed multiple choice and short answer' : questionFormat.toLowerCase()} questions.${showAnswers ? ' Include answers and explanations.' : ' Do not include answers.'}` : '';
     const c = customInstructions.trim() ? `\n\nAdditional instructions: ${customInstructions.trim()}` : '';
     const w = weakSpotsList.length > 0 ? `\n\nPRIORITY FOCUS — These are Brynne's confirmed weak spots from prior study sessions: ${weakSpotsList.map((ws, i) => `${i + 1}. ${ws}`).join('; ')}. Dedicate a clearly labeled section to these topics with thorough, friendly explanations and examples to help them really click! 🌟` : '';
-    return base + c + w + q + '\n\nFormat with clear markdown headers and structure.';
+    const chem = chemMode ? '\n\nCHEMISTRY MODE — When referencing molecules, compounds, or chemical structures, include their SMILES string formatted exactly as [SMILES: xxx] inline so they can be rendered as structural diagrams. Use standard SMILES notation.' : '';
+    return base + c + w + chem + q + '\n\nFormat with clear markdown headers and structure.';
   };
 
   const handleGenerate = async () => {
@@ -691,6 +693,18 @@ function BrynneStudyInner() {
                   </div>
                 </div>
               )}
+            </div>
+
+            <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '16px 20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+              <div onClick={() => setChemMode(m => !m)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Chemistry Mode</div>
+                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>Include molecular structure diagrams in the guide</div>
+                </div>
+                <div style={{ width: 40, height: 22, borderRadius: 999, background: chemMode ? color : '#E8E5F0', transition: 'background 0.2s', position: 'relative', flexShrink: 0 }}>
+                  <div style={{ position: 'absolute', top: 3, left: chemMode ? 20 : 3, width: 16, height: 16, borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />
+                </div>
+              </div>
             </div>
 
             {error && <p style={{ fontSize: 13, color: '#C47878' }}>{error}</p>}
