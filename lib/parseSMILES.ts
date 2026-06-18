@@ -1,10 +1,6 @@
-import React from 'react';
-
 // Matches [SMILES: CCO] or [SMILES:CCO] patterns
-const SMILES_REGEX = /\[SMILES:\s*([^\]]+)\]/g;
-
 export function containsSMILES(text: string): boolean {
-  return SMILES_REGEX.test(text);
+  return /\[SMILES:\s*([^\]]+)\]/.test(text);
 }
 
 // Returns an array of text segments and SMILES strings
@@ -33,29 +29,4 @@ export function parseSMILES(text: string): Segment[] {
   }
 
   return segments;
-}
-
-// Renders text that may contain SMILES tags, with MoleculeStructure components inline
-// Import MoleculeStructure lazily to avoid SSR issues
-export function renderWithSMILES(text: string, size: 'small' | 'medium' | 'large' = 'medium'): React.ReactNode[] {
-  const segments = parseSMILES(text);
-  const dimensions = {
-    small:  { width: 120, height: 90  },
-    medium: { width: 200, height: 150 },
-    large:  { width: 280, height: 210 },
-  };
-  const { width, height } = dimensions[size];
-
-  return segments.map((seg, i) => {
-    if (seg.type === 'smiles') {
-      // Dynamic import to avoid SSR — component handles its own loading state
-      const MoleculeStructure = require('./MoleculeStructure').default;
-      return React.createElement(
-        'span',
-        { key: i, style: { display: 'inline-block', verticalAlign: 'middle', margin: '4px 6px' } },
-        React.createElement(MoleculeStructure, { smiles: seg.value, width, height })
-      );
-    }
-    return React.createElement('span', { key: i }, seg.value);
-  });
 }

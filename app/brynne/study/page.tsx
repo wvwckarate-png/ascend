@@ -6,6 +6,8 @@ import ReactMarkdown from 'react-markdown';
 import { useReactToPrint } from 'react-to-print';
 import { supabase } from '../../../lib/supabase';
 import TabBar from '../../components/TabBar';
+import { MoleculeStructure } from '../../components/MoleculeStructure';
+import { parseSMILES } from '../../../lib/parseSMILES';
 
 function Mountain() {
   return (
@@ -774,7 +776,17 @@ function BrynneStudyInner() {
                   h1: ({children}) => <h1 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.4rem', fontWeight: 800, color, marginTop: '1.5rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: `2px solid ${light}` }}>{children}</h1>,
                   h2: ({children}) => <h2 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.1rem', fontWeight: 800, color, marginTop: '1.25rem', marginBottom: '0.5rem' }}>{children}</h2>,
                   h3: ({children}) => <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1D1B26', marginTop: '1rem', marginBottom: '0.25rem' }}>{children}</h3>,
-                  p:  ({children}) => <p  style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: '0.75rem' }}>{children}</p>,
+                  p: ({children}) => (
+                    <p style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: '0.75rem' }}>
+                      {typeof children === 'string'
+                        ? parseSMILES(children).map((seg, i) =>
+                            seg.type === 'smiles'
+                              ? <MoleculeStructure key={i} smiles={seg.value} width={180} height={120} />
+                              : <span key={i}>{seg.value}</span>
+                          )
+                        : children}
+                    </p>
+                  ),
                   strong: ({children}) => <strong style={{ fontWeight: 700, color: '#1D1B26' }}>{children}</strong>,
                   ul: ({children}) => <ul style={{ paddingLeft: '1.25rem', marginBottom: '0.75rem', listStyleType: 'disc' }}>{children}</ul>,
                   ol: ({children}) => <ol style={{ paddingLeft: '1.25rem', marginBottom: '0.75rem', listStyleType: 'decimal' }}>{children}</ol>,

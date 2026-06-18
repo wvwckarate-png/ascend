@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import TabBar from '../../components/TabBar';
 import { supabase } from '../../../lib/supabase';
+import { MoleculeStructure } from '../../components/MoleculeStructure';
+import { parseSMILES } from '../../../lib/parseSMILES';
 
 function Mountain() {
   return (
@@ -1088,7 +1090,15 @@ function MatthewFlashcardsInner() {
                     </div>
                   </div>
                 )}
-                {curCard.front && <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.5, color: '#1D1B26' }}>{curCard.front}</div>}
+                {curCard.front && (
+                  <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.5, color: '#1D1B26' }}>
+                    {parseSMILES(curCard.front).map((seg, i) =>
+                      seg.type === 'smiles'
+                        ? <MoleculeStructure key={i} smiles={seg.value} width={180} height={120} />
+                        : <span key={i}>{seg.value}</span>
+                    )}
+                  </div>
+                )}
                 <div style={{ marginTop: 20, fontSize: 11, color: '#C4C1D4' }}>tap · left/right arrow to flip</div>
               </div>
               <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', minHeight: '100%', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', borderRadius: 20, padding: '36px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: light, border: `1.5px solid rgba(123,111,160,0.2)`, transform: 'rotateY(180deg)' }}>
@@ -1101,7 +1111,15 @@ function MatthewFlashcardsInner() {
                     </div>
                   </div>
                 )}
-                {curCard.back && <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.5, color: '#5A5078' }}>{curCard.back}</div>}
+                {curCard.back && (
+                  <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.5, color: '#5A5078' }}>
+                    {parseSMILES(curCard.back).map((seg, i) =>
+                      seg.type === 'smiles'
+                        ? <MoleculeStructure key={i} smiles={seg.value} width={180} height={120} />
+                        : <span key={i}>{seg.value}</span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
