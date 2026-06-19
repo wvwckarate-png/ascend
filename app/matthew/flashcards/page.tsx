@@ -5,7 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import TabBar from '../../components/TabBar';
 import { supabase } from '../../../lib/supabase';
 import { MoleculeStructure } from '../../components/MoleculeStructure';
-import { parseSMILES } from '../../../lib/parseSMILES';
+import { KaTeXRenderer } from '../../components/KaTeXRenderer';
+import { parseContent } from '../../../lib/parseContent';
 
 function Mountain() {
   return (
@@ -548,7 +549,7 @@ function MatthewFlashcardsInner() {
         ? `Goal: help Matthew earn an A on ${classMeta.folderName} in ${classMeta.className}${classMeta.professor ? ` with ${classMeta.professor}` : ''}. Think like this professor — focus on what they actually emphasize and test.`
         : `Goal: help Matthew earn an A. Focus only on what was actually taught in these materials.`;
       const chemInject = chemMode
-        ? ' CHEMISTRY MODE — When referencing molecules, compounds, or chemical structures, include their SMILES string formatted exactly as [SMILES: xxx] inline in your response so they can be rendered as structural diagrams. Use standard SMILES notation.'
+        ? ' CHEMISTRY MODE — For common, stable molecules only (not reaction intermediates or charged species), include their SMILES string formatted exactly as [SMILES: xxx | Molecule Name] at the END of the answer text, after the explanation. Always include the molecule name after the pipe character. Only use SMILES for simple recognizable molecules like reactants and products. Use standard neutral SMILES notation only. Keep card text concise — one clear concept per card.'
         : '';
       const weakSpotsInject = weakSpotsList.length > 0
         ? ` PRIORITY FOCUS — These are Matthew's confirmed weak spots from prior study sessions: ${weakSpotsList.map((w, i) => `${i + 1}. ${w}`).join('; ')}. Generate at least half of the flashcards targeting these specific concepts. Phrase them differently from how they were previously seen to reinforce learning from a new angle.`
@@ -1013,7 +1014,7 @@ function MatthewFlashcardsInner() {
 
       {/* ── STUDY SCREEN ── */}
       {screen === 'study' && curCard && (
-        <main style={{ maxWidth: 600, margin: '0 auto', padding: '20px 20px 80px' }}>
+        <main style={{ maxWidth: 600, margin: '0 auto', padding: '20px 20px 220px' }}>
           {showSave && !saved && (
             <div style={{ background: light, border: `1.5px solid ${color}40`, borderRadius: 14, padding: '14px 16px', marginBottom: 16 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 8 }}>Save this deck?</div>
@@ -1073,9 +1074,9 @@ function MatthewFlashcardsInner() {
             <button onClick={next} style={{ width: 38, height: 38, borderRadius: '50%', border: '1.5px solid #E8E5F0', background: '#FFFFFF', cursor: 'pointer', fontSize: 16, color: '#9E9BB0' }}>{'>'}</button>
           </div>
 
-          <div onClick={() => setFlipped(f => !f)} style={{ width: '100%', perspective: 1400, cursor: 'pointer', marginBottom: 20 }}>
-            <div style={{ position: 'relative', width: '100%', minHeight: 240, transformStyle: 'preserve-3d', transition: 'transform 0.35s', transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
-              <div style={{ position: 'relative', width: '100%', minHeight: 240, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', borderRadius: 20, padding: '36px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: '#FFFFFF', border: '1.5px solid #E8E5F0', boxShadow: '0 6px 28px rgba(29,27,38,0.08)' }}>
+          <div onClick={() => setFlipped(f => !f)} style={{ width: '100%', perspective: 1400, cursor: 'pointer', marginBottom: 140 }}>
+            <div style={{ position: 'relative', width: '100%', minHeight: 240, maxHeight: 380, transformStyle: 'preserve-3d', transition: 'transform 0.35s', transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
+              <div style={{ position: 'relative', width: '100%', minHeight: 240, overflowY: 'auto', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', borderRadius: 20, padding: '36px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: '#FFFFFF', border: '1.5px solid #E8E5F0', boxShadow: '0 6px 28px rgba(29,27,38,0.08)' }}>
                 <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 16 }}>Question</div>
                 {curCard.front_image_url && (
                   <div style={{ position: 'relative', marginBottom: 12 }}>
@@ -1090,18 +1091,37 @@ function MatthewFlashcardsInner() {
                     </div>
                   </div>
                 )}
-                {curCard.front && (
-                  <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.5, color: '#1D1B26' }}>
-                    {parseSMILES(curCard.front).map((seg, i) =>
-                      seg.type === 'smiles'
-                        ? <MoleculeStructure key={i} smiles={seg.value} width={180} height={120} />
-                        : <span key={i}>{seg.value}</span>
-                    )}
-                  </div>
-                )}
+                {curCard.front && (() => {
+                  const segments = parseContent(curCard.front);
+                  const textSegs = segments.filter(s => s.type !== 'smiles');
+                  const smileSegs = segments.filter(s => s.type === 'smiles');
+                  return (
+                    <div>
+                      <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.5, color: '#1D1B26', marginBottom: smileSegs.length > 0 ? 16 : 0 }}>
+                        {textSegs.map((seg, i) =>
+                          seg.type === 'katex-inline'
+                            ? <KaTeXRenderer key={i} expression={seg.value} />
+                            : seg.type === 'katex-block'
+                            ? <KaTeXRenderer key={i} expression={seg.value} displayMode />
+                            : <span key={i}>{seg.value}</span>
+                        )}
+                      </div>
+                      {smileSegs.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+                          {smileSegs.map((seg, i) => (
+                            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                              <MoleculeStructure smiles={seg.value} width={120} height={90} />
+                              {seg.label && <span style={{ fontSize: 10, fontWeight: 700, color: '#9E9BB0', letterSpacing: 0.5 }}>{seg.label}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
                 <div style={{ marginTop: 20, fontSize: 11, color: '#C4C1D4' }}>tap · left/right arrow to flip</div>
               </div>
-              <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', minHeight: '100%', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', borderRadius: 20, padding: '36px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: light, border: `1.5px solid rgba(123,111,160,0.2)`, transform: 'rotateY(180deg)' }}>
+              <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', minHeight: '100%', overflowY: 'auto', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', borderRadius: 20, padding: '36px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: light, border: `1.5px solid rgba(123,111,160,0.2)`, transform: 'rotateY(180deg)' }}>
                 <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color, opacity: 0.7, marginBottom: 16 }}>Answer</div>
                 {curCard.back_image_url && (
                   <div style={{ position: 'relative', marginBottom: 12 }}>
@@ -1111,29 +1131,49 @@ function MatthewFlashcardsInner() {
                     </div>
                   </div>
                 )}
-                {curCard.back && (
-                  <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.5, color: '#5A5078' }}>
-                    {parseSMILES(curCard.back).map((seg, i) =>
-                      seg.type === 'smiles'
-                        ? <MoleculeStructure key={i} smiles={seg.value} width={180} height={120} />
-                        : <span key={i}>{seg.value}</span>
-                    )}
-                  </div>
-                )}
+                {curCard.back && (() => {
+                  const segments = parseContent(curCard.back);
+                  const textSegs = segments.filter(s => s.type !== 'smiles');
+                  const smileSegs = segments.filter(s => s.type === 'smiles');
+                  return (
+                    <div>
+                      <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.5, color: '#5A5078', marginBottom: smileSegs.length > 0 ? 16 : 0 }}>
+                        {textSegs.map((seg, i) =>
+                          seg.type === 'katex-inline'
+                            ? <KaTeXRenderer key={i} expression={seg.value} />
+                            : seg.type === 'katex-block'
+                            ? <KaTeXRenderer key={i} expression={seg.value} displayMode />
+                            : <span key={i}>{seg.value}</span>
+                        )}
+                      </div>
+                      {smileSegs.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+                          {smileSegs.map((seg, i) => (
+                            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                              <MoleculeStructure smiles={seg.value} width={120} height={90} />
+                              {seg.label && <span style={{ fontSize: 10, fontWeight: 700, color: '#9E9BB0', letterSpacing: 0.5 }}>{seg.label}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>
 
-          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#C4C1D4', textAlign: 'center', marginBottom: 10 }}>How did you do?</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <button onClick={() => rate(false)} style={{ padding: '16px', borderRadius: 14, border: '1.5px solid #FDF2F2', background: '#FDF2F2', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', textAlign: 'center' }}>
-              <div style={{ fontSize: 15, fontWeight: 800, color: '#C47878', marginBottom: 2 }}>Missed It</div>
-              <div style={{ fontSize: 9, color: '#C4C1D4' }}>press 1</div>
-            </button>
-            <button onClick={() => rate(true)} style={{ padding: '16px', borderRadius: 14, border: '1.5px solid #EDF7F2', background: '#EDF7F2', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', textAlign: 'center' }}>
-              <div style={{ fontSize: 15, fontWeight: 800, color: '#5FAD8E', marginBottom: 2 }}>Got It</div>
-              <div style={{ fontSize: 9, color: '#C4C1D4' }}>press 2</div>
-            </button>
+          <div style={{ position: 'fixed', bottom: 72, left: 0, right: 0, padding: '0 20px', zIndex: 80 }}>
+            <div style={{ maxWidth: 600, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <button onClick={() => rate(false)} style={{ padding: '14px', borderRadius: 14, border: '1.5px solid #FDF2F2', background: '#FDF2F2', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', textAlign: 'center' }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#C47878', marginBottom: 2 }}>Missed It</div>
+                <div style={{ fontSize: 9, color: '#C4C1D4' }}>press 1</div>
+              </button>
+              <button onClick={() => rate(true)} style={{ padding: '14px', borderRadius: 14, border: '1.5px solid #EDF7F2', background: '#EDF7F2', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', textAlign: 'center' }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#5FAD8E', marginBottom: 2 }}>Got It</div>
+                <div style={{ fontSize: 9, color: '#C4C1D4' }}>press 2</div>
+              </button>
+            </div>
           </div>
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 16 }}>
             {[['←/→', 'flip'], ['↑', 'next'], ['↓', 'back'], ['1', 'missed'], ['2', 'got it']].map(([key, label]) => (

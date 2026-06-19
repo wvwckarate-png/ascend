@@ -7,7 +7,8 @@ import { useReactToPrint } from 'react-to-print';
 import { supabase } from '../../../lib/supabase';
 import TabBar from '../../components/TabBar';
 import { MoleculeStructure } from '../../components/MoleculeStructure';
-import { parseSMILES } from '../../../lib/parseSMILES';
+import { KaTeXRenderer } from '../../components/KaTeXRenderer';
+import { parseContent } from '../../../lib/parseContent';
 
 function Mountain() {
   return (
@@ -785,9 +786,13 @@ function MatthewStudyInner() {
                   p: ({children}) => (
                     <p style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: '0.75rem' }}>
                       {typeof children === 'string'
-                        ? parseSMILES(children).map((seg, i) =>
+                        ? parseContent(children).map((seg, i) =>
                             seg.type === 'smiles'
                               ? <MoleculeStructure key={i} smiles={seg.value} width={180} height={120} />
+                              : seg.type === 'katex-inline'
+                              ? <KaTeXRenderer key={i} expression={seg.value} />
+                              : seg.type === 'katex-block'
+                              ? <KaTeXRenderer key={i} expression={seg.value} displayMode />
                               : <span key={i}>{seg.value}</span>
                           )
                         : children}

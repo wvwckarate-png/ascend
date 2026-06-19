@@ -3,6 +3,7 @@ import Script from 'next/script';
 import RDKitLoader from './components/RDKitLoader';
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import 'katex/dist/katex.min.css';
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
