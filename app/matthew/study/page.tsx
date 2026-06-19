@@ -407,7 +407,7 @@ function MatthewStudyInner() {
     const q = addQuestions ? `\n\nAdd a "Practice Questions" section with ${questionFormat === 'Both' ? 'mixed multiple choice and short answer' : questionFormat.toLowerCase()} questions.${showAnswers ? ' Include answers and explanations.' : ' Do not include answers.'}` : '';
     const c = customInstructions.trim() ? `\n\nAdditional instructions: ${customInstructions.trim()}` : '';
     const w = weakSpotsList.length > 0 ? `\n\nPRIORITY FOCUS — These are Matthew's confirmed weak spots from prior study sessions: ${weakSpotsList.map((ws, i) => `${i + 1}. ${ws}`).join('; ')}. Dedicate a clearly labeled section to these topics, providing thorough explanations and examples to close these gaps.` : '';
-    const chem = chemMode ? '\n\nCHEMISTRY MODE — When referencing molecules, compounds, or chemical structures, include their SMILES string formatted exactly as [SMILES: xxx] inline so they can be rendered as structural diagrams. Use standard SMILES notation.' : '';
+    const chem = chemMode ? '\n\nCHEMISTRY MODE — For common, stable molecules only (not reaction intermediates or charged species), include their SMILES string formatted exactly as [SMILES: xxx | Molecule Name] after the sentence that references them. Always include the molecule name after the pipe character. Only use SMILES for simple recognizable molecules. Use standard neutral SMILES notation only.' : '';
     return base + c + w + chem + q + '\n\nFormat with clear markdown headers and structure.';
   };
 
@@ -783,21 +783,47 @@ function MatthewStudyInner() {
                   h1: ({children}) => <h1 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.4rem', fontWeight: 800, color, marginTop: '1.5rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: `2px solid ${light}` }}>{children}</h1>,
                   h2: ({children}) => <h2 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.1rem', fontWeight: 800, color, marginTop: '1.25rem', marginBottom: '0.5rem' }}>{children}</h2>,
                   h3: ({children}) => <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1D1B26', marginTop: '1rem', marginBottom: '0.25rem' }}>{children}</h3>,
-                  p: ({children}) => (
-                    <p style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: '0.75rem' }}>
-                      {typeof children === 'string'
-                        ? parseContent(children).map((seg, i) =>
-                            seg.type === 'smiles'
-                              ? <MoleculeStructure key={i} smiles={seg.value} width={180} height={120} />
-                              : seg.type === 'katex-inline'
+                  p: ({children}) => {
+                    if (typeof children !== 'string') return <p style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: '0.75rem' }}>{children}</p>;
+                    const segments = parseContent(children);
+                    const hasSmiles = segments.some(s => s.type === 'smiles');
+                    if (!hasSmiles) return (
+                      <p style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: '0.75rem' }}>
+                        {segments.map((seg, i) =>
+                          seg.type === 'katex-inline'
+                            ? <KaTeXRenderer key={i} expression={seg.value} />
+                            : seg.type === 'katex-block'
+                            ? <KaTeXRenderer key={i} expression={seg.value} displayMode />
+                            : <span key={i}>{seg.value}</span>
+                        )}
+                      </p>
+                    );
+                    const textSegs = segments.filter(s => s.type !== 'smiles');
+                    const smileSegs = segments.filter(s => s.type === 'smiles');
+                    return (
+                      <div style={{ marginBottom: '0.75rem' }}>
+                        <p style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: smileSegs.length > 0 ? '0.5rem' : 0 }}>
+                          {textSegs.map((seg, i) =>
+                            seg.type === 'katex-inline'
                               ? <KaTeXRenderer key={i} expression={seg.value} />
                               : seg.type === 'katex-block'
                               ? <KaTeXRenderer key={i} expression={seg.value} displayMode />
                               : <span key={i}>{seg.value}</span>
-                          )
-                        : children}
-                    </p>
-                  ),
+                          )}
+                        </p>
+                        {smileSegs.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, margin: '8px 0 4px' }}>
+                            {smileSegs.map((seg, i) => (
+                              <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                <MoleculeStructure smiles={seg.value} width={140} height={100} />
+                                {seg.label && <span style={{ fontSize: 10, fontWeight: 700, color: '#9E9BB0', letterSpacing: 0.5 }}>{seg.label}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  },
                   strong: ({children}) => <strong style={{ fontWeight: 700, color: '#1D1B26' }}>{children}</strong>,
                   ul: ({children}) => <ul style={{ paddingLeft: '1.25rem', marginBottom: '0.75rem', listStyleType: 'disc' }}>{children}</ul>,
                   ol: ({children}) => <ol style={{ paddingLeft: '1.25rem', marginBottom: '0.75rem', listStyleType: 'decimal' }}>{children}</ol>,
