@@ -225,6 +225,10 @@ function MatthewStudyInner() {
   const [renamingId,   setRenamingId]   = useState<string | null>(null);
   const [renameValue,  setRenameValue]  = useState('');
   const [movingId,     setMovingId]     = useState<string | null>(null);
+  const [pickingFolder, setPickingFolder] = useState(false);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [selectedFolderName, setSelectedFolderName] = useState<string>('');
+  const [selectedClassName, setSelectedClassName] = useState<string>('');
 
   const [library,         setLibrary]         = useState<LibClass[]>([]);
   const [libLoading,      setLibLoading]       = useState(true);
@@ -481,7 +485,7 @@ RULES:
     if (!guideName.trim()) return;
     setSaving(true);
     try {
-      await supabase.from('study_guides').insert({ student_id: 'matthew', title: guideName.trim(), content: studyGuide, source_filename: sourceFiles.join(', ') || 'Custom', folder_id: folderId || null });
+      await supabase.from('study_guides').insert({ student_id: 'matthew', title: guideName.trim(), content: studyGuide, source_filename: sourceFiles.join(', ') || 'Custom', folder_id: selectedFolderId || folderId || null });
       const today = new Date();
       const { data: savedGuide } = await supabase.from('study_guides').select('id').eq('student_id', 'matthew').order('created_at', { ascending: false }).limit(1).single();
       await supabase.from('tasks').insert([1, 3, 7].map(days => ({ student_id: 'matthew', title: `Review: ${guideName.trim()}`, due_date: addDays(today, days), task_type: 'review', completed: false, resource_id: savedGuide?.id || null, resource_type: 'study_guide' })));
@@ -696,6 +700,38 @@ RULES:
                 </div>
               )}
             </div>
+
+            <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '16px 20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 10 }}>Save to Folder</div>
+              <div onClick={() => setPickingFolder(true)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, border: `1.5px solid ${selectedFolderId || folderId ? color : '#E8E5F0'}`, background: selectedFolderId || folderId ? light : '#FAFAF8', cursor: 'pointer' }}>
+                <svg width="14" height="14" viewBox="0 0 28 28" fill="none"><path d="M3 9a2 2 0 012-2h5l2 2h11a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke={selectedFolderId || folderId ? color : '#9E9BB0'} strokeWidth="1.6" strokeLinejoin="round" fill="none"/></svg>
+                <div style={{ flex: 1 }}>
+                  {selectedFolderId ? (
+                    <span style={{ fontSize: 13, fontWeight: 700, color }}>{selectedClassName} · {selectedFolderName}</span>
+                  ) : folderId && folderName ? (
+                    <span style={{ fontSize: 13, fontWeight: 700, color }}>{folderName}</span>
+                  ) : (
+                    <span style={{ fontSize: 13, fontWeight: 500, color: '#9E9BB0' }}>No folder — will be unfiled</span>
+                  )}
+                </div>
+                <svg width="12" height="12" viewBox="0 0 28 28" fill="none"><path d="M6 12l8 8 8-8" stroke="#9E9BB0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </div>
+            </div>
+
+            {pickingFolder && (
+              <FolderPicker
+                studentId="matthew"
+                currentFolderId={selectedFolderId || folderId}
+                accentColor={color}
+                onClose={() => setPickingFolder(false)}
+                onSelect={(fId, fName, cName) => {
+                  setSelectedFolderId(fId);
+                  setSelectedFolderName(fName);
+                  setSelectedClassName(cName);
+                  setPickingFolder(false);
+                }}
+              />
+            )}
 
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 12 }}>Detail Level</div>

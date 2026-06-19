@@ -77,6 +77,10 @@ function MichaelPracticeExamInner() {
   const [renamingId,         setRenamingId]         = useState<string | null>(null);
   const [renameValue,        setRenameValue]        = useState('');
   const [movingId,           setMovingId]           = useState<string | null>(null);
+  const [pickingFolder,      setPickingFolder]      = useState(false);
+  const [selectedFolderId,   setSelectedFolderId]   = useState<string | null>(null);
+  const [selectedFolderName, setSelectedFolderName] = useState<string>('');
+  const [selectedClassName,  setSelectedClassName]  = useState<string>('');
   const [scheduleReview,     setScheduleReview]     = useState(false);
   const [reviewScheduled,    setReviewScheduled]    = useState(false);
   const [classMeta, setClassMeta] = useState<{ className: string; professor: string; notes: string; folderName: string; examDate: string | null; studentName: string; studentGrade: string; studentTrack: string; studentSchool: string; studentProgram: string; studentGradYear: string; generationProfile: string; } | null>(null);
@@ -279,7 +283,7 @@ function MichaelPracticeExamInner() {
       }
       const parsed: Question[] = JSON.parse(raw);
       const title = examNameInput.trim() || topic.trim() || folderName || `Practice Exam — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-      const { data: examData } = await supabase.from('practice_exams').insert({ student_id: 'michael', title, questions: parsed, responses: {}, status: 'in_progress', timer_seconds: timerEnabled ? timerMinutes * 60 : null, folder_id: folderId || null }).select().single();
+      const { data: examData } = await supabase.from('practice_exams').insert({ student_id: 'michael', title, questions: parsed, responses: {}, status: 'in_progress', timer_seconds: timerEnabled ? timerMinutes * 60 : null, folder_id: selectedFolderId || folderId || null }).select().single();
       if (examData) { setExamId(examData.id); setActiveExam(examData); }
       setExamTitle(title); setQuestions(parsed); setResponses({}); setReviewed(new Set()); setShowExplanation(new Set());
       if (timerEnabled) { setTimeLeft(timerMinutes * 60); setTimerRunning(true); }
@@ -596,6 +600,38 @@ function MichaelPracticeExamInner() {
               </div>
             </div>
           </div>
+
+          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '16px 20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 10 }}>Save to Folder</div>
+            <div onClick={() => setPickingFolder(true)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, border: `1.5px solid ${selectedFolderId || folderId ? color : '#E8E5F0'}`, background: selectedFolderId || folderId ? light : '#FAFAF8', cursor: 'pointer' }}>
+              <svg width="14" height="14" viewBox="0 0 28 28" fill="none"><path d="M3 9a2 2 0 012-2h5l2 2h11a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke={selectedFolderId || folderId ? color : '#9E9BB0'} strokeWidth="1.6" strokeLinejoin="round" fill="none"/></svg>
+              <div style={{ flex: 1 }}>
+                {selectedFolderId ? (
+                  <span style={{ fontSize: 13, fontWeight: 700, color }}>{selectedClassName} · {selectedFolderName}</span>
+                ) : folderId && folderName ? (
+                  <span style={{ fontSize: 13, fontWeight: 700, color }}>{folderName}</span>
+                ) : (
+                  <span style={{ fontSize: 13, fontWeight: 500, color: '#9E9BB0' }}>No folder — will be unfiled</span>
+                )}
+              </div>
+              <svg width="12" height="12" viewBox="0 0 28 28" fill="none"><path d="M6 12l8 8 8-8" stroke="#9E9BB0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </div>
+          </div>
+
+          {pickingFolder && (
+            <FolderPicker
+              studentId="michael"
+              currentFolderId={selectedFolderId || folderId}
+              accentColor={color}
+              onClose={() => setPickingFolder(false)}
+              onSelect={(fId, fName, cName) => {
+                setSelectedFolderId(fId);
+                setSelectedFolderName(fName);
+                setSelectedClassName(cName);
+                setPickingFolder(false);
+              }}
+            />
+          )}
 
           {error && <p style={{ fontSize: 13, color: '#C47878', marginBottom: 12 }}>{error}</p>}
           {generating ? (
