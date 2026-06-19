@@ -1,0 +1,218 @@
+/* ── Ascend Study Guide Styles ── */
+
+.sg-wrap {
+  font-family: var(--font-jakarta), sans-serif;
+  color: #1D1B26;
+  max-width: 100%;
+}
+
+/* ── Header Block ── */
+.sg-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #1D1B26;
+}
+
+.sg-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sg-header-class {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #7B6FA0;
+}
+
+.sg-header-exam {
+  font-size: 16px;
+  font-weight: 800;
+  color: #1D1B26;
+  letter-spacing: -0.3px;
+}
+
+.sg-header-meta {
+  font-size: 11px;
+  color: #9E9BB0;
+  font-weight: 500;
+}
+
+.sg-header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.sg-header-date {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9E9BB0;
+}
+
+.sg-header-logo {
+  opacity: 0.3;
+}
+
+/* ── Headings ── */
+.sg-h1 {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #1D1B26;
+  margin-top: 24px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #E8E5F0;
+}
+
+.sg-h2 {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1D1B26;
+  margin-top: 16px;
+  margin-bottom: 6px;
+  padding-left: 10px;
+  border-left: 3px solid #7B6FA0;
+}
+
+.sg-h3 {
+  font-size: 13px;
+  font-weight: 700;
+  font-style: italic;
+  color: #1D1B26;
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+
+/* ── Body ── */
+.sg-body {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.6;
+  color: #1D1B26;
+  margin-bottom: 10px;
+}
+
+/* ── Key Terms ── */
+.sg-term {
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: #7B6FA0;
+  text-underline-offset: 2px;
+}
+
+/* ── Bullets ── */
+.sg-ul {
+  padding-left: 16px;
+  margin-bottom: 10px;
+  list-style: none;
+}
+
+.sg-ul li {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #1D1B26;
+  margin-bottom: 4px;
+  position: relative;
+  padding-left: 12px;
+}
+
+.sg-ul li::before {
+  content: '·';
+  position: absolute;
+  left: 0;
+  color: #7B6FA0;
+  font-weight: 800;
+}
+
+/* ── Callout Box ── */
+.sg-callout {
+  border-left: 4px solid #7B6FA0;
+  background: #EDE9F7;
+  border-radius: 0 8px 8px 0;
+  padding: 12px 16px;
+  margin: 16px 0;
+}
+
+.sg-callout-label {
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #7B6FA0;
+  margin-bottom: 6px;
+}
+
+.sg-callout p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #5A5078;
+  margin: 0;
+}
+
+/* ── Section Gap ── */
+.sg-section {
+  margin-bottom: 24px;
+}
+
+/* ── Print Styles ── */
+@media print {
+  .sg-header {
+    border-bottom: 2pt solid #000;
+    margin-bottom: 18pt;
+    padding-bottom: 8pt;
+  }
+
+  .sg-header-class { color: #000; }
+  .sg-header-exam  { color: #000; }
+  .sg-header-meta  { color: #444; }
+  .sg-header-date  { color: #444; }
+
+  .sg-h1 {
+    font-size: 11pt;
+    border-bottom: 1.5pt solid #000;
+    margin-top: 18pt;
+    page-break-after: avoid;
+  }
+
+  .sg-h2 {
+    font-size: 10pt;
+    border-left: 3pt solid #000;
+    margin-top: 12pt;
+    page-break-after: avoid;
+  }
+
+  .sg-h3 {
+    font-size: 10pt;
+    margin-top: 8pt;
+    page-break-after: avoid;
+  }
+
+  .sg-body { font-size: 10pt; line-height: 1.6; }
+
+  .sg-ul li { font-size: 10pt; }
+
+  .sg-callout {
+    border-left: 4pt solid #000;
+    background: #f0f0f0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    page-break-inside: avoid;
+  }
+
+  .sg-callout-label { color: #000; }
+  .sg-callout p     { color: #000; }
+
+  .sg-term {
+    text-decoration-color: #000;
+  }
+}

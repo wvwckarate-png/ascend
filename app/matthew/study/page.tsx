@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { useState, useRef, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
-import { useReactToPrint } from 'react-to-print';
 import { supabase } from '../../../lib/supabase';
 import TabBar from '../../components/TabBar';
 import { MoleculeStructure } from '../../components/MoleculeStructure';
@@ -76,7 +75,7 @@ const PRINT_STYLES = `
     body * { visibility: hidden !important; }
     #ascend-print-zone, #ascend-print-zone * { visibility: visible !important; }
     #ascend-print-zone {
-      position: fixed !important;
+      position: absolute !important;
       top: 0 !important;
       left: 0 !important;
       width: 100% !important;
@@ -388,29 +387,52 @@ function MatthewStudyInner() {
   const handleNewFileInput = (e: React.ChangeEvent<HTMLInputElement>) => { const selected = Array.from(e.target.files || []).filter(f => f.type === 'application/pdf'); setNewFiles(prev => [...prev, ...selected]); e.target.value = ''; };
 
   const buildPrompt = (fileCount: number) => {
-    const levelPrompts: Record<string, string> = {
-      outline:  'Generate a clean outline with headers and bullet points only. No prose.',
-      basic:    'Generate a basic study guide with concise explanations.',
-      detailed: 'Generate a detailed study guide with full explanations and examples.',
-      mastery:  'Generate a comprehensive mastery-level guide with deep explanations across all materials.',
+    const levelInstructions: Record<string, string> = {
+      outline:  'Generate a clean outline — headers and bullet points only, no prose paragraphs.',
+      basic:    'Generate a basic study guide with short, direct explanations under each heading.',
+      detailed: 'Generate a detailed study guide with full explanations, examples, and context.',
+      mastery:  'Generate a comprehensive mastery-level guide with deep explanations, mechanisms, and connections across all materials.',
     };
     const studentCtx = classMeta
       ? `${classMeta.studentName} is a ${classMeta.studentGrade} student on a ${classMeta.studentTrack} track, targeting ${classMeta.studentProgram} (graduating ${classMeta.studentGradYear}).${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
       : 'Matthew is an 11th grade pre-dental student targeting WVU School of Dentistry.';
-    const classCtx   = classMeta
+    const classCtx = classMeta
       ? `Class: ${classMeta.className}. Exam: ${classMeta.folderName}${classMeta.examDate ? ` (${new Date(classMeta.examDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})` : ''}. Professor: ${classMeta.professor || 'unknown'}.${classMeta.notes ? ` Professor notes: "${classMeta.notes}"` : ''}`
       : '';
     const goalCtx = classMeta
       ? `Your ONLY goal: help Matthew earn an A on ${classMeta.folderName} in ${classMeta.className}${classMeta.professor ? ` with ${classMeta.professor}` : ''}. Think like this professor — focus on their emphasis, their scope, what they actually test.`
       : `Your goal: help Matthew earn an A in this class. Focus only on what was actually taught.`;
-    const base = fileCount > 1
-      ? `You are Ascend, an expert study assistant. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\nAnalyze these ${fileCount} documents and identify the highest-yield topics — concepts that appear repeatedly, are emphasized, or are most likely to appear on this professor's exam. Do NOT go deeper than what the professor's materials cover. Stay scoped to what was actually taught.\n\n${level ? levelPrompts[level] : ''}`
-      : `You are Ascend, an expert study assistant. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\nFocus only on what is in these materials — identify the most testable concepts, likely exam topics, and high-frequency themes. Do not expand beyond the scope of what was taught.\n\n${level ? levelPrompts[level] : 'Generate a focused study guide from the provided material.'}`;
-    const q = addQuestions ? `\n\nAdd a "Practice Questions" section with ${questionFormat === 'Both' ? 'mixed multiple choice and short answer' : questionFormat.toLowerCase()} questions.${showAnswers ? ' Include answers and explanations.' : ' Do not include answers.'}` : '';
+    const crossDoc = fileCount > 1
+      ? `Analyze all ${fileCount} documents and identify the highest-yield topics — concepts that appear repeatedly, are emphasized, or are most likely to appear on this professor's exam. Do NOT go deeper than what the professor's materials cover.`
+      : `Focus only on what is in these materials. Do not expand beyond the scope of what was taught.`;
     const c = customInstructions.trim() ? `\n\nAdditional instructions: ${customInstructions.trim()}` : '';
-    const w = weakSpotsList.length > 0 ? `\n\nPRIORITY FOCUS — These are Matthew's confirmed weak spots from prior study sessions: ${weakSpotsList.map((ws, i) => `${i + 1}. ${ws}`).join('; ')}. Dedicate a clearly labeled section to these topics, providing thorough explanations and examples to close these gaps.` : '';
-    const chem = chemMode ? '\n\nCHEMISTRY MODE — For common, stable molecules only (not reaction intermediates or charged species), include their SMILES string formatted exactly as [SMILES: xxx | Molecule Name] after the sentence that references them. Always include the molecule name after the pipe character. Only use SMILES for simple recognizable molecules. Use standard neutral SMILES notation only.' : '';
-    return base + c + w + chem + q + '\n\nFormat with clear markdown headers and structure.';
+    const w = weakSpotsList.length > 0 ? `\n\nPRIORITY FOCUS — These are Matthew's confirmed weak spots: ${weakSpotsList.map((ws, i) => `${i + 1}. ${ws}`).join('; ')}. Dedicate a clearly labeled section to these topics.` : '';
+    const chem = chemMode ? '\n\nCHEMISTRY MODE — For common stable molecules only, include SMILES formatted as [SMILES: xxx | Molecule Name] after the sentence that references them.' : '';
+    const q = addQuestions ? `\n\nAdd a Practice Questions section with ${questionFormat === 'Both' ? 'mixed multiple choice and short answer' : questionFormat.toLowerCase()} questions.${showAnswers ? ' Include answers and explanations.' : ' Do not include answers.'}` : '';
+
+    const htmlInstructions = `
+
+OUTPUT FORMAT — Return ONLY valid HTML using these exact CSS classes. No markdown. No backticks. No explanation. Just the HTML.
+
+CLASSES TO USE:
+- <h1 class="sg-h1">SECTION TITLE</h1> — major sections, ALL CAPS
+- <h2 class="sg-h2">Subsection</h2> — subsections
+- <h3 class="sg-h3">Detail heading</h3> — tertiary headings
+- <p class="sg-body">Body text. Use <span class="sg-term">key term</span> for important vocabulary.</p>
+- <ul class="sg-ul"><li>Bullet point</li></ul> — for lists
+- <div class="sg-callout"><span class="sg-callout-label">LIKELY TESTED</span><p>Content that is very likely to appear on the exam.</p></div> — use sparingly for the highest-yield concepts only
+- <div class="sg-section"> — wrap each major section in this div
+
+RULES:
+- Every major section must start with <h1 class="sg-h1">
+- Wrap each major section in <div class="sg-section">...</div>
+- Use sg-callout only for concepts that are genuinely high-yield and exam-likely
+- Use sg-term for key vocabulary that the student must know
+- Do NOT include <html>, <head>, <body>, or <style> tags
+- Do NOT include the document header — that is added separately
+- Start directly with the first <div class="sg-section">`;
+
+    return `You are Ascend, an expert study assistant. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\n${crossDoc}\n\n${level ? levelInstructions[level] : ''}${c}${w}${chem}${q}${htmlInstructions}`;
   };
 
   const handleGenerate = async () => {
@@ -469,10 +491,15 @@ function MatthewStudyInner() {
     finally { setSaving(false); }
   };
 
-  const handlePrint = useReactToPrint({ contentRef: printRef, documentTitle: guideName || 'Ascend Study Guide' });
+  const handlePrint = () => { window.print(); };
   const handlePDF   = () => { window.print(); };
-  const handleCopy  = async () => { await navigator.clipboard.writeText(studyGuide); setCopied(true); setTimeout(() => setCopied(false), 2000); };
-  const handleShare = async () => { if (navigator.share) { await navigator.share({ title: guideName || 'Ascend Study Guide', text: studyGuide }); } else handleCopy(); };
+  const getPlainText = () => {
+    const div = document.createElement('div');
+    div.innerHTML = studyGuide;
+    return div.textContent || div.innerText || studyGuide;
+  };
+  const handleCopy  = async () => { await navigator.clipboard.writeText(getPlainText()); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  const handleShare = async () => { if (navigator.share) { await navigator.share({ title: guideName || 'Ascend Study Guide', text: getPlainText() }); } else handleCopy(); };
 
   const canGenerate   = selectedIds.size > 0 || newFiles.length > 0 || customInstructions.trim().length > 0;
   const totalSelected = selectedIds.size + newFiles.length;
@@ -793,67 +820,46 @@ function MatthewStudyInner() {
 
             {/* Print zone — visible on screen, beautifully isolated during print */}
             <div id="ascend-print-zone">
-              <div id="ascend-print-header" style={{ display: 'none' }}>
-                <div className="guide-title">{guideName || 'Study Guide'} — Matthew Peters</div>
-                <div className="guide-meta">Pre-Dental Track · Ascend · studywithascend.com</div>
-              </div>
-              <div ref={printRef} style={{ padding: '4px' }}>
-                <ReactMarkdown components={{
-                  h1: ({children}) => <h1 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.4rem', fontWeight: 800, color, marginTop: '1.5rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: `2px solid ${light}` }}>{children}</h1>,
-                  h2: ({children}) => <h2 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.1rem', fontWeight: 800, color, marginTop: '1.25rem', marginBottom: '0.5rem' }}>{children}</h2>,
-                  h3: ({children}) => <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1D1B26', marginTop: '1rem', marginBottom: '0.25rem' }}>{children}</h3>,
-                  p: ({children}) => {
-                    if (typeof children !== 'string') return <p style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: '0.75rem' }}>{children}</p>;
-                    const segments = parseContent(children);
-                    const hasSmiles = segments.some(s => s.type === 'smiles');
-                    if (!hasSmiles) return (
-                      <p style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: '0.75rem' }}>
-                        {segments.map((seg, i) =>
-                          seg.type === 'katex-inline'
-                            ? <KaTeXRenderer key={i} expression={seg.value} />
-                            : seg.type === 'katex-block'
-                            ? <KaTeXRenderer key={i} expression={seg.value} displayMode />
-                            : <span key={i}>{seg.value}</span>
-                        )}
-                      </p>
-                    );
-                    const textSegs = segments.filter(s => s.type !== 'smiles');
-                    const smileSegs = segments.filter(s => s.type === 'smiles');
-                    return (
-                      <div style={{ marginBottom: '0.75rem' }}>
-                        <p style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: smileSegs.length > 0 ? '0.5rem' : 0 }}>
-                          {textSegs.map((seg, i) =>
-                            seg.type === 'katex-inline'
-                              ? <KaTeXRenderer key={i} expression={seg.value} />
-                              : seg.type === 'katex-block'
-                              ? <KaTeXRenderer key={i} expression={seg.value} displayMode />
-                              : <span key={i}>{seg.value}</span>
-                          )}
-                        </p>
-                        {smileSegs.length > 0 && (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, margin: '8px 0 4px' }}>
-                            {smileSegs.map((seg, i) => (
-                              <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                                <MoleculeStructure smiles={seg.value} width={140} height={100} />
-                                {seg.label && <span style={{ fontSize: 10, fontWeight: 700, color: '#9E9BB0', letterSpacing: 0.5 }}>{seg.label}</span>}
-                              </div>
-                            ))}
-                          </div>
-                        )}
+              <div ref={printRef} className="sg-wrap">
+                {classMeta && (
+                  <div className="sg-header">
+                    <div className="sg-header-left">
+                      <div className="sg-header-class">{classMeta.className}</div>
+                      <div className="sg-header-exam">{classMeta.folderName}</div>
+                      <div className="sg-header-meta">
+                        {classMeta.professor && `${classMeta.professor} · `}
+                        {classMeta.examDate && `${new Date(classMeta.examDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · `}
+                        {sourceFiles.length > 0 && sourceFiles.join(', ')}
                       </div>
-                    );
-                  },
-                  strong: ({children}) => <strong style={{ fontWeight: 700, color: '#1D1B26' }}>{children}</strong>,
-                  ul: ({children}) => <ul style={{ paddingLeft: '1.25rem', marginBottom: '0.75rem', listStyleType: 'disc' }}>{children}</ul>,
-                  ol: ({children}) => <ol style={{ paddingLeft: '1.25rem', marginBottom: '0.75rem', listStyleType: 'decimal' }}>{children}</ol>,
-                  li: ({children}) => <li style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: '0.2rem' }}>{children}</li>,
-                  hr: () => <hr style={{ border: 'none', borderTop: '1px solid #E8E5F0', margin: '1.5rem 0' }} />,
-                  table: ({children}) => <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1rem', fontSize: '0.875rem' }}>{children}</table>,
-                  thead: ({children}) => <thead style={{ background: light }}>{children}</thead>,
-                  th: ({children}) => <th style={{ border: '1px solid #C4C1D4', padding: '6px 10px', fontWeight: 700, color: '#1D1B26', textAlign: 'left', fontSize: '0.825rem' }}>{children}</th>,
-                  td: ({children}) => <td style={{ border: '1px solid #E8E5F0', padding: '6px 10px', color: '#1D1B26', fontSize: '0.825rem', verticalAlign: 'top' }}>{children}</td>,
-                  blockquote: ({children}) => <blockquote style={{ borderLeft: '3px solid #7B6FA0', margin: '1rem 0', padding: '8px 0 8px 14px', background: '#F5F3FC', borderRadius: '0 8px 8px 0' }}>{children}</blockquote>,
-                }}>{studyGuide}</ReactMarkdown>
+                    </div>
+                    <div className="sg-header-right">
+                      <svg className="sg-header-logo" width="22" height="20" viewBox="0 0 60 56" fill="none">
+                        <path d="M4 52L22 10L40 52" stroke="#7B6FA0" strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round"/>
+                        <path d="M31 52L42 28L53 52" stroke="#7B6FA0" strokeWidth="2.8" strokeLinejoin="round" strokeLinecap="round"/>
+                        <line x1="2" y1="52" x2="56" y2="52" stroke="#7B6FA0" strokeWidth="2.5" strokeLinecap="round"/>
+                      </svg>
+                      <div className="sg-header-date">
+                        {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {studyGuide.trim().startsWith('<') ? (
+                  <div dangerouslySetInnerHTML={{ __html: studyGuide }} />
+                ) : (
+                  <ReactMarkdown components={{
+                    h1: ({children}) => <h1 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.4rem', fontWeight: 800, color, marginTop: '1.5rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: `2px solid ${light}` }}>{children}</h1>,
+                    h2: ({children}) => <h2 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.1rem', fontWeight: 800, color, marginTop: '1.25rem', marginBottom: '0.5rem' }}>{children}</h2>,
+                    h3: ({children}) => <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1D1B26', marginTop: '1rem', marginBottom: '0.25rem' }}>{children}</h3>,
+                    p: ({children}) => <p style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: '0.75rem' }}>{children}</p>,
+                    strong: ({children}) => <strong style={{ fontWeight: 700, color: '#1D1B26' }}>{children}</strong>,
+                    ul: ({children}) => <ul style={{ paddingLeft: '1.25rem', marginBottom: '0.75rem', listStyleType: 'disc' }}>{children}</ul>,
+                    ol: ({children}) => <ol style={{ paddingLeft: '1.25rem', marginBottom: '0.75rem', listStyleType: 'decimal' }}>{children}</ol>,
+                    li: ({children}) => <li style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: '0.2rem' }}>{children}</li>,
+                    hr: () => <hr style={{ border: 'none', borderTop: '1px solid #E8E5F0', margin: '1.5rem 0' }} />,
+                    blockquote: ({children}) => <blockquote style={{ borderLeft: '3px solid #7B6FA0', margin: '1rem 0', padding: '8px 0 8px 14px', background: '#F5F3FC', borderRadius: '0 8px 8px 0' }}>{children}</blockquote>,
+                  }}>{studyGuide}</ReactMarkdown>
+                )}
               </div>
             </div>
           </div>
