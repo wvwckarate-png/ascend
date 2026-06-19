@@ -241,6 +241,8 @@ function BrynneStudyInner() {
   const [level,              setLevel]              = useState('detailed');
   const [customInstructions, setCustomInstructions] = useState('');
   const [chemMode,           setChemMode]           = useState(false);
+  const [guideMode,          setGuideMode]          = useState<'standard' | 'adaptive'>('standard');
+  const [smartFigures,       setSmartFigures]       = useState(false);
   const [addQuestions,       setAddQuestions]       = useState(false);
   const [questionFormat,     setQuestionFormat]     = useState('Multiple Choice');
   const [showAnswers,        setShowAnswers]        = useState(true);
@@ -411,7 +413,9 @@ function BrynneStudyInner() {
     const chem = chemMode ? '\n\nCHEMISTRY MODE — For common stable molecules only, include SMILES formatted as [SMILES: xxx | Molecule Name] after the sentence that references them.' : '';
     const q = addQuestions ? `\n\nAdd a Practice Questions section with ${questionFormat === 'Both' ? 'mixed multiple choice and short answer' : questionFormat.toLowerCase()} questions.${showAnswers ? ' Include answers and explanations.' : ' Do not include answers.'}` : '';
 
-    const htmlInstructions = `
+    const figuresInject = smartFigures ? `\n\nSMART FIGURES — For concepts that meet ANY of these criteria: (1) appears across multiple source documents, (2) is clearly testable and visual in nature, (3) cannot be adequately explained in text alone — include an inline SVG diagram. Wrap it in <div class="sg-figure"><svg viewBox="0 0 W H" width="100%" xmlns="http://www.w3.org/2000/svg">...</svg><span class="sg-figure-caption">Caption here</span></div>. IMPORTANT: never use height="auto" on SVG elements — use only viewBox and width="100%", no height attribute at all. Keep SVGs simple, clean, monochrome using stroke="#1D1B26" and fill="none" or fill="#EDE9F7". Good candidates: cycles, pathways, structures, comparisons, timelines, flowcharts. Bad candidates: anything that text explains just as well.` : '';
+
+    const standardInstructions = `
 
 OUTPUT FORMAT — Return ONLY valid HTML using these exact CSS classes. No markdown. No backticks. No explanation. Just the HTML.
 
@@ -421,19 +425,51 @@ CLASSES TO USE:
 - <h3 class="sg-h3">Detail heading</h3> — tertiary headings
 - <p class="sg-body">Body text. Use <span class="sg-term">key term</span> for important vocabulary.</p>
 - <ul class="sg-ul"><li>Bullet point</li></ul> — for lists
-- <div class="sg-callout"><span class="sg-callout-label">LIKELY TESTED</span><p>Content that is very likely to appear on the exam.</p></div> — use sparingly for the highest-yield concepts only
+- <div class="sg-callout"><span class="sg-callout-label">LIKELY TESTED</span><p>Content very likely to appear on the exam.</p></div> — use sparingly
 - <div class="sg-section"> — wrap each major section in this div
 
 RULES:
 - Every major section must start with <h1 class="sg-h1">
 - Wrap each major section in <div class="sg-section">...</div>
-- Use sg-callout only for concepts that are genuinely high-yield and exam-likely
-- Use sg-term for key vocabulary that the student must know
+- Use sg-callout only for genuinely high-yield concepts
+- Use sg-term for key vocabulary
 - Do NOT include <html>, <head>, <body>, or <style> tags
-- Do NOT include the document header — that is added separately
+- Do NOT include the document header — added separately
 - Start directly with the first <div class="sg-section">`;
 
-    return `You are Ascend, an expert study assistant. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\n${crossDoc}\n\n${level ? levelInstructions[level] : ''}${c}${w}${chem}${q}${htmlInstructions}`;
+    const adaptiveInstructions = `
+
+OUTPUT FORMAT — Return ONLY valid HTML. No markdown. No backticks. No explanation. Just the HTML.
+
+You have full layout freedom. Choose the structure that best communicates this material. Use whichever of these CSS classes fit:
+
+STANDARD CLASSES:
+- <h1 class="sg-h1">SECTION TITLE</h1> — major sections, ALL CAPS
+- <h2 class="sg-h2">Subsection</h2>
+- <h3 class="sg-h3">Detail heading</h3>
+- <p class="sg-body">Body. Use <span class="sg-term">key term</span> for vocabulary.</p>
+- <ul class="sg-ul"><li>Item</li></ul>
+- <div class="sg-callout"><span class="sg-callout-label">LIKELY TESTED</span><p>Content.</p></div>
+- <div class="sg-section">...</div>
+
+ADAPTIVE CLASSES (use when they communicate better than prose):
+- <table class="sg-table"><thead><tr><th>Col</th></tr></thead><tbody><tr><td>Data</td></tr></tbody></table> — for comparisons, properties, data
+- <div class="sg-timeline"><div class="sg-timeline-item"><div class="sg-timeline-label">Label</div><div class="sg-timeline-content">Content</div></div></div> — for sequences, history, processes in order
+- <div class="sg-steps"><div class="sg-step"><div class="sg-step-number">1</div><div class="sg-step-content">Step content</div></div></div> — for mechanisms, procedures, protocols
+- <div class="sg-compare"><div class="sg-compare-col"><div class="sg-compare-col-title">Title</div><p>Content</p></div></div> — for side-by-side comparisons
+
+RULES:
+- Wrap each major section in <div class="sg-section">...</div>
+- Use sg-callout sparingly for genuinely high-yield concepts
+- Use sg-term for key vocabulary
+- Do NOT include <html>, <head>, <body>, or <style> tags
+- Do NOT include the document header — added separately
+- Start directly with the first <div class="sg-section">
+- Pick the layout that makes the content clearest — don't force structure that doesn't fit`;
+
+    const htmlInstructions = guideMode === 'adaptive' ? adaptiveInstructions : standardInstructions;
+
+    return `You are Ascend, an expert study assistant. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\n${crossDoc}\n\n${level ? levelInstructions[level] : ''}${c}${w}${chem}${figuresInject}${q}${htmlInstructions}`;
   };
 
   const handleGenerate = async () => {
@@ -784,6 +820,30 @@ RULES:
                 </div>
                 <div style={{ width: 40, height: 22, borderRadius: 999, background: chemMode ? color : '#E8E5F0', transition: 'background 0.2s', position: 'relative', flexShrink: 0 }}>
                   <div style={{ position: 'absolute', top: 3, left: chemMode ? 20 : 3, width: 16, height: 16, borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '16px 20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 10 }}>Guide Mode</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {(['standard', 'adaptive'] as const).map(m => (
+                  <div key={m} onClick={() => setGuideMode(m)} style={{ flex: 1, padding: '10px 14px', borderRadius: 12, border: `2px solid ${guideMode === m ? color : '#E8E5F0'}`, background: guideMode === m ? light : '#FAFAF8', cursor: 'pointer' }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: guideMode === m ? color : '#1D1B26', marginBottom: 2, textTransform: 'capitalize' }}>{m}</div>
+                    <div style={{ fontSize: 10, color: '#9E9BB0', lineHeight: 1.4 }}>{m === 'standard' ? 'Consistent Ascend structure every time.' : 'Claude adapts layout to the material type.'}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '16px 20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+              <div onClick={() => setSmartFigures(f => !f)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Smart Figures</div>
+                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>Include diagrams for concepts that can't be explained in text alone</div>
+                </div>
+                <div style={{ width: 40, height: 22, borderRadius: 999, background: smartFigures ? color : '#E8E5F0', transition: 'background 0.2s', position: 'relative', flexShrink: 0 }}>
+                  <div style={{ position: 'absolute', top: 3, left: smartFigures ? 20 : 3, width: 16, height: 16, borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />
                 </div>
               </div>
             </div>
