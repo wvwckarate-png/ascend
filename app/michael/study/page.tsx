@@ -932,7 +932,7 @@ RULES:
                   </div>
                 )}
                 {studyGuide.trim().startsWith('<') ? (
-                  <div dangerouslySetInnerHTML={{ __html: studyGuide }} />
+                  <div dangerouslySetInnerHTML={{ __html: studyGuide.replace(/\sheight="auto"/g, '') }} />
                 ) : (
                   <ReactMarkdown components={{
                     h1: ({children}) => <h1 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.4rem', fontWeight: 800, color, marginTop: '1.5rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: `2px solid ${light}` }}>{children}</h1>,
