@@ -7,6 +7,7 @@ import { supabase } from '../../../lib/supabase';
 import { MoleculeStructure } from '../../components/MoleculeStructure';
 import { KaTeXRenderer } from '../../components/KaTeXRenderer';
 import { parseContent } from '../../../lib/parseContent';
+import FolderPicker from '../../components/FolderPicker';
 
 function Mountain() {
   return (
@@ -144,6 +145,7 @@ function MatthewFlashcardsInner() {
   const [cardSaving,      setCardSaving]      = useState(false);
   const [renamingId,      setRenamingId]      = useState<string | null>(null);
   const [renameValue,     setRenameValue]     = useState('');
+  const [movingId,        setMovingId]        = useState<string | null>(null);
 
   const [library,         setLibrary]         = useState<LibClass[]>([]);
   const [libLoading,      setLibLoading]       = useState(true);
@@ -708,6 +710,9 @@ function MatthewFlashcardsInner() {
                     <button onClick={() => { setRenamingId(deck.id); setRenameValue(deck.title); }} style={{ color: '#9E9BB0', background: '#F3F1EC', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <svg width="11" height="11" viewBox="0 0 28 28" fill="none"><path d="M4 24l4-1 13-13-3-3L5 20l-1 4z" stroke="#9E9BB0" strokeWidth="1.6" strokeLinejoin="round" fill="none"/><path d="M18 8l3 3" stroke="#9E9BB0" strokeWidth="1.6" strokeLinecap="round"/></svg>
                     </button>
+                    <button onClick={() => setMovingId(deck.id)} style={{ color: '#9E9BB0', background: '#F3F1EC', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <svg width="11" height="11" viewBox="0 0 28 28" fill="none"><path d="M5 14h18M14 5l9 9-9 9" stroke="#9E9BB0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </button>
                     <button onClick={() => { if (confirm('Delete this deck?')) deleteDeck(deck.id); }} style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '5px 8px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>✕</button>
                   </div>
                   <button onClick={() => openDeck(deck)} style={{ width: '100%', padding: '8px', borderRadius: 10, background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', border: 'none', color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Study</button>
@@ -833,6 +838,20 @@ function MatthewFlashcardsInner() {
             </div>
           )}
         </main>
+      )}
+
+      {movingId && (
+        <FolderPicker
+          studentId="matthew"
+          currentFolderId={decks.find(d => d.id === movingId)?.folder_id}
+          accentColor={color}
+          onClose={() => setMovingId(null)}
+          onSelect={async (folderId, folderName, className) => {
+            await supabase.from('flashcard_decks').update({ folder_id: folderId }).eq('id', movingId);
+            setDecks(prev => prev.map(d => d.id === movingId ? { ...d, folder_id: folderId, folder_name: folderName, class_name: className } : d));
+            setMovingId(null);
+          }}
+        />
       )}
 
       {/* ── GENERATE SCREEN ── */}

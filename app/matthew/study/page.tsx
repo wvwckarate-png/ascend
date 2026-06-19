@@ -9,6 +9,7 @@ import TabBar from '../../components/TabBar';
 import { MoleculeStructure } from '../../components/MoleculeStructure';
 import { KaTeXRenderer } from '../../components/KaTeXRenderer';
 import { parseContent } from '../../../lib/parseContent';
+import FolderPicker from '../../components/FolderPicker';
 
 function Mountain() {
   return (
@@ -224,6 +225,7 @@ function MatthewStudyInner() {
   const [histLoading,  setHistLoading]  = useState(true);
   const [renamingId,   setRenamingId]   = useState<string | null>(null);
   const [renameValue,  setRenameValue]  = useState('');
+  const [movingId,     setMovingId]     = useState<string | null>(null);
 
   const [library,         setLibrary]         = useState<LibClass[]>([]);
   const [libLoading,      setLibLoading]       = useState(true);
@@ -535,6 +537,9 @@ function MatthewStudyInner() {
                       <button onClick={() => { setRenamingId(guide.id); setRenameValue(guide.title); }} style={{ color: '#9E9BB0', background: '#F3F1EC', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <svg width="11" height="11" viewBox="0 0 28 28" fill="none"><path d="M4 24l4-1 13-13-3-3L5 20l-1 4z" stroke="#9E9BB0" strokeWidth="1.6" strokeLinejoin="round" fill="none"/><path d="M18 8l3 3" stroke="#9E9BB0" strokeWidth="1.6" strokeLinecap="round"/></svg>
                       </button>
+                      <button onClick={() => setMovingId(guide.id)} style={{ color: '#9E9BB0', background: '#F3F1EC', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="11" height="11" viewBox="0 0 28 28" fill="none"><path d="M5 14h18M14 5l9 9-9 9" stroke="#9E9BB0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      </button>
                       <button onClick={() => { if (confirm('Delete this study guide?')) deleteGuide(guide.id); }} style={{ fontSize: 10, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                     </div>
                   </div>
@@ -544,6 +549,20 @@ function MatthewStudyInner() {
             </div>
           )}
         </main>
+      )}
+
+      {movingId && (
+        <FolderPicker
+          studentId="matthew"
+          currentFolderId={savedGuides.find(g => g.id === movingId)?.folder_id}
+          accentColor={color}
+          onClose={() => setMovingId(null)}
+          onSelect={async (folderId, folderName, className) => {
+            await supabase.from('study_guides').update({ folder_id: folderId }).eq('id', movingId);
+            setSavedGuides(prev => prev.map(g => g.id === movingId ? { ...g, folder_id: folderId, folder_name: folderName, class_name: className } : g));
+            setMovingId(null);
+          }}
+        />
       )}
 
       {/* SETUP SCREEN */}

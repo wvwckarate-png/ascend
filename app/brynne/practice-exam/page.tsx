@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import TabBar from '../../components/TabBar';
 import { supabase } from '../../../lib/supabase';
+import FolderPicker from '../../components/FolderPicker';
 
 function Mountain() {
   return (
@@ -75,6 +76,7 @@ function BrynnePracticeExamInner() {
   const [timerMinutes,       setTimerMinutes]       = useState(30);
   const [renamingId,         setRenamingId]         = useState<string | null>(null);
   const [renameValue,        setRenameValue]        = useState('');
+  const [movingId,           setMovingId]           = useState<string | null>(null);
   const [scheduleReview,     setScheduleReview]     = useState(false);
   const [reviewScheduled,    setReviewScheduled]    = useState(false);
   const [classMeta, setClassMeta] = useState<{ className: string; professor: string; notes: string; folderName: string; examDate: string | null; studentName: string; studentGrade: string; studentTrack: string; studentSchool: string; studentProgram: string; studentGradYear: string; generationProfile: string; } | null>(null);
@@ -399,6 +401,9 @@ function BrynnePracticeExamInner() {
                       <button onClick={() => { setRenamingId(exam.id); setRenameValue(exam.title); }} style={{ color: '#9E9BB0', background: '#F3F1EC', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <svg width="11" height="11" viewBox="0 0 28 28" fill="none"><path d="M4 24l4-1 13-13-3-3L5 20l-1 4z" stroke="#9E9BB0" strokeWidth="1.6" strokeLinejoin="round" fill="none"/><path d="M18 8l3 3" stroke="#9E9BB0" strokeWidth="1.6" strokeLinecap="round"/></svg>
                       </button>
+                      <button onClick={() => setMovingId(exam.id)} style={{ color: '#9E9BB0', background: '#F3F1EC', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="11" height="11" viewBox="0 0 28 28" fill="none"><path d="M5 14h18M14 5l9 9-9 9" stroke="#9E9BB0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      </button>
                       <button onClick={() => { if (confirm('Delete this test?')) deleteExam(exam.id); }} style={{ color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <svg width="11" height="11" viewBox="0 0 28 28" fill="none"><path d="M6 6l16 16M22 6L6 22" stroke="#C47878" strokeWidth="2" strokeLinecap="round"/></svg>
                       </button>
@@ -413,6 +418,20 @@ function BrynnePracticeExamInner() {
             </div>
           )}
         </main>
+      )}
+
+      {movingId && (
+        <FolderPicker
+          studentId="brynne"
+          currentFolderId={pastExams.find(e => e.id === movingId)?.folder_id}
+          accentColor={color}
+          onClose={() => setMovingId(null)}
+          onSelect={async (folderId, folderName, className) => {
+            await supabase.from('practice_exams').update({ folder_id: folderId }).eq('id', movingId);
+            setPastExams(prev => prev.map(e => e.id === movingId ? { ...e, folder_id: folderId, folder_name: folderName, class_name: className } : e));
+            setMovingId(null);
+          }}
+        />
       )}
 
       {screen === 'setup' && (
