@@ -1,9 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
 import officeParser from 'officeparser';
 import JSZip from 'jszip';
+import sharp from 'sharp';
 import { writeFile, unlink } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+async function compressAndUploadImage(
+  imageBuffer: Buffer,
+  filename: string,
+  guideId: string
+): Promise<string | null> {
+  try {
+    // Compress image with sharp — resize to max 1200px wide, 80% JPEG quality
+    const compressed = await sharp(imageBuffer)
+      .resize({ width: 1200, withoutEnlargement: true })
+      .jpeg({ quality: 80 })
+      .toBuffer();
+
+    const storagePath = `${guideId}/${filename.replace(/\.[^.]+$/, '')}.jpg`;
+
+    const { error } = await supabaseAdmin.storage
+      .from('slide-images')
+      .upload(storagePath, compressed, {
+        contentType: 'image/jpeg',
+        upsert: true,
+      });
+
+    if (error) {
+      console.error('Storage upload error:', error);
+      return null;
+    }
+
+    const { data } = supabaseAdmin.storage
+      .from('slide-images')
+      .getPublicUrl(storagePath);
+
+    return data.publicUrl;
+  } catch (err) {
+    console.error('Image compression/upload error:', err);
+    return null;
+  }
+}
 
 async function extractPptxImages(file: File): Promise<{ name: string; base64: string; mediaType: string }[]> {
   const bytes = await file.arrayBuffer();
@@ -150,12 +194,19 @@ export async function POST(req: NextRequest) {
           const wordCount = cleanText.split(/\s+/).filter(w => w.length > 3).length;
 
           // Extract embedded images if it's a PPTX
-          let slideImages: { name: string; base64: string; mediaType: string }[] = [];
+          let slideImageUrls: { name: string; url: string }[] = [];
           if (isPptx) {
             try {
-              slideImages = await extractPptxImages(file);
+              const rawImages = await extractPptxImages(file);
+              // Generate a temporary guide ID for storage path
+              const tempGuideId = `temp-${Date.now()}`;
+              for (const img of rawImages) {
+                const imageBuffer = Buffer.from(img.base64, 'base64');
+                const url = await compressAndUploadImage(imageBuffer, img.name, tempGuideId);
+                if (url) slideImageUrls.push({ name: img.name, url });
+              }
             } catch (imgErr) {
-              console.error(`Failed to extract images from ${file.name}:`, imgErr);
+              console.error(`Failed to extract/upload images from ${file.name}:`, imgErr);
             }
           }
 
@@ -164,22 +215,15 @@ export async function POST(req: NextRequest) {
               type: 'text',
               text: `--- Lecture Slides: ${file.name} ---\nIMPORTANT: Generate content ONLY from the text and images provided. Do not use outside knowledge.\n${cleanText}\n--- End of slide text ---`,
             });
-            // Add extracted images as vision inputs
-            if (slideImages.length > 0) {
+            // Tell Claude about the image URLs to embed
+            if (slideImageUrls.length > 0) {
+              const imageList = slideImageUrls.map((img, i) =>
+                `Image ${i + 1}: ${img.name} → <div class="sg-figure"><img src="${img.url}" style="max-width:100%;border-radius:8px;" alt="${img.name}" /><span class="sg-figure-caption">Figure ${i + 1} — [write a descriptive caption based on what this image shows]</span></div>`
+              ).join('\n');
               messageContent.push({
                 type: 'text',
-                text: `The following ${slideImages.length} image(s) were embedded in the lecture slides. These are the professor's actual figures and diagrams. Use them directly in the study guide where relevant — place each image near the section it illustrates. These images may appear on exams, so preserve them exactly.`,
+                text: `PROFESSOR SLIDE IMAGES — The following ${slideImageUrls.length} image(s) were extracted from the lecture slides. These are the professor's actual figures and may appear on exams. Embed each one directly in the study guide near the section it illustrates using the exact HTML provided. Do not skip any image.\n\n${imageList}`,
               });
-              for (const img of slideImages) {
-                messageContent.push({
-                  type: 'image',
-                  source: {
-                    type: 'base64',
-                    media_type: img.mediaType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
-                    data: img.base64,
-                  },
-                });
-              }
             }
           } else {
             messageContent.push({
