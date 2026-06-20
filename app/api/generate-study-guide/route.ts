@@ -1,4 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
+import officeParser from 'officeparser';
+import { writeFile, unlink } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
+
+async function extractPptxText(file: File): Promise<string> {
+  const bytes = await file.arrayBuffer();
+  const buffer = Buffer.from(bytes);
+  const tmpPath = join(tmpdir(), `ascend-${Date.now()}-${file.name}`);
+  await writeFile(tmpPath, buffer);
+  try {
+    const text = await new Promise<string>((resolve, reject) => {
+      officeParser.parseOffice(tmpPath, (ast: any, err?: any) => {
+        if (err) reject(err);
+        else resolve(typeof ast === 'string' ? ast : ast?.text || JSON.stringify(ast));
+      });
+    });
+    return text;
+  } finally {
+    await unlink(tmpPath).catch(() => {});
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,7 +38,6 @@ export async function POST(req: NextRequest) {
 
       const messageContent: any[] = [];
 
-      // Inject transcripts as text context if provided
       if (transcripts && transcripts.length > 0) {
         for (const t of transcripts) {
           messageContent.push({
@@ -51,18 +72,16 @@ export async function POST(req: NextRequest) {
 
     // FormData — study guide generation from files + prompt
     const formData = await req.formData();
-    const filesRaw   = formData.getAll('files');
-    const singleFile = formData.get('file');
-    const student    = formData.get('student') as string;
+    const filesRaw    = formData.getAll('files');
+    const singleFile  = formData.get('file');
+    const student     = formData.get('student') as string;
     const customPrompt = formData.get('prompt') as string | null;
     const transcriptsRaw = formData.get('transcripts') as string | null;
 
-    // Support both 'files' (multi) and 'file' (legacy single)
     const allFiles = filesRaw.length > 0
       ? filesRaw as File[]
       : singleFile ? [singleFile as File] : [];
 
-    // Parse transcripts if provided
     const transcripts: { name: string; text: string }[] = transcriptsRaw
       ? JSON.parse(transcriptsRaw)
       : [];
@@ -71,10 +90,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No files, transcripts, or prompt provided' }, { status: 400 });
     }
 
-    // Build message content
     const messageContent: any[] = [];
 
-    // Add transcript text resources first
+    // Add transcript text resources
     for (const t of transcripts) {
       messageContent.push({
         type: 'text',
@@ -82,17 +100,36 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Add all PDF files
+    // Process each file — PDF as document, PPTX/DOCX as extracted text
     for (const file of allFiles) {
-      const bytes  = await file.arrayBuffer();
-      const base64 = Buffer.from(bytes).toString('base64');
-      messageContent.push({
-        type: 'document',
-        source: { type: 'base64', media_type: 'application/pdf', data: base64 },
-      });
+      const name = file.name.toLowerCase();
+      const isPptx = name.endsWith('.pptx') || name.endsWith('.ppt');
+      const isDocx = name.endsWith('.docx') || name.endsWith('.doc');
+
+      if (isPptx || isDocx) {
+        try {
+          const extracted = await extractPptxText(file);
+          if (extracted.trim()) {
+            messageContent.push({
+              type: 'text',
+              text: `--- Lecture Slides: ${file.name} ---\n${extracted}\n--- End of slides ---`,
+            });
+          }
+        } catch (err) {
+          console.error(`Failed to extract ${file.name}:`, err);
+          // Skip silently — don't fail the whole request
+        }
+      } else {
+        // Default: treat as PDF
+        const bytes  = await file.arrayBuffer();
+        const base64 = Buffer.from(bytes).toString('base64');
+        messageContent.push({
+          type: 'document',
+          source: { type: 'base64', media_type: 'application/pdf', data: base64 },
+        });
+      }
     }
 
-    // Add the prompt
     const toneMap: Record<string, string> = {
       matthew: 'You are Ascend, an AI study assistant for Matthew, a pre-dental high school junior. Be precise and technically accurate.',
       michael: 'You are Ascend, an AI study assistant for Michael, a 9th grade pre-med student. Be clear and engaging.',
