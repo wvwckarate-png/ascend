@@ -179,7 +179,13 @@ Format with clear markdown headers.`;
     }
 
     const data = await response.json();
-    return NextResponse.json({ studyGuide: data.content[0].text });
+    let output = data.content[0].text || '';
+    // Strip any preamble before the first HTML tag
+    const htmlStart = output.indexOf('<');
+    if (htmlStart > 0) output = output.slice(htmlStart);
+    // Strip markdown code fences if Claude wrapped the HTML
+    output = output.replace(/^```html?\s*/i, '').replace(/\s*```$/, '').trim();
+    return NextResponse.json({ studyGuide: output });
 
   } catch (error) {
     console.error('Error:', error);
