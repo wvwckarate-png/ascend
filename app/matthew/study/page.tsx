@@ -940,7 +940,7 @@ RULES:
                     </div>
                   </div>
                 )}
-                {studyGuide.trim().startsWith('<') ? (
+                {studyGuide.trim().replace(/^[\s\n\r]+/, '').startsWith('<') ? (
                   <div dangerouslySetInnerHTML={{ __html: studyGuide.replace(/\sheight="auto"/g, '') }} />
                 ) : (
                   <ReactMarkdown components={{

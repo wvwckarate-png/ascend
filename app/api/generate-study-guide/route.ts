@@ -109,15 +109,21 @@ export async function POST(req: NextRequest) {
       if (isPptx || isDocx) {
         try {
           const extracted = await extractPptxText(file);
-          if (extracted.trim()) {
+          const cleanText = extracted.replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/\s+/g, ' ').trim();
+          if (cleanText.length > 200) {
             messageContent.push({
               type: 'text',
-              text: `--- Lecture Slides: ${file.name} ---\n${extracted}\n--- End of slides ---`,
+              text: `--- Lecture Slides: ${file.name} ---\nIMPORTANT: Generate content ONLY from the text below. Do not use outside knowledge.\n${cleanText}\n--- End of slides ---`,
+            });
+          } else {
+            // Not enough text extracted — tell Claude the file was unreadable
+            messageContent.push({
+              type: 'text',
+              text: `--- Lecture Slides: ${file.name} ---\nThis file could not be read. Inform the student that this file format could not be extracted and no content was generated from it.\n--- End of slides ---`,
             });
           }
         } catch (err) {
           console.error(`Failed to extract ${file.name}:`, err);
-          // Skip silently — don't fail the whole request
         }
       } else {
         // Default: treat as PDF
