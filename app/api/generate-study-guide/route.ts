@@ -110,7 +110,9 @@ export async function POST(req: NextRequest) {
         try {
           const extracted = await extractPptxText(file);
           const cleanText = extracted.replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/\s+/g, ' ').trim();
-          if (cleanText.length > 200) {
+          // Require at least 500 chars of clean readable text with real words
+          const wordCount = cleanText.split(/\s+/).filter(w => w.length > 3).length;
+          if (cleanText.length > 500 && wordCount > 30) {
             messageContent.push({
               type: 'text',
               text: `--- Lecture Slides: ${file.name} ---\nIMPORTANT: Generate content ONLY from the text below. Do not use outside knowledge.\n${cleanText}\n--- End of slides ---`,
