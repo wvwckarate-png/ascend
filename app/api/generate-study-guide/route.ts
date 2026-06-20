@@ -1,8 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 import officeParser from 'officeparser';
+import JSZip from 'jszip';
 import { writeFile, unlink } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
+
+async function extractPptxImages(file: File): Promise<{ name: string; base64: string; mediaType: string }[]> {
+  const bytes = await file.arrayBuffer();
+  const buffer = Buffer.from(bytes);
+  const zip = await JSZip.loadAsync(buffer);
+  const images: { name: string; base64: string; mediaType: string }[] = [];
+
+  const mediaFolder = zip.folder('ppt/media');
+  if (!mediaFolder) return images;
+
+  const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'];
+
+  for (const [filename, zipEntry] of Object.entries(zip.files)) {
+    if (!filename.startsWith('ppt/media/')) continue;
+    const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'));
+    if (!imageExtensions.includes(ext)) continue;
+
+    const imageBuffer = await zipEntry.async('nodebuffer');
+    // Skip tiny files — likely icons or decorative elements
+    if (imageBuffer.length < 10000) continue;
+
+    const mediaType = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg'
+      : ext === '.png' ? 'image/png'
+      : ext === '.gif' ? 'image/gif'
+      : ext === '.webp' ? 'image/webp'
+      : 'image/png';
+
+    images.push({
+      name: filename.split('/').pop() || filename,
+      base64: imageBuffer.toString('base64'),
+      mediaType,
+    });
+  }
+
+  return images;
+}
 
 async function extractPptxText(file: File): Promise<string> {
   const bytes = await file.arrayBuffer();
@@ -110,15 +147,41 @@ export async function POST(req: NextRequest) {
         try {
           const extracted = await extractPptxText(file);
           const cleanText = extracted.replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/\s+/g, ' ').trim();
-          // Require at least 500 chars of clean readable text with real words
           const wordCount = cleanText.split(/\s+/).filter(w => w.length > 3).length;
+
+          // Extract embedded images if it's a PPTX
+          let slideImages: { name: string; base64: string; mediaType: string }[] = [];
+          if (isPptx) {
+            try {
+              slideImages = await extractPptxImages(file);
+            } catch (imgErr) {
+              console.error(`Failed to extract images from ${file.name}:`, imgErr);
+            }
+          }
+
           if (cleanText.length > 500 && wordCount > 30) {
             messageContent.push({
               type: 'text',
-              text: `--- Lecture Slides: ${file.name} ---\nIMPORTANT: Generate content ONLY from the text below. Do not use outside knowledge.\n${cleanText}\n--- End of slides ---`,
+              text: `--- Lecture Slides: ${file.name} ---\nIMPORTANT: Generate content ONLY from the text and images provided. Do not use outside knowledge.\n${cleanText}\n--- End of slide text ---`,
             });
+            // Add extracted images as vision inputs
+            if (slideImages.length > 0) {
+              messageContent.push({
+                type: 'text',
+                text: `The following ${slideImages.length} image(s) were embedded in the lecture slides. These are the professor's actual figures and diagrams. Use them directly in the study guide where relevant — place each image near the section it illustrates. These images may appear on exams, so preserve them exactly.`,
+              });
+              for (const img of slideImages) {
+                messageContent.push({
+                  type: 'image',
+                  source: {
+                    type: 'base64',
+                    media_type: img.mediaType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+                    data: img.base64,
+                  },
+                });
+              }
+            }
           } else {
-            // Not enough text extracted — tell Claude the file was unreadable
             messageContent.push({
               type: 'text',
               text: `--- Lecture Slides: ${file.name} ---\nThis file could not be read. Inform the student that this file format could not be extracted and no content was generated from it.\n--- End of slides ---`,
