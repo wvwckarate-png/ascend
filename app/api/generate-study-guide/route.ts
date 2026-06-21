@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+export const maxDuration = 60;
+
 import officeParser from 'officeparser';
 import JSZip from 'jszip';
 import sharp from 'sharp';
@@ -59,6 +61,7 @@ async function extractPptxImages(file: File): Promise<{ name: string; base64: st
   if (!mediaFolder) return images;
 
   const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'];
+  const candidateImages: { name: string; buffer: Buffer; mediaType: string }[] = [];
 
   for (const [filename, zipEntry] of Object.entries(zip.files)) {
     if (!filename.startsWith('ppt/media/')) continue;
@@ -66,8 +69,8 @@ async function extractPptxImages(file: File): Promise<{ name: string; base64: st
     if (!imageExtensions.includes(ext)) continue;
 
     const imageBuffer = await zipEntry.async('nodebuffer');
-    // Skip tiny files — likely icons or decorative elements
-    if (imageBuffer.length < 10000) continue;
+    // Raise threshold to 50KB — filters thumbnails and decorative elements
+    if (imageBuffer.length < 50000) continue;
 
     const mediaType = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg'
       : ext === '.png' ? 'image/png'
@@ -75,10 +78,31 @@ async function extractPptxImages(file: File): Promise<{ name: string; base64: st
       : ext === '.webp' ? 'image/webp'
       : 'image/png';
 
-    images.push({
+    candidateImages.push({
       name: filename.split('/').pop() || filename,
-      base64: imageBuffer.toString('base64'),
+      buffer: imageBuffer,
       mediaType,
+    });
+  }
+
+  // Sort by size descending — largest version of each image wins
+  candidateImages.sort((a, b) => b.buffer.length - a.buffer.length);
+
+  // Deduplicate — skip images within 20% size of an already-kept image
+  const kept: typeof candidateImages = [];
+  for (const candidate of candidateImages) {
+    const isDuplicate = kept.some(k => {
+      const ratio = Math.min(k.buffer.length, candidate.buffer.length) / Math.max(k.buffer.length, candidate.buffer.length);
+      return ratio > 0.8;
+    });
+    if (!isDuplicate) kept.push(candidate);
+  }
+
+  for (const img of kept) {
+    images.push({
+      name: img.name,
+      base64: img.buffer.toString('base64'),
+      mediaType: img.mediaType,
     });
   }
 
@@ -142,7 +166,7 @@ export async function POST(req: NextRequest) {
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
-          max_tokens: 4000,
+          max_tokens: 8000,
           messages: [{ role: 'user', content: messageContent }],
         }),
       });
@@ -181,6 +205,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Collect all slide image paths for tracking
+    const allSlideImagePaths: string[] = [];
+
     // Process each file — PDF as document, PPTX/DOCX as extracted text
     for (const file of allFiles) {
       const name = file.name.toLowerCase();
@@ -200,11 +227,15 @@ export async function POST(req: NextRequest) {
               const rawImages = await extractPptxImages(file);
               // Generate a temporary guide ID for storage path
               const tempGuideId = `temp-${Date.now()}`;
-              for (const img of rawImages) {
-                const imageBuffer = Buffer.from(img.base64, 'base64');
-                const url = await compressAndUploadImage(imageBuffer, img.name, tempGuideId);
-                if (url) slideImageUrls.push({ name: img.name, url });
-              }
+              const uploadResults = await Promise.all(
+                rawImages.map(async (img) => {
+                  const imageBuffer = Buffer.from(img.base64, 'base64');
+                  const url = await compressAndUploadImage(imageBuffer, img.name, tempGuideId);
+                  return url ? { name: img.name, url } : null;
+                })
+              );
+              slideImageUrls = uploadResults.filter((r): r is { name: string; url: string } => r !== null);
+              allSlideImagePaths.push(...slideImageUrls.map(img => img.url));
             } catch (imgErr) {
               console.error(`Failed to extract/upload images from ${file.name}:`, imgErr);
             }
@@ -277,7 +308,7 @@ Format with clear markdown headers.`;
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 6000,
+        max_tokens: 8000,
         messages: [{ role: 'user', content: messageContent }],
       }),
     });
@@ -294,7 +325,7 @@ Format with clear markdown headers.`;
     if (htmlStart > 0) output = output.slice(htmlStart);
     // Strip markdown code fences if Claude wrapped the HTML
     output = output.replace(/^```html?\s*/i, '').replace(/\s*```$/, '').trim();
-    return NextResponse.json({ studyGuide: output });
+    return NextResponse.json({ studyGuide: output, slideImagePaths: allSlideImagePaths });
 
   } catch (error) {
     console.error('Error:', error);

@@ -282,6 +282,12 @@
   max-width: 100%;
 }
 
+.sg-figure img {
+  max-width: 100%;
+  border-radius: 8px;
+  mix-blend-mode: multiply;
+}
+
 .sg-figure-caption {
   font-size: 11px;
   color: #9E9BB0;

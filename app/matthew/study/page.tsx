@@ -247,6 +247,7 @@ function MatthewStudyInner() {
   const [questionFormat,     setQuestionFormat]     = useState('Multiple Choice');
   const [showAnswers,        setShowAnswers]        = useState(true);
   const [loading,            setLoading]            = useState(false);
+  const [loadingMessage,     setLoadingMessage]     = useState('');
   const [saving,             setSaving]             = useState(false);
   const [studyGuide,         setStudyGuide]         = useState('');
   const [error,              setError]              = useState('');
@@ -255,6 +256,7 @@ function MatthewStudyInner() {
   const [saved,              setSaved]              = useState(false);
   const [copied,             setCopied]             = useState(false);
   const [sourceFiles,        setSourceFiles]        = useState<string[]>([]);
+  const [slideImagePaths,    setSlideImagePaths]    = useState<string[]>([]);
   const [classMeta, setClassMeta] = useState<{ className: string; professor: string; notes: string; folderName: string; examDate: string | null; studentName: string; studentGrade: string; studentTrack: string; studentSchool: string; studentProgram: string; studentGradYear: string; generationProfile: string; } | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -383,6 +385,16 @@ function MatthewStudyInner() {
   };
 
   const deleteGuide = async (id: string) => {
+    const { data: guide } = await supabase.from('study_guides').select('slide_image_paths').eq('id', id).single();
+    if (guide && guide.slide_image_paths && guide.slide_image_paths.length > 0) {
+      const pathsToDelete = guide.slide_image_paths.map((url: string) => {
+        const parts = url.split('/slide-images/');
+        return parts[1] || '';
+      }).filter(Boolean);
+      if (pathsToDelete.length > 0) {
+        await supabase.storage.from('slide-images').remove(pathsToDelete);
+      }
+    }
     await supabase.from('study_guides').delete().eq('id', id);
     setSavedGuides(prev => prev.filter(g => g.id !== id));
   };
@@ -481,7 +493,7 @@ RULES:
   const handleGenerate = async () => {
     const totalCount = selectedIds.size + newFiles.length;
     if (totalCount === 0 && !customInstructions.trim()) return;
-    setLoading(true); setError('');
+    setLoading(true); setError(''); setLoadingMessage('Reading your files...');
     try {
       const allResources = library.flatMap(c => c.folders.flatMap(f => f.resources));
       const selectedResources = allResources.filter(r => selectedIds.has(r.id));
@@ -503,15 +515,18 @@ RULES:
         try { const res = await fetch(r.storage_url); const blob = await res.blob(); fetchedFiles.push(new File([blob], r.file_name + '.pdf', { type: 'application/pdf' })); } catch { /* skip */ }
       }
       const allFiles = [...fetchedFiles, ...newFiles];
+      setLoadingMessage(newFiles.some(f => f.name.endsWith('.pptx') || f.name.endsWith('.ppt')) ? 'Extracting slides and images...' : 'Analyzing your materials...');
       const formData = new FormData();
       allFiles.forEach(f => formData.append('files', f));
       formData.append('student', 'matthew');
       formData.append('prompt', buildPrompt(allFiles.length + transcripts.length));
       if (transcripts.length > 0) formData.append('transcripts', JSON.stringify(transcripts));
+      setLoadingMessage('Building your study guide...');
       const res  = await fetch('/api/generate-study-guide', { method: 'POST', body: formData });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setStudyGuide(data.studyGuide);
+      setSlideImagePaths(data.slideImagePaths || []);
       setSourceFiles([...allFiles.map(f => f.name), ...transcripts.map(t => t.name)]);
       if (!guideName) setGuideName(allFiles.length > 0 ? allFiles[0].name.replace('.pdf', '') : transcripts.length > 0 ? transcripts[0].name : 'Study Guide');
       setShowNamePrompt(true); setSaved(false);
@@ -524,7 +539,7 @@ RULES:
     if (!guideName.trim()) return;
     setSaving(true);
     try {
-      await supabase.from('study_guides').insert({ student_id: 'matthew', title: guideName.trim(), content: studyGuide, source_filename: sourceFiles.join(', ') || 'Custom', folder_id: selectedFolderId || folderId || null });
+      const { data: insertedGuide } = await supabase.from('study_guides').insert({ student_id: 'matthew', title: guideName.trim(), content: studyGuide, source_filename: sourceFiles.join(', ') || 'Custom', folder_id: selectedFolderId || folderId || null, slide_image_paths: slideImagePaths }).select().single();
       const today = new Date();
       const { data: savedGuide } = await supabase.from('study_guides').select('id').eq('student_id', 'matthew').order('created_at', { ascending: false }).limit(1).single();
       await supabase.from('tasks').insert([1, 3, 7].map(days => ({ student_id: 'matthew', title: `Review: ${guideName.trim()}`, due_date: addDays(today, days), task_type: 'review', completed: false, resource_id: savedGuide?.id || null, resource_type: 'study_guide' })));
@@ -864,7 +879,7 @@ RULES:
             {loading ? (
               <div style={{ textAlign: 'center', padding: '24px 0' }}>
                 <div style={{ width: 32, height: 32, border: '2.5px solid #E8E5F0', borderTopColor: color, borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.75s linear infinite' }} />
-                <div style={{ fontSize: 13, color: '#9E9BB0' }}>{totalSelected > 1 ? `Analyzing ${totalSelected} documents...` : 'Generating study guide...'}</div>
+                <div style={{ fontSize: 13, color: '#9E9BB0' }}>{loadingMessage || (totalSelected > 1 ? `Analyzing ${totalSelected} documents...` : 'Generating study guide...')}</div>
                 <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
               </div>
             ) : (
