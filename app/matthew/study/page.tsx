@@ -823,8 +823,8 @@ RULES:
                   <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Add Practice Questions</div>
                   <div style={{ fontSize: 11, color: '#9E9BB0' }}>Append active recall questions to the guide.</div>
                 </div>
-                <button onClick={() => setAddQuestions(q => !q)} style={{ width: 44, height: 26, borderRadius: 999, border: 'none', background: addQuestions ? color : '#E8E5F0', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-                  <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'white', position: 'absolute', top: 3, left: addQuestions ? 21 : 3, transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />
+                <button onClick={() => setAddQuestions(q => !q)} style={{ width: 40, height: 22, borderRadius: 999, border: 'none', background: addQuestions ? color : '#E8E5F0', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                  <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'white', position: 'absolute', top: 3, left: addQuestions ? 20 : 3, transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />
                 </button>
               </div>
               {addQuestions && (
@@ -842,8 +842,8 @@ RULES:
                       <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 2 }}>Show Answers</div>
                       <div style={{ fontSize: 11, color: '#9E9BB0' }}>Include answers and explanations</div>
                     </div>
-                    <button onClick={() => setShowAnswers(a => !a)} style={{ width: 44, height: 26, borderRadius: 999, border: 'none', background: showAnswers ? color : '#E8E5F0', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-                      <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'white', position: 'absolute', top: 3, left: showAnswers ? 21 : 3, transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />
+                    <button onClick={() => setShowAnswers(a => !a)} style={{ width: 40, height: 22, borderRadius: 999, border: 'none', background: showAnswers ? color : '#E8E5F0', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                      <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'white', position: 'absolute', top: 3, left: showAnswers ? 20 : 3, transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />
                     </button>
                   </div>
                 </div>
@@ -868,7 +868,7 @@ RULES:
                 {(['standard', 'adaptive'] as const).map(m => (
                   <div key={m} onClick={() => setGuideMode(m)} style={{ flex: 1, padding: '10px 14px', borderRadius: 12, border: `2px solid ${guideMode === m ? color : '#E8E5F0'}`, background: guideMode === m ? light : '#FAFAF8', cursor: 'pointer' }}>
                     <div style={{ fontSize: 13, fontWeight: 800, color: guideMode === m ? color : '#1D1B26', marginBottom: 2, textTransform: 'capitalize' }}>{m}</div>
-                    <div style={{ fontSize: 10, color: '#9E9BB0', lineHeight: 1.4 }}>{m === 'standard' ? 'Consistent Ascend structure every time.' : 'Claude adapts layout to the material type.'}</div>
+                    <div style={{ fontSize: 10, color: '#9E9BB0', lineHeight: 1.4 }}>{m === 'standard' ? 'Consistent Ascend structure every time.' : 'Let Ascend decide the best layout.'}</div>
                   </div>
                 ))}
               </div>
