@@ -412,14 +412,14 @@ function MatthewStudyInner() {
       mastery:  'Generate a comprehensive mastery-level guide with deep explanations, mechanisms, and connections across all materials.',
     };
     const studentCtx = classMeta
-      ? `${classMeta.studentName} is a ${classMeta.studentGrade} student on a ${classMeta.studentTrack} track, targeting ${classMeta.studentProgram} (graduating ${classMeta.studentGradYear}).${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
-      : 'Matthew is an 11th grade pre-dental student targeting WVU School of Dentistry.';
+      ? `You are building a study guide for ${classMeta.studentName}, a ${classMeta.studentGrade} student. Calibrate depth and vocabulary to a rigorous college level.${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
+      : `You are building a study guide for Matthew, a college student. Calibrate depth and vocabulary to a rigorous college level.`;
     const classCtx = classMeta
       ? `Class: ${classMeta.className}. Exam: ${classMeta.folderName}${classMeta.examDate ? ` (${new Date(classMeta.examDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})` : ''}. Professor: ${classMeta.professor || 'unknown'}.${classMeta.notes ? ` Professor notes: "${classMeta.notes}"` : ''}`
       : '';
     const goalCtx = classMeta
-      ? `Your ONLY goal: help Matthew earn an A on ${classMeta.folderName} in ${classMeta.className}${classMeta.professor ? ` with ${classMeta.professor}` : ''}. Think like this professor — focus on their emphasis, their scope, what they actually test.`
-      : `Your goal: help Matthew earn an A in this class. Focus only on what was actually taught.`;
+      ? `Your ONLY goal is to help ${classMeta.studentName} earn an A on ${classMeta.folderName}${classMeta.professor ? ` with ${classMeta.professor}` : ''} in ${classMeta.className}. Think exactly like this professor: what concepts do they emphasize, what is in scope, what will they put on this exam. STRICT RULES: (1) Every fact, concept, and example must come directly from the uploaded materials — no outside knowledge, no motivational framing, no career context. (2) If a concept appears across multiple uploaded sources, it is high-yield — flag it with a LIKELY TESTED callout because the professor clearly thinks it matters. (3) Your job is exam preparation, nothing else.`
+      : `Your ONLY goal is to help the student earn an A on their exam. Think like the professor who wrote these materials. STRICT RULES: (1) Every fact, concept, and example must come directly from the uploaded materials — no outside knowledge, no motivational framing. (2) If a concept appears across multiple uploaded sources, flag it as LIKELY TESTED. (3) Your job is exam preparation, nothing else.`;
     const crossDoc = fileCount > 1
       ? `Analyze all ${fileCount} documents and identify the highest-yield topics — concepts that appear repeatedly, are emphasized, or are most likely to appear on this professor's exam. Do NOT go deeper than what the professor's materials cover.`
       : `Focus only on what is in these materials. Do not expand beyond the scope of what was taught.`;

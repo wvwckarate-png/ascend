@@ -409,14 +409,14 @@ function BrynneStudyInner() {
       mastery:  'Generate a comprehensive mastery-level guide with deep explanations, mechanisms, and connections across all materials.',
     };
     const studentCtx = classMeta
-      ? `${classMeta.studentName} is a ${classMeta.studentGrade} student on a ${classMeta.studentTrack} track, targeting ${classMeta.studentProgram} (graduating ${classMeta.studentGradYear}).${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
-      : 'Brynne is an advanced 5th grader doing high school level math and science, targeting WVU School of Medicine.';
+      ? `You are building a study guide for ${classMeta.studentName}. Calibrate depth and vocabulary to match the level of the uploaded materials.${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
+      : `You are building a study guide for Brynne. Calibrate depth and vocabulary to match the level of the uploaded materials.`;
     const classCtx = classMeta
       ? `Class: ${classMeta.className}. Exam: ${classMeta.folderName}${classMeta.examDate ? ` (${new Date(classMeta.examDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})` : ''}. Teacher: ${classMeta.professor || 'unknown'}.${classMeta.notes ? ` Teacher notes: "${classMeta.notes}"` : ''}`
       : '';
     const goalCtx = classMeta
-      ? `Your ONLY goal: help Brynne earn an A on ${classMeta.folderName} in ${classMeta.className}${classMeta.professor ? ` with ${classMeta.professor}` : ''}. Think like this teacher — focus on their emphasis, their scope, what they actually test. Use friendly, encouraging language.`
-      : `Your goal: help Brynne earn an A in this class. Focus only on what was actually taught. Use friendly, encouraging language.`;
+      ? `Your ONLY goal is to help ${classMeta.studentName} earn an A on ${classMeta.folderName}${classMeta.professor ? ` with ${classMeta.professor}` : ''} in ${classMeta.className}. Think exactly like this teacher: what concepts do they emphasize, what is in scope, what will they put on this exam. STRICT RULES: (1) Every fact, concept, and example must come directly from the uploaded materials — no outside knowledge, no motivational framing, no career context. (2) If a concept appears across multiple uploaded sources, it is high-yield — flag it with a LIKELY TESTED callout because the teacher clearly thinks it matters. (3) Your job is exam preparation, nothing else.`
+      : `Your ONLY goal is to help the student earn an A on their exam. Think like the teacher who wrote these materials. STRICT RULES: (1) Every fact, concept, and example must come directly from the uploaded materials — no outside knowledge, no motivational framing. (2) If a concept appears across multiple uploaded sources, flag it as LIKELY TESTED. (3) Your job is exam preparation, nothing else.`;
     const crossDoc = fileCount > 1
       ? `Analyze all ${fileCount} documents and identify the highest-yield topics — concepts that appear repeatedly, are emphasized, or are most likely to appear on this teacher's exam. Do NOT go deeper than what the teacher's materials cover.`
       : `Focus only on what is in these materials. Do not expand beyond the scope of what was taught.`;
