@@ -227,14 +227,11 @@ export async function POST(req: NextRequest) {
               const rawImages = await extractPptxImages(file);
               // Generate a temporary guide ID for storage path
               const tempGuideId = `temp-${Date.now()}`;
-              const uploadResults = await Promise.all(
-                rawImages.map(async (img) => {
-                  const imageBuffer = Buffer.from(img.base64, 'base64');
-                  const url = await compressAndUploadImage(imageBuffer, img.name, tempGuideId);
-                  return url ? { name: img.name, url } : null;
-                })
-              );
-              slideImageUrls = uploadResults.filter((r): r is { name: string; url: string } => r !== null);
+              for (const img of rawImages) {
+                const imageBuffer = Buffer.from(img.base64, 'base64');
+                const url = await compressAndUploadImage(imageBuffer, img.name, tempGuideId);
+                if (url) slideImageUrls.push({ name: img.name, url });
+              }
               allSlideImagePaths.push(...slideImageUrls.map(img => img.url));
             } catch (imgErr) {
               console.error(`Failed to extract/upload images from ${file.name}:`, imgErr);
