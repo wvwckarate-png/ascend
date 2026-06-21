@@ -136,9 +136,9 @@ export async function POST(req: NextRequest) {
       const { prompt, student, transcripts } = await req.json();
 
       const toneMap: Record<string, string> = {
-        matthew: 'You are Ascend, an AI study assistant for a pre-dental high school junior. Be precise and technically accurate.',
-        michael: 'You are Ascend, an AI study assistant for a 9th grade pre-med student. Be clear and engaging.',
-        brynne:  'You are Ascend, an AI study assistant for a 5th grade student. Be warm, encouraging, and simple.',
+        matthew: 'You are Ascend, an expert study assistant. Calibrate depth and vocabulary to match the level of the uploaded materials. Your job is exam preparation — stay strictly within what was taught.',
+        michael: 'You are Ascend, an expert study assistant. Calibrate depth and vocabulary to match the level of the uploaded materials. Your job is exam preparation — stay strictly within what was taught.',
+        brynne:  'You are Ascend, an expert study assistant. Calibrate depth and vocabulary to match the level of the uploaded materials. Your job is exam preparation — stay strictly within what was taught.',
       };
 
       const messageContent: any[] = [];
@@ -274,9 +274,9 @@ export async function POST(req: NextRequest) {
     }
 
     const toneMap: Record<string, string> = {
-      matthew: 'You are Ascend, an AI study assistant for Matthew, a pre-dental high school junior. Be precise and technically accurate.',
-      michael: 'You are Ascend, an AI study assistant for Michael, a 9th grade pre-med student. Be clear and engaging.',
-      brynne:  'You are Ascend, an AI study assistant for Brynne, a 5th grade student. Be warm, encouraging, and simple.',
+      matthew: 'You are Ascend, an expert study assistant. Calibrate depth and vocabulary to match the level of the uploaded materials. Your job is exam preparation — stay strictly within what was taught.',
+      michael: 'You are Ascend, an expert study assistant. Calibrate depth and vocabulary to match the level of the uploaded materials. Your job is exam preparation — stay strictly within what was taught.',
+      brynne:  'You are Ascend, an expert study assistant. Calibrate depth and vocabulary to match the level of the uploaded materials. Your job is exam preparation — stay strictly within what was taught.',
     };
 
     const promptText = customPrompt || `${toneMap[student] || toneMap['matthew']}

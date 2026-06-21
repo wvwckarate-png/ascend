@@ -534,14 +534,14 @@ function MichaelFlashcardsInner() {
       const allFiles = [...fetchedFiles, ...newFiles];
       const countPhrase = autoCount ? 'as many flashcards as needed to comprehensively cover all key concepts (determine the ideal number yourself)' : `${count} flashcards`;
       const studentCtx = classMeta
-        ? `${classMeta.studentName} is a ${classMeta.studentGrade} student on a ${classMeta.studentTrack} track, targeting ${classMeta.studentProgram} (graduating ${classMeta.studentGradYear}).${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
-        : 'Michael is a 9th grade pre-med student targeting WVU School of Medicine.';
+        ? `You are building flashcards for ${classMeta.studentName}. Calibrate depth and vocabulary to match the level of the uploaded materials.${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
+        : `You are building flashcards. Calibrate depth and vocabulary to match the level of the uploaded materials.`;
       const classCtx = classMeta
         ? `Class: ${classMeta.className}. Exam: ${classMeta.folderName}. Professor: ${classMeta.professor || 'unknown'}.${classMeta.notes ? ` Professor notes: "${classMeta.notes}"` : ''}`
         : '';
       const goalCtx = classMeta
-        ? `Goal: help ${classMeta.studentName} earn an A on ${classMeta.folderName} in ${classMeta.className}${classMeta.professor ? ` with ${classMeta.professor}` : ''}. Think like this professor — focus on what they actually emphasize and test.`
-        : `Goal: help Michael earn an A. Focus only on what was actually taught in these materials.`;
+        ? `Your ONLY goal is to help ${classMeta.studentName} earn an A on ${classMeta.folderName}${classMeta.professor ? ` with ${classMeta.professor}` : ''} in ${classMeta.className}. Think exactly like this professor: what concepts do they emphasize, what will they test. STRICT RULES: (1) Every card must be based strictly on the uploaded materials — no outside knowledge, no career framing. (2) If a concept appears across multiple sources, prioritize it — it is high-yield and likely tested.`
+        : `Your ONLY goal is exam preparation. STRICT RULES: (1) Every card must come strictly from the uploaded materials — no outside knowledge. (2) If a concept appears across multiple sources, prioritize it as high-yield.`;
       const weakSpotsInject = weakSpotsList.length > 0
         ? ` PRIORITY FOCUS — These are Michael's confirmed weak spots from prior study sessions: ${weakSpotsList.map((w, i) => `${i + 1}. ${w}`).join('; ')}. Generate at least half of the flashcards targeting these specific concepts. Phrase them differently from how they were previously seen to reinforce learning from a new angle.`
         : '';

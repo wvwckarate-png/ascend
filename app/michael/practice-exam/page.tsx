@@ -229,14 +229,14 @@ function MichaelPracticeExamInner() {
       return '';
     }).join('\n');
     const studentCtx = classMeta
-      ? `${classMeta.studentName} is a ${classMeta.studentGrade} student on a ${classMeta.studentTrack} track, targeting ${classMeta.studentProgram} (graduating ${classMeta.studentGradYear}).${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
-      : 'Michael is a 9th grade pre-med student targeting WVU School of Medicine.';
+      ? `You are generating a practice exam for ${classMeta.studentName}. Calibrate difficulty and vocabulary to match the level of the uploaded materials.${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
+      : `You are generating a practice exam. Calibrate difficulty and vocabulary to match the level of the uploaded materials.`;
     const classCtx = classMeta
       ? `Class: ${classMeta.className}. Exam: ${classMeta.folderName}${classMeta.examDate ? ` (${new Date(classMeta.examDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})` : ''}. Professor: ${classMeta.professor || 'unknown'}.${classMeta.notes ? ` Professor notes: "${classMeta.notes}"` : ''}`
       : '';
     const goalCtx = classMeta
-      ? `Your ONLY goal: generate a realistic practice exam that mirrors how ${classMeta.professor || 'this professor'} actually tests in ${classMeta.className}. Think like this professor — their emphasis, their style, their scope.`
-      : `Your goal: generate a realistic practice exam. Focus only on what was actually taught.`;
+      ? `Your ONLY goal is to generate a realistic practice exam that mirrors how ${classMeta.professor || 'this professor'} actually tests in ${classMeta.className}. Think exactly like this professor — their emphasis, their style, their scope. STRICT RULES: (1) Every question must come strictly from the uploaded materials — no outside knowledge, no career framing. (2) If a concept appears across multiple sources, weight questions toward it — it is high-yield and almost certainly tested.`
+      : `Your ONLY goal is to generate a realistic practice exam. STRICT RULES: (1) Every question must come strictly from the uploaded materials — no outside knowledge. (2) If a concept appears across multiple sources, weight questions toward it as high-yield.`;
     const weakSpotsInject = weakSpotsList.length > 0
       ? ` PRIORITY FOCUS — These are Michael's confirmed weak spots from prior study sessions: ${weakSpotsList.map((w, i) => `${i + 1}. ${w}`).join('; ')}. Weight at least half of the questions toward these specific concepts, approaching them from fresh angles to test genuine understanding.`
       : '';

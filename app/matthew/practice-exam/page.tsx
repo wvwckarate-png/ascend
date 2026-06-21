@@ -233,14 +233,14 @@ function MatthewPracticeExamInner() {
     const crossDoc = fileCount > 1 ? `Analyze all ${fileCount} documents and identify the highest-yield topics — concepts that appear repeatedly or are most likely to be tested. Weight your questions heavily toward these topics. ` : '';
     const custom   = customInstructions.trim() ? ` Additional instructions: ${customInstructions.trim()}.` : '';
     const studentCtx = classMeta
-      ? `${classMeta.studentName} is a ${classMeta.studentGrade} student on a ${classMeta.studentTrack} track, targeting ${classMeta.studentProgram} (graduating ${classMeta.studentGradYear}).${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
-      : 'Matthew is an 11th grade pre-dental student targeting WVU School of Dentistry.';
+      ? `You are generating a practice exam for ${classMeta.studentName}. Calibrate difficulty and vocabulary to match the level of the uploaded materials.${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
+      : `You are generating a practice exam. Calibrate difficulty and vocabulary to match the level of the uploaded materials.`;
     const classCtx   = classMeta
       ? `Class: ${classMeta.className}. Exam: ${classMeta.folderName}${classMeta.examDate ? ` (${new Date(classMeta.examDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})` : ''}. Professor: ${classMeta.professor || 'unknown'}.${classMeta.notes ? ` Professor notes: "${classMeta.notes}"` : ''}`
       : '';
     const goalCtx = classMeta
-      ? `Your ONLY goal: generate a realistic practice exam that mirrors how ${classMeta.professor || 'this professor'} actually tests in ${classMeta.className}. Think like this professor — their emphasis, their style, their scope. Every question should reflect how they actually assess students.`
-      : `Your goal: generate a realistic practice exam. Focus only on what was actually taught. Stay within the professor's scope.`;
+      ? `Your ONLY goal is to generate a realistic practice exam that mirrors how ${classMeta.professor || 'this professor'} actually tests in ${classMeta.className}. Think exactly like this professor — their emphasis, their style, their scope. STRICT RULES: (1) Every question must come strictly from the uploaded materials — no outside knowledge, no career framing. (2) If a concept appears across multiple sources, weight questions toward it — it is high-yield and almost certainly tested.`
+      : `Your ONLY goal is to generate a realistic practice exam. STRICT RULES: (1) Every question must come strictly from the uploaded materials — no outside knowledge. (2) If a concept appears across multiple sources, weight questions toward it as high-yield.`;
     const formats  = typeList.map(t => {
       if (t === 'mc')    return `MC: {"type":"mc","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A","explanation":"Why this is correct and why others are wrong..."}`;
       if (t === 'tf')    return `TF: {"type":"tf","question":"...","answer":"True","explanation":"Why this statement is true/false..."}`;

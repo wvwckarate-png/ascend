@@ -546,14 +546,14 @@ function MatthewFlashcardsInner() {
         ? 'as many flashcards as needed to comprehensively cover all key concepts (determine the ideal number yourself)'
         : `${count} flashcards`;
       const studentCtx = classMeta
-      ? `${classMeta.studentName} is a ${classMeta.studentGrade} student on a ${classMeta.studentTrack} track, targeting ${classMeta.studentProgram} (graduating ${classMeta.studentGradYear}).${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
-      : 'Matthew is an 11th grade pre-dental student targeting WVU School of Dentistry.';
+      ? `You are building flashcards for ${classMeta.studentName}. Calibrate depth and vocabulary to match the level of the uploaded materials.${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
+      : `You are building flashcards. Calibrate depth and vocabulary to match the level of the uploaded materials.`;
       const classCtx   = classMeta
         ? `Class: ${classMeta.className}. Exam: ${classMeta.folderName}. Professor: ${classMeta.professor || 'unknown'}.${classMeta.notes ? ` Professor notes: "${classMeta.notes}"` : ''}`
         : '';
       const goalCtx = classMeta
-        ? `Goal: help Matthew earn an A on ${classMeta.folderName} in ${classMeta.className}${classMeta.professor ? ` with ${classMeta.professor}` : ''}. Think like this professor — focus on what they actually emphasize and test.`
-        : `Goal: help Matthew earn an A. Focus only on what was actually taught in these materials.`;
+        ? `Your ONLY goal is to help ${classMeta.studentName} earn an A on ${classMeta.folderName}${classMeta.professor ? ` with ${classMeta.professor}` : ''} in ${classMeta.className}. Think exactly like this professor: what concepts do they emphasize, what will they test. STRICT RULES: (1) Every card must be based strictly on the uploaded materials — no outside knowledge, no career framing. (2) If a concept appears across multiple sources, prioritize it — it is high-yield and likely tested.`
+        : `Your ONLY goal is exam preparation. STRICT RULES: (1) Every card must come strictly from the uploaded materials — no outside knowledge. (2) If a concept appears across multiple sources, prioritize it as high-yield.`;
       const chemInject = chemMode
         ? ' CHEMISTRY MODE — For common, stable molecules only (not reaction intermediates or charged species), include their SMILES string formatted exactly as [SMILES: xxx | Molecule Name] at the END of the answer text, after the explanation. Always include the molecule name after the pipe character. Only use SMILES for simple recognizable molecules like reactants and products. Use standard neutral SMILES notation only. Keep card text concise — one clear concept per card.'
         : '';
