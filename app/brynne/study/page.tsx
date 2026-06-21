@@ -546,6 +546,18 @@ RULES:
     finally { setSaving(false); }
   };
 
+  const cleanupTempImages = async () => {
+    if (slideImagePaths.length === 0 || saved) return;
+    const pathsToDelete = slideImagePaths.map(url => {
+      const parts = url.split('/slide-images/');
+      return parts[1] || '';
+    }).filter(p => p.startsWith('temp-'));
+    if (pathsToDelete.length > 0) {
+      await supabase.storage.from('slide-images').remove(pathsToDelete);
+    }
+    setSlideImagePaths([]);
+  };
+
   const handlePrint = () => { window.print(); };
   const handlePDF   = () => { window.print(); };
   const getPlainText = () => { const div = document.createElement('div'); div.innerHTML = studyGuide; return div.textContent || div.innerText || studyGuide; };
@@ -885,7 +897,7 @@ RULES:
       {/* VIEW */}
       {screen === 'view' && (
         <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
-          <button onClick={() => { setScreen('history'); setStudyGuide(''); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Study Guides</button>
+          <button onClick={() => { cleanupTempImages(); setScreen('history'); setStudyGuide(''); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Study Guides</button>
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '24px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
             {showNamePrompt && (
               <div style={{ background: light, borderRadius: 14, padding: '18px', marginBottom: 20 }}>
@@ -914,7 +926,7 @@ RULES:
             )}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26' }}>{guideName || 'Your Study Guide'}</div>
-              <button onClick={() => { setStudyGuide(''); setSelectedIds(new Set()); setNewFiles([]); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); setScreen('setup'); }} style={{ fontSize: 12, fontWeight: 700, color, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Make Another</button>
+              <button onClick={() => { cleanupTempImages(); setStudyGuide(''); setSelectedIds(new Set()); setNewFiles([]); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); setScreen('setup'); }} style={{ fontSize: 12, fontWeight: 700, color, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Make Another</button>
             </div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
               <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}><IconPrint size={14} /> Print</button>
