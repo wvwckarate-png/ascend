@@ -428,7 +428,7 @@ function MichaelStudyInner() {
 
     const figuresInject = smartFigures ? `\n\nSMART FIGURES — For concepts that meet ANY of these criteria: (1) appears across multiple source documents, (2) is clearly testable and visual in nature, (3) cannot be adequately explained in text alone — include an inline SVG diagram. Wrap it in <div class="sg-figure"><svg viewBox="0 0 W H" width="100%" xmlns="http://www.w3.org/2000/svg">...</svg><span class="sg-figure-caption">Caption here</span></div>. IMPORTANT: never use height="auto" on SVG elements — use only viewBox and width="100%", no height attribute at all. Keep SVGs simple, clean, monochrome using stroke="#1D1B26" and fill="none" or fill="#EDE9F7". Good candidates: cycles, pathways, structures, comparisons, timelines, flowcharts. Bad candidates: anything that text explains just as well.` : '';
 
-    const imageInstructions = `\n\nPROFESSOR IMAGES — If images from the lecture slides were provided, embed them directly in the study guide using: <div class="sg-figure"><img src="data:[mediaType];base64,[data]" style="max-width:100%;border-radius:8px;" alt="[description]" /><span class="sg-figure-caption">[caption describing what the figure shows]</span></div>. Place each image near the section it illustrates. These are the professor's actual figures — they may appear on exams. Prioritize including them.`;
+    const imageInstructions = `\n\nPROFESSOR IMAGES — If professor slide images were extracted and provided to you as ready-made HTML img tags, embed each one exactly as given near the section it illustrates. Do not skip any image. Do not alter the src URL. These are the professor's actual figures and may appear on exams.`;
 
     const standardInstructions = `
 
