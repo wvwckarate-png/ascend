@@ -20,7 +20,6 @@ async function compressAndUploadImage(
   guideId: string
 ): Promise<string | null> {
   try {
-    // Compress image with sharp — resize to max 1200px wide, 80% JPEG quality
     const compressed = await sharp(imageBuffer)
       .resize({ width: 1200, withoutEnlargement: true })
       .jpeg({ quality: 80 })
@@ -69,7 +68,6 @@ async function extractPptxImages(file: File): Promise<{ name: string; base64: st
     if (!imageExtensions.includes(ext)) continue;
 
     const imageBuffer = await zipEntry.async('nodebuffer');
-    // Raise threshold to 50KB — filters thumbnails and decorative elements
     if (imageBuffer.length < 50000) continue;
 
     const mediaType = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg'
@@ -85,10 +83,8 @@ async function extractPptxImages(file: File): Promise<{ name: string; base64: st
     });
   }
 
-  // Sort by size descending — largest version of each image wins
   candidateImages.sort((a, b) => b.buffer.length - a.buffer.length);
 
-  // Deduplicate — skip images within 20% size of an already-kept image
   const kept: typeof candidateImages = [];
   for (const candidate of candidateImages) {
     const isDuplicate = kept.some(k => {
@@ -131,7 +127,7 @@ export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get('content-type') || '';
 
-    // JSON body — flashcards and exam generation
+    // JSON body — flashcards and exam generation (no streaming)
     if (contentType.includes('application/json')) {
       const { prompt, student, transcripts } = await req.json();
 
@@ -175,11 +171,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ studyGuide: data.content[0].text });
     }
 
-    // FormData — study guide generation from files + prompt
+    // FormData — study guide generation (streaming)
     const formData = await req.formData();
-    const filesRaw    = formData.getAll('files');
-    const singleFile  = formData.get('file');
-    const student     = formData.get('student') as string;
+    const filesRaw     = formData.getAll('files');
+    const singleFile   = formData.get('file');
+    const student      = formData.get('student') as string;
     const customPrompt = formData.get('prompt') as string | null;
     const transcriptsRaw = formData.get('transcripts') as string | null;
 
@@ -197,7 +193,6 @@ export async function POST(req: NextRequest) {
 
     const messageContent: any[] = [];
 
-    // Add transcript text resources
     for (const t of transcripts) {
       messageContent.push({
         type: 'text',
@@ -205,10 +200,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Collect all slide image paths for tracking
     const allSlideImagePaths: string[] = [];
 
-    // Process each file — PDF as document, PPTX/DOCX as extracted text
     for (const file of allFiles) {
       const name = file.name.toLowerCase();
       const isPptx = name.endsWith('.pptx') || name.endsWith('.ppt');
@@ -220,12 +213,10 @@ export async function POST(req: NextRequest) {
           const cleanText = extracted.replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/\s+/g, ' ').trim();
           const wordCount = cleanText.split(/\s+/).filter(w => w.length > 3).length;
 
-          // Extract embedded images if it's a PPTX
           let slideImageUrls: { name: string; url: string }[] = [];
           if (isPptx) {
             try {
               const rawImages = await extractPptxImages(file);
-              // Generate a temporary guide ID for storage path
               const tempGuideId = `temp-${Date.now()}`;
               for (const img of rawImages) {
                 const imageBuffer = Buffer.from(img.base64, 'base64');
@@ -243,7 +234,6 @@ export async function POST(req: NextRequest) {
               type: 'text',
               text: `--- Lecture Slides: ${file.name} ---\nIMPORTANT: Generate content ONLY from the text and images provided. Do not use outside knowledge.\n${cleanText}\n--- End of slide text ---`,
             });
-            // Tell Claude about the image URLs to embed
             if (slideImageUrls.length > 0) {
               const imageList = slideImageUrls.map((img, i) =>
                 `Image ${i + 1}: ${img.name} → <div class="sg-figure"><img src="${img.url}" style="max-width:100%;border-radius:8px;" alt="${img.name}" /><span class="sg-figure-caption">Figure ${i + 1} — [write a descriptive caption based on what this image shows]</span></div>`
@@ -263,7 +253,6 @@ export async function POST(req: NextRequest) {
           console.error(`Failed to extract ${file.name}:`, err);
         }
       } else {
-        // Default: treat as PDF
         const bytes  = await file.arrayBuffer();
         const base64 = Buffer.from(bytes).toString('base64');
         messageContent.push({
@@ -296,33 +285,77 @@ Format with clear markdown headers.`;
 
     messageContent.push({ type: 'text', text: promptText });
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 8000,
-        messages: [{ role: 'user', content: messageContent }],
-      }),
+    // Stream the response
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          // Send metadata first so client can capture slideImagePaths
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'meta', slideImagePaths: allSlideImagePaths })}\n\n`));
+
+          const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': process.env.ANTHROPIC_API_KEY!,
+              'anthropic-version': '2023-06-01',
+            },
+            body: JSON.stringify({
+              model: 'claude-sonnet-4-6',
+              max_tokens: 8000,
+              stream: true,
+              messages: [{ role: 'user', content: messageContent }],
+            }),
+          });
+
+          if (!anthropicResponse.ok || !anthropicResponse.body) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: 'Anthropic API error' })}\n\n`));
+            controller.close();
+            return;
+          }
+
+          const reader = anthropicResponse.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue;
+              const data = line.slice(6).trim();
+              if (data === '[DONE]') continue;
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'delta', text: parsed.delta.text })}\n\n`));
+                }
+              } catch {}
+            }
+          }
+
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+          controller.close();
+        } catch (err) {
+          console.error('Stream error:', err);
+          try {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: 'Generation failed' })}\n\n`));
+            controller.close();
+          } catch {}
+        }
+      }
     });
 
-    if (!response.ok) {
-      const errData = await response.json();
-      return NextResponse.json({ error: 'Anthropic API error', details: errData }, { status: 500 });
-    }
-
-    const data = await response.json();
-    let output = data.content[0].text || '';
-    // Strip any preamble before the first HTML tag
-    const htmlStart = output.indexOf('<');
-    if (htmlStart > 0) output = output.slice(htmlStart);
-    // Strip markdown code fences if Claude wrapped the HTML
-    output = output.replace(/^```html?\s*/i, '').replace(/\s*```$/, '').trim();
-    return NextResponse.json({ studyGuide: output, slideImagePaths: allSlideImagePaths });
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
 
   } catch (error) {
     console.error('Error:', error);

@@ -522,15 +522,64 @@ RULES:
       formData.append('prompt', buildPrompt(allFiles.length + transcripts.length));
       if (transcripts.length > 0) formData.append('transcripts', JSON.stringify(transcripts));
       setLoadingMessage('Building your study guide...');
-      const res  = await fetch('/api/generate-study-guide', { method: 'POST', body: formData });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setStudyGuide(data.studyGuide);
-      setSlideImagePaths(data.slideImagePaths || []);
+      const res = await fetch('/api/generate-study-guide', { method: 'POST', body: formData });
+      if (!res.ok) throw new Error('Generation failed');
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('text/event-stream')) {
+        // Streaming response
+        const reader = res.body!.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let accumulated = '';
+        let gotMeta = false;
+        setScreen('view');
+        setShowNamePrompt(false);
+        setSaved(false);
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            try {
+              const parsed = JSON.parse(line.slice(6));
+              if (parsed.type === 'meta') {
+                setSlideImagePaths(parsed.slideImagePaths || []);
+                gotMeta = true;
+              } else if (parsed.type === 'delta') {
+                accumulated += parsed.text;
+                let output = accumulated;
+                const htmlStart = output.indexOf('<');
+                if (htmlStart > 0) output = output.slice(htmlStart);
+                output = output.replace(/^```html?\s*/i, '').replace(/\s*```$/, '').trim();
+                setStudyGuide(output);
+              } else if (parsed.type === 'done') {
+                let output = accumulated;
+                const htmlStart = output.indexOf('<');
+                if (htmlStart > 0) output = output.slice(htmlStart);
+                output = output.replace(/^```html?\s*/i, '').replace(/\s*```$/, '').replace(/\sheight="auto"/g, '').trim();
+                setStudyGuide(output);
+                setShowNamePrompt(true);
+              } else if (parsed.type === 'error') {
+                throw new Error(parsed.message);
+              }
+            } catch {}
+          }
+        }
+      } else {
+        // Fallback non-streaming
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        setStudyGuide(data.studyGuide);
+        setSlideImagePaths(data.slideImagePaths || []);
+        setShowNamePrompt(true);
+        setSaved(false);
+        setScreen('view');
+      }
       setSourceFiles([...allFiles.map(f => f.name), ...transcripts.map(t => t.name)]);
       if (!guideName) setGuideName(allFiles.length > 0 ? allFiles[0].name.replace('.pdf', '') : transcripts.length > 0 ? transcripts[0].name : 'Study Guide');
-      setShowNamePrompt(true); setSaved(false);
-      setScreen('view');
     } catch { setError('Could not generate study guide. Please try again.'); }
     finally { setLoading(false); }
   };
