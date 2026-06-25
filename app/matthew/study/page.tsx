@@ -22,6 +22,49 @@ function Mountain() {
 function IconBrain({ c, size = 28 }: { c: string; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 28 28" fill="none"><path d="M4 6c5 0 8 2 10 4C16 8 19 6 24 6v16c-5 0-8 2-10 4C12 24 9 22 4 22V6z" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none"/><line x1="14" y1="10" x2="14" y2="24" stroke={c} strokeWidth="1.4" strokeLinecap="round"/><path d="M19 11l-2 3h3l-2 3" stroke={c} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 }
+function IconPhoto({ c, size = 16 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="3" y="6" width="22" height="16" rx="2" stroke={c} strokeWidth="1.6" fill="none"/>
+      <circle cx="9" cy="12" r="2" stroke={c} strokeWidth="1.4" fill="none"/>
+      <path d="M3 20l6-5 4 4 3-3 6 5" stroke={c} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function IconPptx({ c, size = 16 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="3" y="5" width="22" height="15" rx="2" stroke={c} strokeWidth="1.6" fill="none"/>
+      <line x1="14" y1="20" x2="14" y2="24" stroke={c} strokeWidth="1.4" strokeLinecap="round"/>
+      <line x1="9" y1="24" x2="19" y2="24" stroke={c} strokeWidth="1.4" strokeLinecap="round"/>
+      <rect x="7" y="13" width="3" height="4" rx="0.5" stroke={c} strokeWidth="1.2" fill="none"/>
+      <rect x="12" y="10" width="3" height="7" rx="0.5" stroke={c} strokeWidth="1.2" fill="none"/>
+      <rect x="17" y="12" width="3" height="5" rx="0.5" stroke={c} strokeWidth="1.2" fill="none"/>
+    </svg>
+  );
+}
+function IconAudio({ c, size = 16 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <line x1="4" y1="14" x2="4" y2="14" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
+      <line x1="8" y1="10" x2="8" y2="18" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
+      <line x1="12" y1="6" x2="12" y2="22" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
+      <line x1="16" y1="9" x2="16" y2="19" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
+      <line x1="20" y1="11" x2="20" y2="17" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
+      <line x1="24" y1="13" x2="24" y2="15" stroke={c} strokeWidth="1.6" strokeLinecap="round"/>
+    </svg>
+  );
+}
+function IconYoutube({ c, size = 16 }: { c: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="2" y="7" width="24" height="14" rx="3" stroke={c} strokeWidth="1.6" fill="none"/>
+      <path d="M11 10.5l7 3.5-7 3.5V10.5z" stroke={c} strokeWidth="1.4" strokeLinejoin="round" fill="none"/>
+    </svg>
+  );
+}
+
 function IconFolder({ c, size = 16 }: { c: string; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 28 28" fill="none"><path d="M3 9a2 2 0 012-2h5l2 2h11a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke={c} strokeWidth="1.6" strokeLinejoin="round" fill="none"/></svg>;
 }
@@ -59,7 +102,7 @@ function addDays(date: Date, days: number): string {
   const d = new Date(date); d.setDate(d.getDate() + days); return d.toISOString().split('T')[0];
 }
 
-type LibResource = { id: string; file_name: string; storage_url: string; folder_id: string; };
+type LibResource = { id: string; file_name: string; file_type: string; storage_url: string; folder_id: string; };
 type LibFolder   = { id: string; name: string; class_id: string; resources: LibResource[]; };
 type LibClass    = { id: string; name: string; folders: LibFolder[]; };
 type SavedGuide  = { id: string; title: string; created_at: string; source_filename: string | null; folder_id: string | null; folder_name?: string; class_name?: string; };
@@ -331,7 +374,7 @@ function MatthewStudyInner() {
       if (folder) {
         setExpandedClasses(new Set([folder.class_id]));
         setExpandedFolders(new Set([folderId]));
-        setSelectedIds(new Set((rByFolder[folderId] || []).map(r => r.id)));
+        setSelectedIds(new Set());
         if (folderName) setGuideName(folderName + ' — Study Guide');
       }
     }
@@ -402,7 +445,7 @@ function MatthewStudyInner() {
   const toggleResource = (id: string) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleFolder   = (folder: LibFolder) => { const ids = folder.resources.map(r => r.id); const allSel = ids.every(id => selectedIds.has(id)); setSelectedIds(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; }); };
   const toggleClass    = (cls: LibClass) => { const ids = cls.folders.flatMap(f => f.resources.map(r => r.id)); const allSel = ids.length > 0 && ids.every(id => selectedIds.has(id)); setSelectedIds(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; }); };
-  const handleNewFileInput = (e: React.ChangeEvent<HTMLInputElement>) => { const selected = Array.from(e.target.files || []).filter(f => f.type === 'application/pdf' || f.name.endsWith('.pptx') || f.name.endsWith('.ppt')); setNewFiles(prev => [...prev, ...selected]); e.target.value = ''; };
+  const handleNewFileInput = (e: React.ChangeEvent<HTMLInputElement>) => { const imageExts = ['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.gif']; const selected = Array.from(e.target.files || []).filter(f => f.type === 'application/pdf' || f.name.endsWith('.pptx') || f.name.endsWith('.ppt') || imageExts.some(ext => f.name.toLowerCase().endsWith(ext))); setNewFiles(prev => [...prev, ...selected]); e.target.value = ''; };
 
   const buildPrompt = (fileCount: number) => {
     const levelInstructions: Record<string, string> = {
@@ -497,22 +540,38 @@ RULES:
     try {
       const allResources = library.flatMap(c => c.folders.flatMap(f => f.resources));
       const selectedResources = allResources.filter(r => selectedIds.has(r.id));
-      const selectedFolderIds = [...new Set(selectedResources.map(r => r.folder_id))];
+      const selectedResourceIds = selectedResources.map(r => r.id);
       let transcripts: { name: string; text: string }[] = [];
-      if (selectedFolderIds.length > 0) {
+      if (selectedResourceIds.length > 0) {
         const { data: transcriptResources } = await supabase
           .from('resources')
-          .select('file_name, transcript')
-          .in('folder_id', selectedFolderIds)
+          .select('file_name, transcript, file_type')
+          .in('id', selectedResourceIds)
           .not('transcript', 'is', null);
         if (transcriptResources) {
-          transcripts = transcriptResources.map(r => ({ name: r.file_name, text: r.transcript }));
+          transcripts = transcriptResources
+            .filter(r => r.file_type !== 'image')
+            .map(r => ({ name: r.file_name, text: r.transcript }));
         }
       }
       const fetchedFiles: File[] = [];
+      const imageExts = ['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.gif'];
       for (const r of selectedResources) {
         if (!r.storage_url) continue;
-        try { const res = await fetch(r.storage_url); const blob = await res.blob(); fetchedFiles.push(new File([blob], r.file_name + '.pdf', { type: 'application/pdf' })); } catch { /* skip */ }
+        try {
+          const res = await fetch(r.storage_url);
+          const blob = await res.blob();
+          const fname = r.file_name.toLowerCase();
+          if (fname.endsWith('.pptx') || fname.endsWith('.ppt')) {
+            fetchedFiles.push(new File([blob], r.file_name, { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }));
+          } else if (r.file_type === 'image' || imageExts.some(ext => fname.endsWith(ext))) {
+            const ext = fname.slice(fname.lastIndexOf('.'));
+            const mimeType = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.png' ? 'image/png' : ext === '.gif' ? 'image/gif' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+            fetchedFiles.push(new File([blob], r.file_name, { type: mimeType }));
+          } else {
+            fetchedFiles.push(new File([blob], r.file_name, { type: 'application/pdf' }));
+          }
+        } catch { /* skip */ }
       }
       const allFiles = [...fetchedFiles, ...newFiles];
       setLoadingMessage(newFiles.some(f => f.name.endsWith('.pptx') || f.name.endsWith('.ppt')) ? 'Extracting slides and images...' : 'Analyzing your materials...');
@@ -730,7 +789,7 @@ RULES:
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {totalSelected > 0 && <button onClick={() => { setSelectedIds(new Set()); setNewFiles([]); }} style={{ padding: '6px 12px', borderRadius: 999, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#9E9BB0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear</button>}
-                  <input ref={fileInputRef} type="file" accept=".pdf,.pptx,.ppt" multiple onChange={handleNewFileInput} style={{ display: 'none' }} />
+                  <input ref={fileInputRef} type="file" accept=".pdf,.pptx,.ppt,.jpg,.jpeg,.png,.heic,.heif,.webp,.gif" multiple onChange={handleNewFileInput} style={{ display: 'none' }} />
                   <button onClick={() => fileInputRef.current?.click()} style={{ padding: '6px 14px', borderRadius: 999, background: light, border: 'none', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Upload</button>
                 </div>
               </div>
@@ -791,7 +850,7 @@ RULES:
                                         return (
                                           <div key={r.id} onClick={() => toggleResource(r.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, border: `1.5px solid ${isSel ? color : '#E8E5F0'}`, background: isSel ? light : '#FFFFFF', cursor: 'pointer', transition: 'all 0.15s' }}>
                                             <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${isSel ? color : '#C4C1D4'}`, background: isSel ? color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{isSel && <span style={{ color: 'white', fontSize: 10 }}>✓</span>}</div>
-                                            <IconFile c={isSel ? color : '#9E9BB0'} size={13} />
+                                            {r.file_type === 'image' ? <IconPhoto c={isSel ? color : '#9E9BB0'} size={13} /> : r.file_type === 'pptx' ? <IconPptx c={isSel ? color : '#9E9BB0'} size={13} /> : r.file_type === 'audio' ? <IconAudio c={isSel ? color : '#9E9BB0'} size={13} /> : r.file_type === 'youtube' ? <IconYoutube c={isSel ? color : '#9E9BB0'} size={13} /> : <IconFile c={isSel ? color : '#9E9BB0'} size={13} />}
                                             <span style={{ fontSize: 12, fontWeight: isSel ? 700 : 500, color: isSel ? color : '#1D1B26', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.file_name}</span>
                                           </div>
                                         );
@@ -976,7 +1035,7 @@ RULES:
                 <span style={{ fontSize: 10, fontWeight: 700, color: '#9E9BB0', letterSpacing: 1, textTransform: 'uppercase', alignSelf: 'center', marginRight: 2 }}>From</span>
                 {sourceFiles.map((name, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 999, background: light, border: `1px solid ${color}30` }}>
-                    <IconFile c={color} size={11} />
+                    {name.endsWith('.pptx') || name.endsWith('.ppt') ? <IconPptx c={color} size={11} /> : name.match(/\.(jpg|jpeg|png|heic|heif|webp|gif)$/i) ? <IconPhoto c={color} size={11} /> : name.match(/\.(mp3|mp4|wav|m4a|aac)$/i) ? <IconAudio c={color} size={11} /> : <IconFile c={color} size={11} />}
                     <span style={{ fontSize: 11, fontWeight: 600, color }}>{name}</span>
                   </div>
                 ))}

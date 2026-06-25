@@ -14,6 +14,21 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Returns Claude-supported media type, 'heic' for HEIC/HEIF (needs conversion), or null for non-image
+function getImageMediaType(filename: string, mimeType?: string): string | null {
+  const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'));
+  if (ext === '.heic' || ext === '.heif') return 'heic';
+  if (ext === '.jpg' || ext === '.jpeg' || mimeType === 'image/jpeg') return 'image/jpeg';
+  if (ext === '.png' || mimeType === 'image/png') return 'image/png';
+  if (ext === '.gif' || mimeType === 'image/gif') return 'image/gif';
+  if (ext === '.webp' || mimeType === 'image/webp') return 'image/webp';
+  return null;
+}
+
+async function convertImageToJpeg(buffer: Buffer): Promise<Buffer> {
+  return sharp(buffer).jpeg({ quality: 85 }).toBuffer();
+}
+
 async function compressAndUploadImage(
   imageBuffer: Buffer,
   filename: string,
@@ -201,11 +216,13 @@ export async function POST(req: NextRequest) {
     }
 
     const allSlideImagePaths: string[] = [];
+    let imageContextAdded = false;
 
     for (const file of allFiles) {
       const name = file.name.toLowerCase();
       const isPptx = name.endsWith('.pptx') || name.endsWith('.ppt');
       const isDocx = name.endsWith('.docx') || name.endsWith('.doc');
+      const imageMediaType = getImageMediaType(file.name, file.type);
 
       if (isPptx || isDocx) {
         try {
@@ -252,7 +269,45 @@ export async function POST(req: NextRequest) {
         } catch (err) {
           console.error(`Failed to extract ${file.name}:`, err);
         }
+      } else if (imageMediaType) {
+        // Image file — send directly to Claude as vision input
+        try {
+          const bytes = await file.arrayBuffer();
+          const rawBuffer = Buffer.from(bytes);
+          let finalBuffer: Buffer;
+          let finalMediaType = imageMediaType;
+
+          // Convert HEIC/HEIF or any unsupported format to JPEG
+          if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(imageMediaType)) {
+            finalBuffer = await convertImageToJpeg(rawBuffer);
+            finalMediaType = 'image/jpeg';
+          } else {
+            finalBuffer = rawBuffer;
+          }
+
+          // Add context note once before the first image block
+          if (!imageContextAdded) {
+            messageContent.push({
+              type: 'text',
+              text: 'The following images are pages from the student\'s study materials — textbook pages, worksheets, handwritten notes, or old exams photographed with a phone. Read all visible text and diagrams carefully and treat them as primary source material.',
+            });
+            imageContextAdded = true;
+          }
+
+          const base64 = finalBuffer.toString('base64');
+          messageContent.push({
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: finalMediaType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+              data: base64,
+            },
+          });
+        } catch (err) {
+          console.error(`Failed to process image ${file.name}:`, err);
+        }
       } else {
+        // PDF
         const bytes  = await file.arrayBuffer();
         const base64 = Buffer.from(bytes).toString('base64');
         messageContent.push({
