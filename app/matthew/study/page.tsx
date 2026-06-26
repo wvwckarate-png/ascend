@@ -637,7 +637,9 @@ RULES:
         setSaved(false);
         setScreen('view');
       }
-      setSourceFiles([...allFiles.map(f => f.name), ...transcripts.map(t => t.name)]);
+      const fileNames = allFiles.map(f => f.name);
+      const transcriptNames = transcripts.map(t => t.name).filter(n => !fileNames.includes(n));
+      setSourceFiles([...fileNames, ...transcriptNames]);
       if (!guideName) setGuideName(allFiles.length > 0 ? allFiles[0].name.replace('.pdf', '') : transcripts.length > 0 ? transcripts[0].name : 'Study Guide');
     } catch { setError('Could not generate study guide. Please try again.'); }
     finally { setLoading(false); }
@@ -649,8 +651,7 @@ RULES:
     try {
       const { data: insertedGuide } = await supabase.from('study_guides').insert({ student_id: 'matthew', title: guideName.trim(), content: studyGuide, source_filename: sourceFiles.join(', ') || 'Custom', folder_id: selectedFolderId || folderId || null, slide_image_paths: slideImagePaths }).select().single();
       const today = new Date();
-      const { data: savedGuide } = await supabase.from('study_guides').select('id').eq('student_id', 'matthew').order('created_at', { ascending: false }).limit(1).single();
-      await supabase.from('tasks').insert([1, 3, 7].map(days => ({ student_id: 'matthew', title: `Review: ${guideName.trim()}`, due_date: addDays(today, days), task_type: 'review', completed: false, resource_id: savedGuide?.id || null, resource_type: 'study_guide' })));
+      await supabase.from('tasks').insert([1, 3, 7].map(days => ({ student_id: 'matthew', title: `Review: ${guideName.trim()}`, due_date: addDays(today, days), task_type: 'review', completed: false, resource_id: insertedGuide?.id || null, resource_type: 'study_guide' })));
       setSaved(true); setShowNamePrompt(false);
       loadHistory();
     } catch { setError('Could not save. Please try again.'); }

@@ -202,6 +202,8 @@ export async function POST(req: NextRequest) {
       ? JSON.parse(transcriptsRaw)
       : [];
 
+    const requestType = formData.get('type') as string | null;
+
     if (allFiles.length === 0 && !customPrompt && transcripts.length === 0) {
       return NextResponse.json({ error: 'No files, transcripts, or prompt provided' }, { status: 400 });
     }
@@ -234,7 +236,7 @@ export async function POST(req: NextRequest) {
           if (isPptx) {
             try {
               const rawImages = await extractPptxImages(file);
-              const tempGuideId = `temp-${Date.now()}`;
+              const tempGuideId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
               for (const img of rawImages) {
                 const imageBuffer = Buffer.from(img.base64, 'base64');
                 const url = await compressAndUploadImage(imageBuffer, img.name, tempGuideId);
@@ -283,6 +285,15 @@ export async function POST(req: NextRequest) {
             finalMediaType = 'image/jpeg';
           } else {
             finalBuffer = rawBuffer;
+          }
+
+          // Resize large images before sending to Claude (max 4MB base64 safe)
+          if (finalBuffer.length > 3 * 1024 * 1024) {
+            finalBuffer = await sharp(finalBuffer)
+              .resize({ width: 1600, withoutEnlargement: true })
+              .jpeg({ quality: 82 })
+              .toBuffer();
+            finalMediaType = 'image/jpeg';
           }
 
           // Add context note once before the first image block
@@ -339,6 +350,25 @@ A clear, well-organized summary.
 Format with clear markdown headers.`;
 
     messageContent.push({ type: 'text', text: promptText });
+
+    // Non-streaming for flashcards and exams
+    if (requestType === 'flashcards' || requestType === 'exam') {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.ANTHROPIC_API_KEY!,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 8000,
+          messages: [{ role: 'user', content: messageContent }],
+        }),
+      });
+      const data = await response.json();
+      return NextResponse.json({ studyGuide: data.content[0].text });
+    }
 
     // Stream the response
     const encoder = new TextEncoder();

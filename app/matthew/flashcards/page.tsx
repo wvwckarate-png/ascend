@@ -625,21 +625,15 @@ function MatthewFlashcardsInner() {
       const custom = customInstructions.trim() ? ` Additional instructions: ${customInstructions.trim()}` : '';
       const prompt = baseInstruction + custom + chemInject + ' Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]';
       let raw = '';
-      if (allFiles.length > 0 || transcripts.length > 0) {
-        const formData = new FormData();
-        allFiles.forEach(f => formData.append('files', f));
-        formData.append('student', 'matthew');
-        formData.append('prompt', prompt);
-        formData.append('type', 'flashcards');
-        if (transcripts.length > 0) formData.append('transcripts', JSON.stringify(transcripts));
-        const res = await fetch('/api/generate-study-guide', { method: 'POST', body: formData });
-        const data = await res.json();
-        raw = (data.studyGuide || data.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
-      } else {
-        const res = await fetch('/api/generate-study-guide', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt, student: 'matthew', transcripts, type: 'flashcards' }) });
-        const data = await res.json();
-        raw = (data.studyGuide || data.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
-      }
+      const formData = new FormData();
+      allFiles.forEach(f => formData.append('files', f));
+      formData.append('student', 'matthew');
+      formData.append('prompt', prompt);
+      formData.append('type', 'flashcards');
+      if (transcripts.length > 0) formData.append('transcripts', JSON.stringify(transcripts));
+      const res = await fetch('/api/generate-study-guide', { method: 'POST', body: formData });
+      const data = await res.json();
+      raw = (data.studyGuide || data.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
       const parsed: Card[] = JSON.parse(raw);
       setCards(parsed); setQueue([...parsed]); setQi(0); setFlipped(false); setRatings({});
       setSaved(false); setSavedDeckId(null); setShowSave(true);

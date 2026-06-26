@@ -343,15 +343,10 @@ function MatthewPracticeExamInner() {
       const allFiles = [...fetchedFiles, ...newFiles];
       const prompt   = buildPrompt(allFiles.length + transcripts.length);
       let raw = '';
-      if (allFiles.length > 0 || transcripts.length > 0) {
-        const fd = new FormData(); allFiles.forEach(f => fd.append('files', f)); fd.append('student', 'matthew'); fd.append('prompt', prompt); fd.append('type', 'exam');
-        if (transcripts.length > 0) fd.append('transcripts', JSON.stringify(transcripts));
-        const res = await fetch('/api/generate-study-guide', { method: 'POST', body: fd });
-        const d = await res.json(); raw = (d.studyGuide || d.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
-      } else {
-        const res = await fetch('/api/generate-study-guide', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt, student: 'matthew', transcripts, type: 'exam' }) });
-        const d = await res.json(); raw = (d.studyGuide || d.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
-      }
+      const fd = new FormData(); allFiles.forEach(f => fd.append('files', f)); fd.append('student', 'matthew'); fd.append('prompt', prompt); fd.append('type', 'exam');
+      if (transcripts.length > 0) fd.append('transcripts', JSON.stringify(transcripts));
+      const res = await fetch('/api/generate-study-guide', { method: 'POST', body: fd });
+      const d = await res.json(); raw = (d.studyGuide || d.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
       const parsed: Question[] = JSON.parse(raw);
       const title = examNameInput.trim() || topic.trim() || folderName || `Practice Exam — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
       const { data: examData } = await supabase.from('practice_exams').insert({ student_id: 'matthew', title, questions: parsed, responses: {}, status: 'in_progress', timer_seconds: timerEnabled ? timerMinutes * 60 : null, folder_id: selectedFolderId || folderId || null }).select().single();
