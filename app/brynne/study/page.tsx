@@ -5,9 +5,6 @@ import { useSearchParams } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '../../../lib/supabase';
 import TabBar from '../../components/TabBar';
-import { MoleculeStructure } from '../../components/MoleculeStructure';
-import { KaTeXRenderer } from '../../components/KaTeXRenderer';
-import { parseContent } from '../../../lib/parseContent';
 import FolderPicker from '../../components/FolderPicker';
 
 function Mountain() {
@@ -640,8 +637,8 @@ RULES:
       const fileNames = allFiles.map(f => f.name);
       const transcriptNames = transcripts.map(t => t.name).filter(n => !fileNames.includes(n));
       setSourceFiles([...fileNames, ...transcriptNames]);
-      if (!guideName) setGuideName(allFiles.length > 0 ? allFiles[0].name.replace('.pdf', '') : 'My Study Guide');
-    } catch (e: any) { setError('Something went wrong. Please try again!'); setScreen('setup'); }
+      if (!guideName) setGuideName(allFiles.length > 0 ? allFiles[0].name.replace('.pdf', '') : transcripts.length > 0 ? transcripts[0].name : 'Study Guide');
+    } catch { setError('Something went wrong. Please try again!'); }
     finally { setLoading(false); }
   };
 
@@ -1024,7 +1021,7 @@ RULES:
       {/* VIEW */}
       {screen === 'view' && (
         <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
-          <button onClick={() => { cleanupTempImages(); setScreen('history'); setStudyGuide(''); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Study Guides</button>
+          <button onClick={() => { cleanupTempImages(); setScreen('history'); setStudyGuide(''); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); setNewFileNames({}); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Study Guides</button>
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '24px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
             {showNamePrompt && (
               <div style={{ background: light, borderRadius: 14, padding: '18px', marginBottom: 20 }}>
@@ -1053,7 +1050,7 @@ RULES:
             )}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26' }}>{guideName || 'Your Study Guide'}</div>
-              <button onClick={() => { cleanupTempImages(); setStudyGuide(''); setSelectedIds(new Set()); setNewFiles([]); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); setScreen('setup'); }} style={{ fontSize: 12, fontWeight: 700, color, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Make Another</button>
+              <button onClick={() => { cleanupTempImages(); setStudyGuide(''); setSelectedIds(new Set()); setNewFiles([]); setNewFileNames({}); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); setScreen('setup'); }} style={{ fontSize: 12, fontWeight: 700, color, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Make Another</button>
             </div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
               <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}><IconPrint size={14} /> Print</button>

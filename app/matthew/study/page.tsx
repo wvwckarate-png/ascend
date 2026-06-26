@@ -5,9 +5,6 @@ import { useSearchParams } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '../../../lib/supabase';
 import TabBar from '../../components/TabBar';
-import { MoleculeStructure } from '../../components/MoleculeStructure';
-import { KaTeXRenderer } from '../../components/KaTeXRenderer';
-import { parseContent } from '../../../lib/parseContent';
 import FolderPicker from '../../components/FolderPicker';
 
 function Mountain() {
@@ -597,7 +594,6 @@ RULES:
         const decoder = new TextDecoder();
         let buffer = '';
         let accumulated = '';
-        let gotMeta = false;
         setScreen('view');
         setShowNamePrompt(false);
         setSaved(false);
@@ -613,7 +609,6 @@ RULES:
               const parsed = JSON.parse(line.slice(6));
               if (parsed.type === 'meta') {
                 setSlideImagePaths(parsed.slideImagePaths || []);
-                gotMeta = true;
               } else if (parsed.type === 'delta') {
                 accumulated += parsed.text;
                 let output = accumulated;
@@ -1037,7 +1032,7 @@ RULES:
       {/* VIEW SCREEN */}
       {screen === 'view' && (
         <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
-          <button onClick={() => { cleanupTempImages(); setScreen('history'); setStudyGuide(''); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Study Guides</button>
+          <button onClick={() => { cleanupTempImages(); setScreen('history'); setStudyGuide(''); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); setNewFileNames({}); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Study Guides</button>
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '24px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
             {showNamePrompt && (
               <div style={{ background: light, borderRadius: 14, padding: '18px', marginBottom: 20 }}>
