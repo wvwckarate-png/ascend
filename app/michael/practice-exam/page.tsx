@@ -545,7 +545,7 @@ function MichaelPracticeExamInner() {
             ) : library.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '20px', border: '2px dashed #E8E5F0', borderRadius: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><IconEmptyFolder size={32} /></div>
-                <div style={{ fontSize: 12, color: '#9E9BB0' }}>No uploaded PDFs yet — upload files to your class folders first.</div>
+                <div style={{ fontSize: 12, color: '#9E9BB0' }}>No uploaded files yet — upload files to your class folders first.</div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

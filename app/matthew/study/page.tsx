@@ -811,7 +811,7 @@ RULES:
               ) : library.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '24px 0', border: '2px dashed #E8E5F0', borderRadius: 12 }}>
                   <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}><IconEmptyFolder size={40} /></div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>No uploaded PDFs yet</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>No uploaded files yet</div>
                   <div style={{ fontSize: 12, color: '#9E9BB0' }}>Upload files to your class folders, or use the button above.</div>
                 </div>
               ) : (
