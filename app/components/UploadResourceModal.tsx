@@ -385,6 +385,12 @@ export default function UploadResourceModal({ student, onClose, onSaved }: Props
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Name</label>
               <input autoFocus value={fileName} onChange={e => setFileName(e.target.value)} placeholder='e.g. "Lecture 8 - Krebs Cycle"' style={inputStyle} />
+              {resType === 'image' && (
+                <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 10, background: '#FFF3E8', border: '1.5px solid #E8C4A0', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                  <svg width="14" height="14" viewBox="0 0 28 28" fill="none" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="14" cy="14" r="11" stroke="#E8956D" strokeWidth="1.6" fill="none"/><line x1="14" y1="10" x2="14" y2="15" stroke="#E8956D" strokeWidth="1.6" strokeLinecap="round"/><circle cx="14" cy="19" r="1" fill="#E8956D"/></svg>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#C4845A', lineHeight: 1.5 }}>Rename this photo to something descriptive — "IMG_3045" won't help you find it later. Try something like "Cell Diagram Ch. 4" or "Exam 2 Review Sheet".</span>
+                </div>
+              )}
             </div>
 
             {(isGdoc || resType === 'link') && (

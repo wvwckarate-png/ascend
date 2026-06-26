@@ -280,6 +280,7 @@ function MichaelStudyInner() {
   const [expandedClasses, setExpandedClasses]  = useState<Set<string>>(new Set());
   const [expandedFolders, setExpandedFolders]  = useState<Set<string>>(new Set());
   const [newFiles,        setNewFiles]         = useState<File[]>([]);
+  const [newFileNames,    setNewFileNames]      = useState<Record<number, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [level,              setLevel]              = useState('detailed');
@@ -571,7 +572,13 @@ RULES:
           }
         } catch { /* skip */ }
       }
-      const allFiles = [...fetchedFiles, ...newFiles];
+      const renamedFiles = newFiles.map((f, i) => {
+        const customName = newFileNames[i]?.trim();
+        if (!customName) return f;
+        const ext = f.name.slice(f.name.lastIndexOf('.'));
+        return new File([f], customName + ext, { type: f.type });
+      });
+      const allFiles = [...fetchedFiles, ...renamedFiles];
       setLoadingMessage(newFiles.some(f => f.name.endsWith('.pptx') || f.name.endsWith('.ppt')) ? 'Extracting slides and images...' : 'Analyzing your materials...');
       const formData = new FormData();
       allFiles.forEach(f => formData.append('files', f));
@@ -778,7 +785,7 @@ RULES:
                   <div style={{ fontSize: 11, color: '#9E9BB0' }}>{totalSelected > 0 ? `${totalSelected} file${totalSelected !== 1 ? 's' : ''} selected` : 'Choose from your uploaded library or add new files'}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  {totalSelected > 0 && <button onClick={() => { setSelectedIds(new Set()); setNewFiles([]); }} style={{ padding: '6px 12px', borderRadius: 999, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#9E9BB0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear</button>}
+                  {totalSelected > 0 && <button onClick={() => { setSelectedIds(new Set()); setNewFiles([]); setNewFileNames({}); }} style={{ padding: '6px 12px', borderRadius: 999, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#9E9BB0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear</button>}
                   <input ref={fileInputRef} type="file" accept=".pdf,.pptx,.ppt,.jpg,.jpeg,.png,.heic,.heif,.webp,.gif" multiple onChange={handleNewFileInput} style={{ display: 'none' }} />
                   <button onClick={() => fileInputRef.current?.click()} style={{ padding: '6px 14px', borderRadius: 999, background: light, border: 'none', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Upload</button>
                 </div>
@@ -786,13 +793,28 @@ RULES:
               {newFiles.length > 0 && (
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6 }}>New Files</div>
-                  {newFiles.map((f, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: light, marginBottom: 4 }}>
-                      <IconFile c={color} size={14} />
-                      <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
-                      <button onClick={() => setNewFiles(prev => prev.filter((_, idx) => idx !== i))} style={{ fontSize: 12, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
-                    </div>
-                  ))}
+                  {newFiles.map((f, i) => {
+                    const isImage = f.name.match(/\.(jpg|jpeg|png|heic|heif|webp|gif)$/i);
+                    return (
+                      <div key={i} style={{ borderRadius: 10, background: light, marginBottom: 4, overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px' }}>
+                          {f.name.endsWith('.pptx') || f.name.endsWith('.ppt') ? <IconPptx c={color} size={14} /> : isImage ? <IconPhoto c={color} size={14} /> : <IconFile c={color} size={14} />}
+                          <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                          <button onClick={() => { setNewFiles(prev => prev.filter((_, idx) => idx !== i)); setNewFileNames(prev => { const n = { ...prev }; delete n[i]; return n; }); }} style={{ fontSize: 12, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+                        </div>
+                        {isImage && (
+                          <div style={{ padding: '0 12px 10px' }}>
+                            <input
+                              value={newFileNames[i] ?? ''}
+                              onChange={e => setNewFileNames(prev => ({ ...prev, [i]: e.target.value }))}
+                              placeholder='Name this photo, e.g. "Cell Diagram Ch. 4"'
+                              style={{ width: '100%', padding: '7px 10px', border: `1.5px solid ${color}60`, borderRadius: 8, fontFamily: 'var(--font-jakarta)', fontSize: 11, color: '#1D1B26', background: '#FFFFFF', outline: 'none', boxSizing: 'border-box' as const }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
               {libLoading ? (
