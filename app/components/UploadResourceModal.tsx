@@ -146,10 +146,10 @@ const RESOURCE_TYPES = [
   { key: 'pdf',      label: 'PDF',        accept: '.pdf' },
   { key: 'pptx',     label: 'Slides',     accept: '.pptx,.ppt' },
   { key: 'audio',    label: 'Audio',      accept: '.mp3,.m4a,.wav,.ogg' },
-  { key: 'image',    label: 'Image',      accept: '.png,.jpg,.jpeg,.webp' },
+  { key: 'image',    label: 'Image',      accept: '.png,.jpg,.jpeg,.webp,.heic,.heif,.gif' },
   { key: 'link',     label: 'Link',       accept: '' },
-  { key: 'old_exam', label: 'Old Exam',   accept: '.pdf,.png,.jpg,.jpeg' },
-  { key: 'notes',    label: 'Notes',      accept: '.pdf,.png,.jpg,.jpeg' },
+  { key: 'old_exam', label: 'Old Exam',   accept: '.pdf,.png,.jpg,.jpeg,.heic,.heif,.webp' },
+  { key: 'notes',    label: 'Notes',      accept: '.pdf,.png,.jpg,.jpeg,.heic,.heif,.webp' },
   { key: 'textbook', label: 'Textbook',   accept: '.pdf' },
   { key: 'syllabus', label: 'Syllabus',   accept: '.pdf' },
   { key: 'other',    label: 'Other',      accept: '*' },
@@ -433,14 +433,14 @@ export default function UploadResourceModal({ student, onClose, onSaved }: Props
               </div>
             )}
 
-            {uploading && uploadProgress > 0 && uploadProgress < 100 && (
+            {uploading && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: '#9E9BB0' }}>Uploading...</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color }}>{uploadProgress}%</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color }}>{uploadProgress < 100 ? `${uploadProgress}%` : 'Processing...'}</span>
                 </div>
                 <div style={{ height: 6, background: '#F3F1EC', borderRadius: 99, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', background: color, borderRadius: 99, width: `${uploadProgress}%`, transition: 'width 0.2s' }} />
+                  <div style={{ height: '100%', background: color, borderRadius: 99, width: uploadProgress < 100 ? `${uploadProgress}%` : '100%', transition: 'width 0.2s' }} />
                 </div>
               </div>
             )}
