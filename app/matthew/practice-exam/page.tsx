@@ -555,7 +555,7 @@ function MatthewPracticeExamInner() {
               <div style={{ marginBottom: 10 }}>
                 {newFiles.map((f, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: light, marginBottom: 4 }}>
-                    <IconFile c={color} size={14} />
+                    {f.name.endsWith('.pptx') || f.name.endsWith('.ppt') ? <IconPptx c={color} size={14} /> : f.name.match(/\.(jpg|jpeg|png|heic|heif|webp|gif)$/i) ? <IconPhoto c={color} size={14} /> : f.name.match(/\.(mp3|mp4|wav|m4a|aac)$/i) ? <IconAudio c={color} size={14} /> : <IconFile c={color} size={14} />}
                     <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
                     <button onClick={() => setNewFiles(prev => prev.filter((_, idx) => idx !== i))} style={{ fontSize: 11, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
                   </div>
