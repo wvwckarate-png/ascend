@@ -326,6 +326,7 @@ function MatthewPracticeExamInner() {
       const imageExts = ['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.gif'];
       for (const r of selResources) {
         if (!r.storage_url) continue;
+        if (r.file_type === 'youtube') continue;
         try {
           const res = await fetch(r.storage_url);
           const blob = await res.blob();
