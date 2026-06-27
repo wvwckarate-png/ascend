@@ -501,7 +501,7 @@ function MichaelPracticeExamInner() {
 
       {screen === 'setup' && (
         <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
-          <button onClick={() => setScreen('history')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Exams</button>
+          <button onClick={() => { setScreen('history'); setNewFileNames({}); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Exams</button>
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Michael</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>New Practice Exam</div>
@@ -596,7 +596,7 @@ function MichaelPracticeExamInner() {
                                   <span style={{ fontSize: 9, color: '#9E9BB0', width: 8 }}>{fExp ? '▾' : '▸'}</span>
                                   <IconFolder c="#9E9BB0" size={12} />
                                   <span style={{ flex: 1, fontSize: 11, fontWeight: 700, color: '#1D1B26', marginLeft: 2 }}>{folder.name}</span>
-                                  <span style={{ fontSize: 9, color: '#9E9BB0' }}>{folder.resources.length} PDF{folder.resources.length !== 1 ? 's' : ''}</span>
+                                  <span style={{ fontSize: 9, color: '#9E9BB0' }}>{folder.resources.length} file{folder.resources.length !== 1 ? 's' : ''}</span>
                                   <button onClick={e => { e.stopPropagation(); toggleFolder(folder); }} style={{ fontSize: 9, fontWeight: 700, color: fAllSel || fSomeSel ? color : '#9E9BB0', background: fAllSel || fSomeSel ? light : '#FFFFFF', border: `1px solid ${fAllSel || fSomeSel ? color : '#E8E5F0'}`, borderRadius: 999, padding: '2px 7px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{fAllSel ? 'Deselect' : 'Select all'}</button>
                                 </div>
                                 {fExp && (

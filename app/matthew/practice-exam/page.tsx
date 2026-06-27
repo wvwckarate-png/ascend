@@ -393,7 +393,7 @@ function MatthewPracticeExamInner() {
     setQuestions(exam.questions);
     const resp: Record<number, string> = {};
     Object.entries(exam.responses || {}).forEach(([k, v]) => { resp[parseInt(k)] = v; });
-    setResponses(resp); setReviewed(new Set()); setShowExplanation(new Set());
+    setResponses(resp); setReviewed(new Set()); setShowExplanation(new Set()); setScheduleReview(false); setReviewScheduled(false);
     if (exam.status === 'completed') { setScreen('results'); }
     else { if (exam.timer_seconds) { setTimeLeft(exam.timer_seconds); setTimerRunning(true); } setScreen('exam'); }
   };
@@ -402,7 +402,7 @@ function MatthewPracticeExamInner() {
     if (!examId) return;
     await supabase.from('practice_exams').update({ responses: {}, score: null, status: 'in_progress', completed_at: null }).eq('id', examId);
     await supabase.from('practice_exam_items').delete().eq('exam_id', examId);
-    setResponses({}); setReviewed(new Set()); setShowExplanation(new Set());
+    setResponses({}); setReviewed(new Set()); setShowExplanation(new Set()); setScheduleReview(false); setReviewScheduled(false);
     if (activeExam?.timer_seconds) { setTimeLeft(activeExam.timer_seconds); setTimerRunning(true); }
     setScreen('exam');
   };
@@ -520,7 +520,7 @@ function MatthewPracticeExamInner() {
       {/* ── SETUP SCREEN ── */}
       {screen === 'setup' && (
         <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
-          <button onClick={() => setScreen('history')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Exams</button>
+          <button onClick={() => { setScreen('history'); setNewFileNames({}); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Exams</button>
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Matthew</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>New Practice Exam</div>
@@ -618,7 +618,7 @@ function MatthewPracticeExamInner() {
                                   <span style={{ fontSize: 9, color: '#9E9BB0', width: 8 }}>{fExp ? '▾' : '▸'}</span>
                                   <IconFolder c="#9E9BB0" size={12} />
                                   <span style={{ flex: 1, fontSize: 11, fontWeight: 700, color: '#1D1B26', marginLeft: 2 }}>{folder.name}</span>
-                                  <span style={{ fontSize: 9, color: '#9E9BB0' }}>{folder.resources.length} PDF{folder.resources.length !== 1 ? 's' : ''}</span>
+                                  <span style={{ fontSize: 9, color: '#9E9BB0' }}>{folder.resources.length} file{folder.resources.length !== 1 ? 's' : ''}</span>
                                   <button onClick={e => { e.stopPropagation(); toggleFolder(folder); }} style={{ fontSize: 9, fontWeight: 700, color: fAllSel || fSomeSel ? color : '#9E9BB0', background: fAllSel || fSomeSel ? light : '#FFFFFF', border: `1px solid ${fAllSel || fSomeSel ? color : '#E8E5F0'}`, borderRadius: 999, padding: '2px 7px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{fAllSel ? 'Deselect' : 'Select all'}</button>
                                 </div>
                                 {fExp && (
