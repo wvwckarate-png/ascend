@@ -177,7 +177,7 @@ export default function Home() {
       </div>
 
       <div style={{ fontSize: 10, color: 'var(--light)', marginTop: 40, letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.8 }}>
-        Ascend v2.7.7 · June 2026<br />
+        Ascend v2.7.8 · June 2026<br />
         Founded April 2026 · Forged in Focus
       </div>
     </main>

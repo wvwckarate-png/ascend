@@ -349,10 +349,10 @@ function MatthewFlashcardsInner() {
 
     // Load existing flashcard_items for this deck
     const cardIds = cards.map(c => c.id).filter(Boolean);
+    let itemMap: Record<string, FlashcardItem> = {};
     if (cardIds.length > 0) {
       const { data: items } = await supabase.from('flashcard_items').select('*').in('card_id', cardIds).eq('student_id', 'matthew');
       if (items) {
-        const itemMap: Record<string, FlashcardItem> = {};
         items.forEach(item => { itemMap[item.card_id] = item; });
         setFlashcardItems(itemMap);
       }
@@ -361,8 +361,8 @@ function MatthewFlashcardsInner() {
     // Build smart queue: prioritize missed cards, skip retired
     if (!isRetired) {
       const sorted = [...cards].sort((a, b) => {
-        const aItem = a.id ? flashcardItems[a.id] : null;
-        const bItem = b.id ? flashcardItems[b.id] : null;
+        const aItem = a.id ? itemMap[a.id] : null;
+        const bItem = b.id ? itemMap[b.id] : null;
         const aMissRate = aItem && aItem.times_seen > 0 ? aItem.times_missed / aItem.times_seen : 0.5;
         const bMissRate = bItem && bItem.times_seen > 0 ? bItem.times_missed / bItem.times_seen : 0.5;
         return bMissRate - aMissRate;
