@@ -225,7 +225,6 @@ function BrynneFlashcardsInner() {
   const [savedDeckId,    setSavedDeckId]    = useState<string | null>(null);
   const [scheduleReview, setScheduleReview] = useState(false);
   const [flashcardItems,  setFlashcardItems]  = useState<Record<string, FlashcardItem>>({});
-  const [deckExamDate,    setDeckExamDate]    = useState<string | null>(null);
   const [deckIsRetired,   setDeckIsRetired]   = useState(false);
 
   const fetchClassMeta = async (fId: string) => {
@@ -338,7 +337,6 @@ function BrynneFlashcardsInner() {
         isRetired = new Date(folder.exam_date + 'T00:00:00') < new Date(new Date().toDateString());
       }
     }
-    setDeckExamDate(examDate);
     setDeckIsRetired(isRetired);
 
     const cardIds = cards.map(c => c.id).filter(Boolean);
@@ -675,8 +673,8 @@ function BrynneFlashcardsInner() {
   const curCard  = mode === 'smart' ? queue[qi] : cards[qi];
   const total    = mode === 'smart' ? queue.length : cards.length;
   const progress = total > 0 ? ((qi / total) * 100) : 0;
-  const knewWell = Object.values(ratings).filter(r => r >= 2).length;
-  const needWork = Object.values(ratings).filter(r => r < 2).length;
+  const knewWell = Object.values(ratings).filter(r => r === 1).length;
+  const needWork = Object.values(ratings).filter(r => r === 0).length;
 
   useEffect(() => {
     if (screen !== 'study') return;
@@ -1023,7 +1021,7 @@ function BrynneFlashcardsInner() {
             <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 8, display: 'block' }}>How Many Cards?</label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button onClick={() => setAutoCount(true)} style={{ padding: '6px 16px', borderRadius: 999, border: `1.5px solid ${autoCount ? color : '#E8E5F0'}`, background: autoCount ? color : '#FAFAF8', color: autoCount ? 'white' : '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Auto</button>
-              {[10, 15, 20, 25].map(n => (
+              {[10, 15, 20, 30].map(n => (
                 <button key={n} onClick={() => { setCount(n); setAutoCount(false); }} style={{ padding: '6px 16px', borderRadius: 999, border: `1.5px solid ${!autoCount && count === n ? color : '#E8E5F0'}`, background: !autoCount && count === n ? color : '#FAFAF8', color: !autoCount && count === n ? 'white' : '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{n}</button>
               ))}
             </div>

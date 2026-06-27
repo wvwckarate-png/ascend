@@ -557,7 +557,6 @@ function MatthewFlashcardsInner() {
 
   const totalSelected = selectedIds.size + newFiles.length;
   const canGenerate   = totalSelected > 0 || topic.trim().length > 0;
-  const countLabel    = autoCount ? 'Auto' : String(count);
 
   const generate = async () => {
     if (!canGenerate) return;
@@ -688,8 +687,8 @@ function MatthewFlashcardsInner() {
   const curCard  = mode === 'smart' ? queue[qi] : cards[qi];
   const total    = mode === 'smart' ? queue.length : cards.length;
   const progress = total > 0 ? ((qi / total) * 100) : 0;
-  const knewWell = Object.values(ratings).filter(r => r >= 2).length;
-  const needWork = Object.values(ratings).filter(r => r < 2).length;
+  const knewWell = Object.values(ratings).filter(r => r === 1).length;
+  const needWork = Object.values(ratings).filter(r => r === 0).length;
 
   useEffect(() => {
     if (screen !== 'study') return;
