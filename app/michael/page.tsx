@@ -180,7 +180,8 @@ export default function MichaelDashboard() {
       const { data: studentData } = await supabase.from('students').select('name, grade, focus').eq('id', 'michael').single();
       const { data: classData }   = await supabase.from('classes').select('id, name, semester, professor').eq('student_id', 'michael').eq('is_active', true).order('created_at', { ascending: false });
       const { data: taskData }    = await supabase.from('tasks').select('*').eq('student_id', 'michael').order('due_date', { ascending: true });
-      const { data: folderData }  = await supabase.from('exam_folders').select('id, name, exam_date, class_id').not('exam_date', 'is', null);
+      const classIds = (classData || []).map(c => c.id);
+      const { data: folderData }  = classIds.length > 0 ? await supabase.from('exam_folders').select('id, name, exam_date, class_id').in('class_id', classIds).not('exam_date', 'is', null) : { data: [] };
 
       if (studentData) setStudent(studentData);
       if (classData)   setClasses(classData);
