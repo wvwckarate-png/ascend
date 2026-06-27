@@ -301,6 +301,7 @@ function MichaelStudyInner() {
   const [slideImagePaths,    setSlideImagePaths]    = useState<string[]>([]);
   const [classMeta, setClassMeta] = useState<{ className: string; professor: string; notes: string; folderName: string; examDate: string | null; studentName: string; studentGrade: string; studentTrack: string; studentSchool: string; studentProgram: string; studentGradYear: string; generationProfile: string; } | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchClassMeta = async (fId: string) => {
     const [{ data: folder }, { data: student }] = await Promise.all([
@@ -532,6 +533,7 @@ RULES:
   const handleGenerate = async () => {
     const totalCount = selectedIds.size + newFiles.length;
     if (totalCount === 0 && !customInstructions.trim()) return;
+    const ac = new AbortController(); abortControllerRef.current = ac;
     setLoading(true); setError(''); setLoadingMessage('Reading your files...');
     try {
       const allResources = library.flatMap(c => c.folders.flatMap(f => f.resources));
@@ -584,7 +586,7 @@ RULES:
       formData.append('prompt', buildPrompt(allFiles.length + transcripts.length));
       if (transcripts.length > 0) formData.append('transcripts', JSON.stringify(transcripts));
       setLoadingMessage('Building your study guide...');
-      const res = await fetch('/api/generate-study-guide', { method: 'POST', body: formData });
+      const res = await fetch('/api/generate-study-guide', { method: 'POST', body: formData, signal: ac.signal });
       if (!res.ok) throw new Error('Generation failed');
       const contentType = res.headers.get('content-type') || '';
       if (contentType.includes('text/event-stream')) {
@@ -640,8 +642,8 @@ RULES:
       const transcriptNames = transcripts.map(t => t.name).filter(n => !fileNames.includes(n));
       setSourceFiles([...fileNames, ...transcriptNames]);
       if (!guideName) setGuideName(allFiles.length > 0 ? allFiles[0].name.replace('.pdf', '') : transcripts.length > 0 ? transcripts[0].name : 'Study Guide');
-    } catch { setError('Could not generate study guide. Please try again.'); }
-    finally { setLoading(false); }
+    } catch (e: any) { if (e?.name !== 'AbortError') setError('Could not generate study guide. Please try again.'); }
+    finally { setLoading(false); abortControllerRef.current = null; }
   };
 
   const handleSave = async () => {
