@@ -135,7 +135,7 @@ type Deck        = { id: string; title: string; source_files: string | null; car
 type LibResource = { id: string; file_name: string; file_type: string; storage_url: string; folder_id: string; };
 type LibFolder   = { id: string; name: string; class_id: string; resources: LibResource[]; };
 type LibClass         = { id: string; name: string; folders: LibFolder[]; };
-type FlashcardItem    = { id: string; card_id: string; times_seen: number; times_correct: number; times_missed: number; interval_days: number; is_retired: boolean; is_flagged?: boolean; };
+type FlashcardItem    = { id: string; card_id: string; times_seen: number; times_correct: number; times_missed: number; interval_days: number; is_retired: boolean; is_flagged?: boolean; next_review?: string; };
 
 function requeue(q: Card[], idx: number, correct: boolean): Card[] {
   const card = q[idx];
@@ -237,6 +237,8 @@ function BrynneFlashcardsInner() {
   const [flashcardItems,  setFlashcardItems]  = useState<Record<string, FlashcardItem>>({});
   const [deckIsRetired,   setDeckIsRetired]   = useState(false);
   const [flaggedCards,    setFlaggedCards]    = useState<Set<string>>(new Set());
+  const [studyMode,       setStudyMode]       = useState<'due' | 'full'>('full');
+  const [dueCount,        setDueCount]        = useState<number>(0);
 
   const fetchClassMeta = async (fId: string) => {
     const [{ data: folder }, { data: student }] = await Promise.all([
@@ -331,13 +333,33 @@ function BrynneFlashcardsInner() {
   const openDeck = async (deck: Deck) => {
     setActiveDeck(deck); setDeckLoading(true); setScreen('deck-detail');
     const { data } = await supabase.from('flashcard_cards').select('*').eq('deck_id', deck.id).order('position', { ascending: true });
-    if (data) setDeckCards(data);
+    if (data) {
+      setDeckCards(data);
+      const cardIds = data.map((c: any) => c.id).filter(Boolean);
+      if (cardIds.length > 0) {
+        const { data: items } = await supabase.from('flashcard_items').select('*').in('card_id', cardIds).eq('student_id', 'brynne');
+        const itemMap: Record<string, FlashcardItem> = {};
+        (items || []).forEach((item: FlashcardItem) => { itemMap[item.card_id] = item; });
+        setFlashcardItems(itemMap);
+        const now = new Date();
+        const due = data.filter((c: any) => {
+          const item = itemMap[c.id];
+          if (!item) return true;
+          if (!item.next_review) return true;
+          return new Date(item.next_review) <= now;
+        });
+        setDueCount(due.length);
+      } else {
+        setDueCount(0);
+      }
+    }
     setDeckLoading(false);
   };
 
-  const studyDeck = async (deck: Deck, cards: Card[]) => {
+  const studyDeck = async (deck: Deck, cards: Card[], dueOnly: boolean = false) => {
     setCards(cards); setQi(0); setFlipped(false); setRatings({});
     setSaved(true); setSavedDeckId(deck.id); setShowSave(false);
+    setStudyMode(dueOnly ? 'due' : 'full');
 
     let isRetired = false;
     let examDate: string | null = null;
@@ -360,8 +382,19 @@ function BrynneFlashcardsInner() {
       }
     }
 
+    const now = new Date();
+    const dueCards = cards.filter(c => {
+      if (!c.id) return true;
+      const item = itemMap[c.id];
+      if (!item) return true;
+      if (!item.next_review) return true;
+      return new Date(item.next_review) <= now;
+    });
+    setDueCount(dueCards.length);
+
+    const cardsToStudy = dueOnly ? dueCards : cards;
     if (!isRetired) {
-      const sorted = [...cards].sort((a, b) => {
+      const sorted = [...cardsToStudy].sort((a, b) => {
         const aItem = a.id ? itemMap[a.id] : null;
         const bItem = b.id ? itemMap[b.id] : null;
         const aMissRate = aItem && aItem.times_seen > 0 ? aItem.times_missed / aItem.times_seen : 0.5;
@@ -370,7 +403,7 @@ function BrynneFlashcardsInner() {
       });
       setQueue(sorted);
     } else {
-      setQueue([...cards]);
+      setQueue([...cardsToStudy]);
     }
 
     setScreen('study');
@@ -840,8 +873,14 @@ function BrynneFlashcardsInner() {
             </div>
             <button onClick={() => { if (confirm('Delete this deck?')) deleteDeck(activeDeck.id); }} style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0, marginLeft: 12 }}>Delete</button>
           </div>
+          {dueCount > 0 && (
+            <div style={{ background: light, borderRadius: 12, padding: '10px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color }}>{dueCount} card{dueCount !== 1 ? 's' : ''} due today</div>
+              <button onClick={() => { if (deckCards.length > 0) studyDeck(activeDeck, deckCards, true); }} style={{ padding: '8px 16px', borderRadius: 999, border: 'none', background: color, color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Study Due</button>
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-            <button onClick={() => { if (deckCards.length > 0) studyDeck(activeDeck, deckCards); }} disabled={deckCards.length === 0} style={{ flex: 1, padding: '13px', borderRadius: 14, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: deckCards.length === 0 ? 0.4 : 1 }}>Study This Deck!</button>
+            <button onClick={() => { if (deckCards.length > 0) studyDeck(activeDeck, deckCards, false); }} disabled={deckCards.length === 0} style={{ flex: 1, padding: '13px', borderRadius: 14, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: deckCards.length === 0 ? 0.4 : 1 }}>Study Full Deck!</button>
             <button onClick={() => { setShowAddCard(true); setEditCardId(null); setNewFront(''); setNewBack(''); }} style={{ padding: '13px 18px', borderRadius: 14, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Add Card</button>
           </div>
           {deckIsRetired ? (
@@ -1419,6 +1458,13 @@ function BrynneFlashcardsInner() {
             </div>
           )}
           {saved && <div style={{ background: '#EDF7F2', borderRadius: 12, padding: '12px 16px', marginBottom: 20, maxWidth: 340, margin: '0 auto 20px' }}><div style={{ fontSize: 13, fontWeight: 700, color: '#5FAD8E' }}>✅ Saved to your deck library!</div></div>}
+          {studyMode === 'due' && activeDeck && (
+            <div style={{ background: light, borderRadius: 14, padding: '16px', marginBottom: 16, maxWidth: 340, margin: '0 auto 16px' }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color, marginBottom: 6 }}>Due cards done — great job! 🌟</div>
+              <div style={{ fontSize: 12, color: '#6B6880', marginBottom: 12, lineHeight: 1.5 }}>Ready to run the full deck? You'll see today's cards again in the mix.</div>
+              <button onClick={() => { if (activeDeck) studyDeck(activeDeck, deckCards, false); }} style={{ width: '100%', padding: '12px', borderRadius: 12, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Study Full Deck! 🌟</button>
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 10, maxWidth: 340, margin: '0 auto' }}>
             <button onClick={restart} style={{ flex: 1, padding: '13px', borderRadius: 14, border: '1.5px solid #E8E5F0', background: '#F3F1EC', color: '#6B6880', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Study Again!</button>
             <button onClick={() => setScreen('decks')} style={{ flex: 1, padding: '13px', borderRadius: 14, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>My Decks</button>
