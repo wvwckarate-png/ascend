@@ -135,7 +135,7 @@ type Deck        = { id: string; title: string; source_files: string | null; car
 type LibResource = { id: string; file_name: string; file_type: string; storage_url: string; folder_id: string; };
 type LibFolder   = { id: string; name: string; class_id: string; resources: LibResource[]; };
 type LibClass         = { id: string; name: string; folders: LibFolder[]; };
-type FlashcardItem    = { id: string; card_id: string; times_seen: number; times_correct: number; times_missed: number; interval_days: number; is_retired: boolean; };
+type FlashcardItem    = { id: string; card_id: string; times_seen: number; times_correct: number; times_missed: number; interval_days: number; is_retired: boolean; is_flagged?: boolean; };
 
 function requeue(q: Card[], idx: number, correct: boolean): Card[] {
   const card = q[idx];
@@ -237,6 +237,7 @@ function MatthewFlashcardsInner() {
   const [flashcardItems,  setFlashcardItems]  = useState<Record<string, FlashcardItem>>({});
   const [deckExamDate,    setDeckExamDate]    = useState<string | null>(null);
   const [deckIsRetired,   setDeckIsRetired]   = useState(false);
+  const [flaggedCards,    setFlaggedCards]    = useState<Set<string>>(new Set());
 
   const fetchClassMeta = async (fId: string) => {
     const [{ data: folder }, { data: student }] = await Promise.all([
@@ -399,6 +400,17 @@ function MatthewFlashcardsInner() {
       const nextReview = new Date(); nextReview.setDate(nextReview.getDate() + newInterval);
       const { data } = await supabase.from('flashcard_items').insert({ card_id: cardId, deck_id: deckId, student_id: 'matthew', times_seen: 1, times_correct: correct ? 1 : 0, times_missed: correct ? 0 : 1, last_seen: now, next_review: nextReview.toISOString(), interval_days: newInterval, is_retired: false }).select().single();
       if (data) setFlashcardItems(prev => ({ ...prev, [cardId]: data }));
+    }
+  };
+
+  const flagCard = async (cardId: string) => {
+    const isFlagged = flaggedCards.has(cardId);
+    const newFlagged = new Set(flaggedCards);
+    if (isFlagged) { newFlagged.delete(cardId); } else { newFlagged.add(cardId); }
+    setFlaggedCards(newFlagged);
+    const existing = flashcardItems[cardId];
+    if (existing) {
+      await supabase.from('flashcard_items').update({ is_flagged: !isFlagged }).eq('id', existing.id);
     }
   };
 
@@ -868,7 +880,10 @@ function MatthewFlashcardsInner() {
                 <div key={card.id || i} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '14px 16px', boxShadow: '0 1px 4px rgba(29,27,38,0.05)' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Q</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#C4C1D4' }}>Q</div>
+                        {flashcardItems[card.id || '']?.is_flagged && <span style={{ fontSize: 9, color: '#C8965A' }}>🚩</span>}
+                      </div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 8, lineHeight: 1.4 }}>{card.front}</div>
                       <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color, marginBottom: 4 }}>A</div>
                       <div style={{ fontSize: 13, color: '#5A5078', lineHeight: 1.4 }}>{card.back}</div>
@@ -1426,6 +1441,14 @@ function MatthewFlashcardsInner() {
               <button onClick={() => rate(true)} style={{ padding: '14px', borderRadius: 14, border: '1.5px solid #EDF7F2', background: '#EDF7F2', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', textAlign: 'center' }}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: '#5FAD8E', marginBottom: 2 }}>Got It</div>
                 <div style={{ fontSize: 9, color: '#C4C1D4' }}>press 2</div>
+              </button>
+            </div>
+            <div style={{ maxWidth: 600, margin: '8px auto 0', display: 'flex', gap: 8 }}>
+              <button onClick={() => { setFlipped(false); const card = mode === 'smart' ? queue[qi] : cards[qi]; if (card.id) flagCard(card.id); }} style={{ flex: 1, padding: '10px', borderRadius: 12, border: `1.5px solid ${curCard.id && flaggedCards.has(curCard.id) ? '#C8965A' : '#E8E5F0'}`, background: curCard.id && flaggedCards.has(curCard.id) ? '#FDF6EE' : '#FAFAF8', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', textAlign: 'center' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: curCard.id && flaggedCards.has(curCard.id) ? '#C8965A' : '#9E9BB0' }}>{curCard.id && flaggedCards.has(curCard.id) ? '🚩 Flagged' : '🏳 Flag Card'}</div>
+              </button>
+              <button onClick={() => { setFlipped(false); if (mode === 'smart') { const nq = [...queue]; const card = nq.splice(qi, 1)[0]; nq.push(card); setQueue(nq); } else { next(); } }} style={{ flex: 1, padding: '10px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: '#FAFAF8', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', textAlign: 'center' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#9E9BB0' }}>Skip →</div>
               </button>
             </div>
           </div>
