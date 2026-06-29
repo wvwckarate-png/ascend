@@ -157,7 +157,7 @@ function BrynneFlashcardsInner() {
   const weakSpotsRaw  = searchParams.get('weakSpots');
   const weakSpotsList: string[] = weakSpotsRaw ? (() => { try { return JSON.parse(decodeURIComponent(weakSpotsRaw)); } catch { return []; } })() : [];
 
-  const [screen, setScreen] = useState<'decks' | 'generate' | 'study' | 'done' | 'deck-detail'>('decks');
+  const [screen, setScreen] = useState<'decks' | 'generate' | 'study' | 'done' | 'deck-detail' | 'build'>('decks');
 
   const [decks,        setDecks]        = useState<Deck[]>([]);
   const [decksLoading, setDecksLoading] = useState(true);
@@ -202,6 +202,16 @@ function BrynneFlashcardsInner() {
   const [newFiles,        setNewFiles]         = useState<File[]>([]);
   const [newFileNames,    setNewFileNames]      = useState<Record<number, string>>({});
   const [fileInputRef,    setFileInputRef]     = useState<HTMLInputElement | null>(null);
+
+  const [buildDeckName,   setBuildDeckName]    = useState('');
+  const [buildCards,      setBuildCards]       = useState<{ front: string; back: string }[]>([{ front: '', back: '' }]);
+  const [buildFolderId,   setBuildFolderId]    = useState<string | null>(null);
+  const [buildFolderName, setBuildFolderName]  = useState('');
+  const [buildClassName,  setBuildClassName]   = useState('');
+  const [buildPickingFolder, setBuildPickingFolder] = useState(false);
+  const [bulkImportText,  setBulkImportText]   = useState('');
+  const [showBulkImport,  setShowBulkImport]   = useState(false);
+  const [buildSaving,     setBuildSaving]      = useState(false);
 
   const [topic,              setTopic]              = useState('');
   const [count,              setCount]              = useState(15);
@@ -661,6 +671,40 @@ function BrynneFlashcardsInner() {
     finally { setSaving(false); }
   };
 
+  const saveBuildDeck = async () => {
+    if (!buildDeckName.trim() || buildCards.filter(c => c.front.trim() || c.back.trim()).length === 0) return;
+    setBuildSaving(true);
+    try {
+      const validCards = buildCards.filter(c => c.front.trim() || c.back.trim());
+      const { data: deck } = await supabase.from('flashcard_decks').insert({ student_id: 'brynne', title: buildDeckName.trim(), card_count: validCards.length, folder_id: buildFolderId || null }).select().single();
+      if (deck) {
+        await supabase.from('flashcard_cards').insert(validCards.map((c, i) => ({ deck_id: deck.id, front: c.front.trim(), back: c.back.trim(), position: i })));
+        setDecks(prev => [{ ...deck }, ...prev]);
+        setBuildDeckName(''); setBuildCards([{ front: '', back: '' }]); setBuildFolderId(null); setBuildFolderName(''); setBuildClassName(''); setBulkImportText(''); setShowBulkImport(false);
+        setScreen('decks');
+      }
+    } catch { }
+    finally { setBuildSaving(false); }
+  };
+
+  const parseBulkImport = () => {
+    if (!bulkImportText.trim()) return;
+    const lines = bulkImportText.split('\n').filter(l => l.trim());
+    const parsed = lines.map(line => {
+      const sep = line.includes('|') ? '|' : line.includes('\t') ? '\t' : ',';
+      const parts = line.split(sep);
+      return { front: (parts[0] || '').trim(), back: (parts[1] || '').trim() };
+    }).filter(c => c.front || c.back);
+    if (parsed.length > 0) {
+      setBuildCards(prev => {
+        const existing = prev.filter(c => c.front.trim() || c.back.trim());
+        return [...existing, ...parsed, { front: '', back: '' }];
+      });
+      setBulkImportText('');
+      setShowBulkImport(false);
+    }
+  };
+
   const next    = () => { setFlipped(false); const isLast = mode === 'smart' ? qi + 1 >= queue.length : qi + 1 >= cards.length; if (isLast) { setScreen('done'); return; } setQi(i => i + 1); };
   const prev    = () => { if (qi > 0) { setQi(i => i - 1); setFlipped(false); } };
   const rate    = (correct: boolean) => {
@@ -713,7 +757,10 @@ function BrynneFlashcardsInner() {
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Brynne</div>
               <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px' }}>Flashcard Decks</div>
             </div>
-            <button onClick={() => setScreen('generate')} style={{ padding: '10px 18px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ New Deck</button>
+            <div style={{ display: 'flex', gap: 8 }}>
+  <button onClick={() => setScreen('generate')} style={{ padding: '10px 18px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Generate</button>
+  <button onClick={() => setScreen('build')} style={{ padding: '10px 18px', borderRadius: 999, background: light, border: 'none', color, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Build</button>
+</div>
           </div>
           {decksLoading ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: '#9E9BB0', fontSize: 13 }}>Loading decks...</div>
@@ -886,6 +933,82 @@ function BrynneFlashcardsInner() {
             setMovingId(null);
           }}
         />
+      )}
+
+      {/* ── BUILD SCREEN ── */}
+      {screen === 'build' && (
+        <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
+          <button onClick={() => { setBuildDeckName(''); setBuildCards([{ front: '', back: '' }]); setBuildFolderId(null); setBuildFolderName(''); setBuildClassName(''); setBulkImportText(''); setShowBulkImport(false); setScreen('decks'); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Decks</button>
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>Build a Deck</div>
+            <div style={{ fontSize: 13, color: '#9E9BB0' }}>Create cards manually or paste a list to import.</div>
+          </div>
+
+          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Deck Name</label>
+            <input value={buildDeckName} onChange={e => setBuildDeckName(e.target.value)} placeholder='e.g. "Cardiac Physiology Terms"' style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
+          </div>
+
+          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '16px 20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 10 }}>Save to Folder</div>
+            <div onClick={() => setBuildPickingFolder(true)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, border: `1.5px solid ${buildFolderId ? color : '#E8E5F0'}`, background: buildFolderId ? light : '#FAFAF8', cursor: 'pointer' }}>
+              <svg width="14" height="14" viewBox="0 0 28 28" fill="none"><path d="M3 9a2 2 0 012-2h5l2 2h11a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke={buildFolderId ? color : '#9E9BB0'} strokeWidth="1.6" strokeLinejoin="round" fill="none"/></svg>
+              <div style={{ flex: 1 }}>
+                {buildFolderId ? (
+                  <span style={{ fontSize: 13, fontWeight: 700, color }}>{buildClassName} · {buildFolderName}</span>
+                ) : (
+                  <span style={{ fontSize: 13, fontWeight: 500, color: '#9E9BB0' }}>No folder — will be unfiled</span>
+                )}
+              </div>
+              <svg width="12" height="12" viewBox="0 0 28 28" fill="none"><path d="M6 12l8 8 8-8" stroke="#9E9BB0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </div>
+          </div>
+
+          {buildPickingFolder && (
+            <FolderPicker
+              studentId="brynne"
+              currentFolderId={buildFolderId}
+              accentColor={color}
+              onClose={() => setBuildPickingFolder(false)}
+              onSelect={(fId, fName, cName) => { setBuildFolderId(fId); setBuildFolderName(fName); setBuildClassName(cName); setBuildPickingFolder(false); }}
+            />
+          )}
+
+          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26' }}>Cards <span style={{ fontSize: 11, fontWeight: 600, color: '#9E9BB0' }}>{buildCards.filter(c => c.front.trim() || c.back.trim()).length} so far</span></div>
+              <button onClick={() => setShowBulkImport(s => !s)} style={{ fontSize: 11, fontWeight: 700, color, background: light, border: 'none', borderRadius: 999, padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Bulk Import</button>
+            </div>
+
+            {showBulkImport && (
+              <div style={{ background: '#FAFAF8', border: '1.5px solid #E8E5F0', borderRadius: 12, padding: '14px', marginBottom: 14 }}>
+                <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 8 }}>Paste one card per line. Separate front and back with <strong>|</strong>, tab, or comma.</div>
+                <div style={{ fontSize: 11, color: '#C4C1D4', marginBottom: 8, fontFamily: 'monospace' }}>Cardiac output | Heart rate × Stroke volume</div>
+                <textarea value={bulkImportText} onChange={e => setBulkImportText(e.target.value)} placeholder="Paste your list here..." rows={6} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FFFFFF', outline: 'none', resize: 'vertical', lineHeight: 1.5, boxSizing: 'border-box' as const, marginBottom: 10 }} />
+                <button onClick={parseBulkImport} disabled={!bulkImportText.trim()} style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !bulkImportText.trim() ? 0.4 : 1 }}>Import Cards</button>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {buildCards.map((card, i) => (
+                <div key={i} style={{ background: '#FAFAF8', border: '1.5px solid #E8E5F0', borderRadius: 12, padding: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#C4C1D4' }}>Card {i + 1}</span>
+                    {buildCards.length > 1 && <button onClick={() => setBuildCards(prev => prev.filter((_, idx) => idx !== i))} style={{ fontSize: 11, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', fontWeight: 700 }}>Remove</button>}
+                  </div>
+                  <input value={card.front} onChange={e => setBuildCards(prev => prev.map((c, idx) => idx === i ? { ...c, front: e.target.value } : c))} placeholder="Front (question or term)" style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #E8E5F0', borderRadius: 8, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FFFFFF', outline: 'none', marginBottom: 8, boxSizing: 'border-box' as const }} />
+                  <input value={card.back} onChange={e => setBuildCards(prev => prev.map((c, idx) => idx === i ? { ...c, back: e.target.value } : c))} placeholder="Back (answer or definition)" style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #E8E5F0', borderRadius: 8, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FFFFFF', outline: 'none', boxSizing: 'border-box' as const }} />
+                </div>
+              ))}
+            </div>
+
+            <button onClick={() => setBuildCards(prev => [...prev, { front: '', back: '' }])} style={{ width: '100%', marginTop: 10, padding: '10px', borderRadius: 10, border: `1.5px dashed ${color}`, background: 'transparent', color, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Add Card</button>
+          </div>
+
+          <button onClick={saveBuildDeck} disabled={!buildDeckName.trim() || buildCards.filter(c => c.front.trim() || c.back.trim()).length === 0 || buildSaving} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !buildDeckName.trim() || buildCards.filter(c => c.front.trim() || c.back.trim()).length === 0 ? 0.4 : 1 }}>
+            {buildSaving ? 'Saving...' : `Save Deck (${buildCards.filter(c => c.front.trim() || c.back.trim()).length} cards)`}
+          </button>
+        </main>
       )}
 
       {screen === 'generate' && (
