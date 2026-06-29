@@ -161,7 +161,11 @@ function MatthewPracticeExamInner() {
   const [saveFlash,       setSaveFlash]       = useState(false);
   const [submitting,        setSubmitting]        = useState(false);
   const [error,             setError]             = useState('');
-  const [retryMissedLoading, setRetryMissedLoading] = useState(false);
+  const [retryMissedLoading,  setRetryMissedLoading]  = useState(false);
+  const [weakAreas,           setWeakAreas]           = useState<{ question: string; missCount: number }[]>([]);
+  const [selectedWeakAreas,   setSelectedWeakAreas]   = useState<Set<number>>(new Set());
+  const [weakAreasExpanded,   setWeakAreasExpanded]   = useState(true);
+  const [weakAreasLoading,    setWeakAreasLoading]    = useState(false);
 
   // Timer
   const [timeLeft,     setTimeLeft]     = useState(0);
@@ -177,7 +181,7 @@ function MatthewPracticeExamInner() {
         if (data) { openExam(data); }
       };
       loadExam();
-    } else if (folderId) { setScreen('setup'); if (folderName) setTopic(folderName); fetchClassMeta(folderId); }
+    } else if (folderId) { setScreen('setup'); if (folderName) setTopic(folderName); fetchClassMeta(folderId); loadWeakAreas(folderId); }
   }, []);
 
   useEffect(() => {
@@ -303,11 +307,15 @@ function MatthewPracticeExamInner() {
       if (t === 'essay') return `Essay: {"type":"essay","question":"...","key_points":"Key points a strong essay response should address: 1)... 2)... 3)..."}`;
       return '';
     }).join('\n');
+    const selectedWeakList = weakAreas.filter((_, i) => selectedWeakAreas.has(i));
+    const weakAreasInject = selectedWeakList.length > 0
+      ? ` PRIORITY FOCUS — Matthew has previously missed questions on these specific concepts (miss count in parentheses): ${selectedWeakList.map((w, i) => `${i + 1}. ${w.question.slice(0, 120)}${w.missCount > 1 ? ` (missed ${w.missCount}x)` : ''}`).join('; ')}. Weight at least half of the questions toward these areas, approaching them from fresh angles to test genuine understanding.`
+      : '';
     const weakSpotsInject = weakSpotsList.length > 0
       ? ` PRIORITY FOCUS — These are Matthew's confirmed weak spots from prior study sessions: ${weakSpotsList.map((w, i) => `${i + 1}. ${w}`).join('; ')}. Weight at least half of the questions toward these specific concepts, approaching them from fresh angles to test genuine understanding.`
       : '';
     const chemInject = chemMode ? ' CHEMISTRY MODE — When referencing molecules, compounds, or chemical structures, include their SMILES string formatted exactly as [SMILES: xxx] inline so they can be rendered as structural diagrams. Use standard SMILES notation.' : '';
-    return `You are Ascend generating a practice exam. ${studentCtx} ${classCtx}\n\n${goalCtx}${topic.trim() ? ` Topic focus: ${topic.trim()}.` : ''} ${crossDoc}Generate ${countStr} questions of these types: ${typeDescriptions}. ${typeList.length > 1 ? 'Distribute evenly across all types.' : ''} Make questions realistic to what this professor would actually test.${weakSpotsInject}${chemInject}${custom}\n\nReturn ONLY a JSON array, no markdown, no backticks. Use these exact formats:\n${formats}`;
+    return `You are Ascend generating a practice exam. ${studentCtx} ${classCtx}\n\n${goalCtx}${topic.trim() ? ` Topic focus: ${topic.trim()}.` : ''} ${crossDoc}Generate ${countStr} questions of these types: ${typeDescriptions}. ${typeList.length > 1 ? 'Distribute evenly across all types.' : ''} Make questions realistic to what this professor would actually test.${weakAreasInject}${weakSpotsInject}${chemInject}${custom}\n\nReturn ONLY a JSON array, no markdown, no backticks. Use these exact formats:\n${formats}`;
   };
 
   const generate = async () => {
@@ -396,7 +404,8 @@ function MatthewPracticeExamInner() {
       if (q.type === 'mc' || q.type === 'tf') isCorrect = (responses[i] || '') === q.answer;
       return { exam_id: examId, student_id: 'matthew', folder_id: activeExam?.folder_id || null, question_index: i, question_type: q.type, question_text: q.question, is_correct: isCorrect };
     });
-    await supabase.from('practice_exam_items').insert(items);
+    const { error: itemsError } = await supabase.from('practice_exam_items').insert(items);
+    if (itemsError) console.error('practice_exam_items insert error:', itemsError);
     setSubmitting(false); setScreen('results'); loadHistory();
   };
 
@@ -417,6 +426,43 @@ function MatthewPracticeExamInner() {
     setResponses({}); setReviewed(new Set()); setShowExplanation(new Set()); setScheduleReview(false); setReviewScheduled(false);
     if (activeExam?.timer_seconds) { setTimeLeft(activeExam.timer_seconds); setTimerRunning(true); }
     setScreen('exam');
+  };
+
+  const loadWeakAreas = async (fId: string) => {
+    setWeakAreasLoading(true);
+    try {
+      const { data } = await supabase
+        .from('practice_exam_items')
+        .select('question_text, is_correct')
+        .eq('student_id', 'matthew')
+        .eq('folder_id', fId)
+        .eq('is_correct', false)
+        .in('question_type', ['mc', 'tf']);
+      if (data && data.length > 0) {
+        // Deduplicate by question similarity, weight by miss count
+        const missMap: Record<string, number> = {};
+        data.forEach(item => {
+          // Normalize: lowercase, trim, first 120 chars as key
+          const key = item.question_text.toLowerCase().trim().slice(0, 120);
+          missMap[key] = (missMap[key] || 0) + 1;
+        });
+        // Build deduped list sorted by miss count descending
+        const deduped = Object.entries(missMap)
+          .sort((a, b) => b[1] - a[1])
+          .map(([key, count]) => {
+            // Find original casing from data
+            const original = data.find(d => d.question_text.toLowerCase().trim().slice(0, 120) === key);
+            return { question: original?.question_text || key, missCount: count };
+          });
+        setWeakAreas(deduped);
+        // Select all by default
+        setSelectedWeakAreas(new Set(deduped.map((_, i) => i)));
+      } else {
+        setWeakAreas([]);
+        setSelectedWeakAreas(new Set());
+      }
+    } catch { }
+    finally { setWeakAreasLoading(false); }
   };
 
   const deleteExam = async (id: string) => {
@@ -591,6 +637,58 @@ function MatthewPracticeExamInner() {
             <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>New Practice Exam</div>
             <div style={{ fontSize: 13, color: '#9E9BB0' }}>Select materials, choose question types, and generate a realistic exam.</div>
           </div>
+
+          {/* Weak Areas Banner — only shown when opened from a folder */}
+          {folderId && (weakAreasLoading || weakAreas.length > 0) && (
+            <div style={{ background: '#FDF2F2', border: '1.5px solid #C4787840', borderRadius: 18, padding: '16px 20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: weakAreasExpanded ? 12 : 0 }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#C47878' }}>
+                    Your Weak Areas {weakAreas.length > 0 && `— ${folderName || 'This Folder'}`}
+                  </div>
+                  {weakAreas.length > 0 && (
+                    <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 2 }}>
+                      {selectedWeakAreas.size} of {weakAreas.length} selected · AI will target these in your exam
+                    </div>
+                  )}
+                </div>
+                <button onClick={() => setWeakAreasExpanded(e => !e)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#C47878', fontFamily: 'var(--font-jakarta)', padding: '4px 8px' }}>
+                  {weakAreasExpanded ? 'Collapse' : 'Expand'}
+                </button>
+              </div>
+              {weakAreasExpanded && (
+                weakAreasLoading ? (
+                  <div style={{ fontSize: 12, color: '#9E9BB0' }}>Loading your weak areas...</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+                      <button onClick={() => setSelectedWeakAreas(new Set(weakAreas.map((_, i) => i)))} style={{ fontSize: 10, fontWeight: 700, color: '#C47878', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', padding: 0 }}>Select all</button>
+                      <span style={{ color: '#E8E5F0' }}>·</span>
+                      <button onClick={() => setSelectedWeakAreas(new Set())} style={{ fontSize: 10, fontWeight: 700, color: '#9E9BB0', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', padding: 0 }}>Deselect all</button>
+                    </div>
+                    {weakAreas.map((w, i) => {
+                      const selected = selectedWeakAreas.has(i);
+                      return (
+                        <div key={i} onClick={() => setSelectedWeakAreas(prev => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n; })} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 10, border: `1.5px solid ${selected ? '#C47878' : '#E8E5F0'}`, background: selected ? '#FDF2F2' : '#FAFAF8', cursor: 'pointer' }}>
+                          <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${selected ? '#C47878' : '#C4C1D4'}`, background: selected ? '#C47878' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                            {selected && <span style={{ color: 'white', fontSize: 9 }}>✓</span>}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: selected ? 700 : 400, color: selected ? '#1D1B26' : '#6B6880', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                              {w.question}
+                            </div>
+                            {w.missCount > 1 && (
+                              <div style={{ fontSize: 10, fontWeight: 700, color: '#C47878', marginTop: 3 }}>Missed {w.missCount}x</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
+              )}
+            </div>
+          )}
 
           {/* Exam Name */}
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
