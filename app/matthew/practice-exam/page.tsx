@@ -159,8 +159,9 @@ function MatthewPracticeExamInner() {
   const [generating,      setGenerating]      = useState(false);
   const [saving,          setSaving]          = useState(false);
   const [saveFlash,       setSaveFlash]       = useState(false);
-  const [submitting,      setSubmitting]      = useState(false);
-  const [error,           setError]           = useState('');
+  const [submitting,        setSubmitting]        = useState(false);
+  const [error,             setError]             = useState('');
+  const [retryMissedLoading, setRetryMissedLoading] = useState(false);
 
   // Timer
   const [timeLeft,     setTimeLeft]     = useState(0);
@@ -423,6 +424,47 @@ function MatthewPracticeExamInner() {
     setPastExams(prev => prev.filter(e => e.id !== id));
   };
 
+  const retryMissed = async (sourceExam?: PastExam) => {
+    const exam = sourceExam || activeExam;
+    if (!exam) return;
+    setRetryMissedLoading(true);
+    try {
+      // Get missed MC/TF questions from this exam
+      const missedQuestions = exam.questions.filter((q, i) => {
+        if (q.type !== 'mc' && q.type !== 'tf') return false;
+        const resp = Object.entries(exam.responses || {}).find(([k]) => parseInt(k) === i);
+        const userAnswer = resp ? resp[1] : '';
+        return userAnswer !== q.answer;
+      });
+      if (missedQuestions.length === 0) return;
+      // Shuffle
+      const shuffled = [...missedQuestions].sort(() => Math.random() - 0.5);
+      const title = `Retry: ${exam.title}`;
+      const { data: newExam } = await supabase.from('practice_exams').insert({
+        student_id: 'matthew',
+        title,
+        questions: shuffled,
+        responses: {},
+        status: 'in_progress',
+        timer_seconds: null,
+        folder_id: exam.folder_id || null,
+      }).select().single();
+      if (newExam) {
+        setExamId(newExam.id);
+        setActiveExam(newExam);
+        setExamTitle(title);
+        setQuestions(shuffled);
+        setResponses({});
+        setReviewed(new Set());
+        setShowExplanation(new Set());
+        setTimerRunning(false);
+        setScreen('exam');
+        loadHistory();
+      }
+    } catch { }
+    finally { setRetryMissedLoading(false); }
+  };
+
   const objQuestions  = questions.filter(q => q.type === 'mc' || q.type === 'tf');
   const correctCount  = objQuestions.filter((q, _) => { const i = questions.indexOf(q); return (responses[i] || '') === q.answer; }).length;
   const displayScore  = objQuestions.length > 0 ? Math.round((correctCount / objQuestions.length) * 100) : null;
@@ -507,6 +549,18 @@ function MatthewPracticeExamInner() {
                   {exam.status === 'completed' && (
                     <button onClick={() => { setActiveExam(exam); setExamId(exam.id); setExamTitle(exam.title); setQuestions(exam.questions); const resp: Record<number, string> = {}; Object.entries(exam.responses || {}).forEach(([k, v]) => { resp[parseInt(k)] = v as string; }); setResponses(resp); setReviewed(new Set()); setShowExplanation(new Set()); retakeExam(); }} style={{ width: '100%', padding: '8px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#F3F1EC', color: '#6B6880', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear & Retake</button>
                   )}
+                  {exam.status === 'completed' && (() => {
+                    const missedCount = exam.questions.filter((q, i) => {
+                      if (q.type !== 'mc' && q.type !== 'tf') return false;
+                      const resp = Object.entries(exam.responses || {}).find(([k]) => parseInt(k) === i);
+                      return (resp ? resp[1] : '') !== q.answer;
+                    }).length;
+                    return missedCount > 0 ? (
+                      <button onClick={() => retryMissed(exam)} disabled={retryMissedLoading} style={{ width: '100%', padding: '8px', borderRadius: 10, border: '1.5px solid #C4787840', background: '#FDF2F2', color: '#C47878', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: retryMissedLoading ? 0.6 : 1 }}>
+                        Retry Missed ({missedCount})
+                      </button>
+                    ) : null;
+                  })()}
                 </div>
               ))}
             </div>
@@ -887,6 +941,23 @@ function MatthewPracticeExamInner() {
           </div>
 
           {/* Retake options */}
+          {(() => {
+            const missedCount = questions.filter((q, i) => {
+              if (q.type !== 'mc' && q.type !== 'tf') return false;
+              return (responses[i] || '') !== q.answer;
+            }).length;
+            return missedCount > 0 ? (
+              <div style={{ background: '#FDF2F2', border: '1.5px solid #C4787840', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#C47878', marginBottom: 2 }}>{missedCount} question{missedCount !== 1 ? 's' : ''} missed</div>
+                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>Drill just the ones you got wrong — shuffled.</div>
+                </div>
+                <button onClick={() => retryMissed()} disabled={retryMissedLoading} style={{ padding: '10px 18px', borderRadius: 999, border: 'none', background: '#C47878', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0, opacity: retryMissedLoading ? 0.6 : 1 }}>
+                  {retryMissedLoading ? 'Loading...' : 'Retry Missed'}
+                </button>
+              </div>
+            ) : null;
+          })()}
           <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
             <button onClick={retakeExam} style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: '#F3F1EC', color: '#6B6880', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear & Retake</button>
             <button onClick={() => setScreen('history')} style={{ flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>My Exams</button>
