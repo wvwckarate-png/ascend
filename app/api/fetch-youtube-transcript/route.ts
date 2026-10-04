@@ -20,8 +20,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ transcript, videoId });
 
-  } catch (err: any) {
-    const msg = err.message || '';
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : '';
     if (msg.includes('No transcript') || msg.includes('disabled')) {
       return NextResponse.json({ error: 'No captions available for this video' }, { status: 404 });
     }

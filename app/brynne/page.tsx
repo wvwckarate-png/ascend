@@ -307,7 +307,7 @@ setLoading(false);
   </svg>
 </div>            <div>
               <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 2 }}>{e.name} — Today! 🌟</div>
-              <div style={{ fontSize: 11, opacity: 0.85 }}>{e.class_name} · You've got this!</div>
+              <div style={{ fontSize: 11, opacity: 0.85 }}>{e.class_name} · You&apos;ve got this!</div>
             </div>
           </div>
         ))}
@@ -409,7 +409,7 @@ setLoading(false);
         {/* ── QUOTE ── */}
         <div style={{ textAlign: 'center', padding: '4px 8px', marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#6B6880', lineHeight: 1.6, fontStyle: 'italic', marginBottom: 4 }}>
-            "{QUOTES[quoteIndex].text}"
+            &quot;{QUOTES[quoteIndex].text}&quot;
           </div>
           {QUOTES[quoteIndex].author && (
             <div style={{ fontSize: 10, fontWeight: 700, color, letterSpacing: 0.5 }}>
@@ -443,7 +443,7 @@ setLoading(false);
               {upcomingTasks.length === 0 && overdueTasks.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '20px 0' }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>All done! 🌟</div>
-                  <div style={{ fontSize: 12, color: '#9E9BB0' }}>Nothing left! You're amazing!</div>
+                  <div style={{ fontSize: 12, color: '#9E9BB0' }}>Nothing left! You&apos;re amazing!</div>
                 </div>
               ) : (
                 upcomingTasks.map(task => <TaskRow key={task.id} task={task} />)
@@ -516,7 +516,7 @@ setLoading(false);
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 800, color: 'white', marginBottom: 2 }}>Add Ascend to your home screen!</div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>Tap Share → "Add to Home Screen" in Chrome 🌟</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>Tap Share → &quot;Add to Home Screen&quot; in Chrome 🌟</div>
           </div>
         </div>
 

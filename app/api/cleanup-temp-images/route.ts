@@ -7,8 +7,11 @@ const supabaseAdmin = createClient(
 );
 
 export async function GET(req: NextRequest) {
-  const secret = req.headers.get('x-cron-secret');
-  if (secret !== process.env.CRON_SECRET) {
+  // Vercel Cron sends `Authorization: Bearer <CRON_SECRET>`; keep x-cron-secret for manual calls.
+  const expected = process.env.CRON_SECRET;
+  const bearer = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
+  const secret = bearer || req.headers.get('x-cron-secret');
+  if (!expected || secret !== expected) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

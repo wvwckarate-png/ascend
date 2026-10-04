@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
           {
             type:   'document',
             source: { type: 'base64', media_type: 'application/pdf', data: base64 },
-          } as any,
+          } as unknown as Anthropic.TextBlockParam,
           {
             type: 'text',
             text: `Extract key information from this syllabus. Return ONLY a JSON object with no markdown, no backticks, no explanation.
@@ -60,8 +60,8 @@ Rules:
         courseDescription: parsed.courseDescription || null,
       }
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error('parse-syllabus error:', err);
-    return NextResponse.json({ error: err.message || 'Failed to parse syllabus' }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error && err.message ? err.message : 'Failed to parse syllabus' }, { status: 500 });
   }
 }

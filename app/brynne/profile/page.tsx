@@ -78,9 +78,15 @@ export default function BrynneProfile() {
 
   const saveField = async (field: string) => {
     if (!draft.trim()) return;
+    const value = field === 'grad_year' ? parseInt(draft.trim(), 10) : draft.trim();
+    if (typeof value === 'number' && Number.isNaN(value)) return;
     setSaving(true);
-    const value = field === 'grad_year' ? parseInt(draft.trim()) : draft.trim();
-    await supabase.from('students').update({ [field]: value }).eq('id', 'brynne');
+    const { error } = await supabase.from('students').update({ [field]: value }).eq('id', 'brynne');
+    if (error) {
+      console.error('Profile save failed:', error);
+      setSaving(false);
+      return;
+    }
     if (field === 'name')               setName(draft.trim());
     if (field === 'grade')              setGrade(draft.trim());
     if (field === 'focus')              setFocus(draft.trim());
@@ -110,7 +116,7 @@ export default function BrynneProfile() {
     boxSizing: 'border-box' as const,
   };
 
-  const SaveButtons = ({ field }: { field: string }) => (
+  const renderSaveButtons = (field: string) => (
     <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
       <button onClick={() => saveField(field)} disabled={saving || !draft.trim()} style={{ padding: '8px 18px', borderRadius: 999, border: 'none', background: color, color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: saving || !draft.trim() ? 0.5 : 1 }}>
         {saving ? 'Saving…' : 'Save'}
@@ -149,7 +155,7 @@ export default function BrynneProfile() {
           {editingField === 'name' ? (
             <div style={{ width: '100%', maxWidth: 320, textAlign: 'left', marginBottom: 8 }}>
               <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('name'); if (e.key === 'Escape') cancelEdit(); }} style={{ ...inputStyle, fontSize: 22, fontWeight: 800, textAlign: 'center' }} />
-              <SaveButtons field="name" />
+              {renderSaveButtons('name')}
             </div>
           ) : (
             <div onClick={() => startEdit('name', name)} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 4 }}>
@@ -163,7 +169,7 @@ export default function BrynneProfile() {
           {editingField === 'grade' ? (
             <div style={{ width: '100%', maxWidth: 320, textAlign: 'left', marginBottom: 8 }}>
               <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('grade'); if (e.key === 'Escape') cancelEdit(); }} style={inputStyle} />
-              <SaveButtons field="grade" />
+              {renderSaveButtons('grade')}
             </div>
           ) : (
             <div onClick={() => startEdit('grade', grade)} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 10 }}>
@@ -179,7 +185,7 @@ export default function BrynneProfile() {
             {editingField === 'track' ? (
               <div style={{ width: '100%', maxWidth: 320 }}>
                 <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('track'); if (e.key === 'Escape') cancelEdit(); }} placeholder="e.g. Pre-Med" style={inputStyle} />
-                <SaveButtons field="track" />
+                {renderSaveButtons('track')}
               </div>
             ) : (
               <div onClick={() => startEdit('track', track)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 999, background: light, cursor: 'pointer' }}>
@@ -192,7 +198,7 @@ export default function BrynneProfile() {
             {editingField === 'target_school' ? (
               <div style={{ width: '100%', maxWidth: 320 }}>
                 <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('target_school'); if (e.key === 'Escape') cancelEdit(); }} placeholder="e.g. WVU" style={inputStyle} />
-                <SaveButtons field="target_school" />
+                {renderSaveButtons('target_school')}
               </div>
             ) : (
               <div onClick={() => startEdit('target_school', targetSchool)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 999, background: light, cursor: 'pointer' }}>
@@ -205,7 +211,7 @@ export default function BrynneProfile() {
             {editingField === 'target_program' ? (
               <div style={{ width: '100%', maxWidth: 320 }}>
                 <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('target_program'); if (e.key === 'Escape') cancelEdit(); }} placeholder="e.g. WVU School of Medicine" style={inputStyle} />
-                <SaveButtons field="target_program" />
+                {renderSaveButtons('target_program')}
               </div>
             ) : (
               <div onClick={() => startEdit('target_program', targetProgram)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 999, background: light, cursor: 'pointer' }}>
@@ -218,7 +224,7 @@ export default function BrynneProfile() {
             {editingField === 'grad_year' ? (
               <div style={{ width: '100%', maxWidth: 320 }}>
                 <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('grad_year'); if (e.key === 'Escape') cancelEdit(); }} placeholder="e.g. 2033" style={inputStyle} />
-                <SaveButtons field="grad_year" />
+                {renderSaveButtons('grad_year')}
               </div>
             ) : (
               <div onClick={() => startEdit('grad_year', gradYear)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 999, background: '#F3F1EC', cursor: 'pointer' }}>
@@ -261,7 +267,7 @@ export default function BrynneProfile() {
                 placeholder='e.g. "I learn best with examples and pictures. I like when things are explained step by step. Math is my favorite subject!"'
                 style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6 }}
               />
-              <SaveButtons field="generation_profile" />
+              {renderSaveButtons('generation_profile')}
             </div>
           ) : (
             <div onClick={() => startEdit('generation_profile', generationProfile)} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', cursor: 'pointer' }}>
@@ -280,7 +286,7 @@ export default function BrynneProfile() {
           {editingField === 'bio' ? (
             <div>
               <textarea autoFocus value={draft} onChange={e => setDraft(e.target.value)} rows={3} style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6 }} />
-              <SaveButtons field="bio" />
+              {renderSaveButtons('bio')}
             </div>
           ) : (
             <div onClick={() => startEdit('bio', bio)} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', cursor: 'pointer' }}>

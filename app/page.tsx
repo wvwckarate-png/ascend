@@ -27,16 +27,6 @@ export default function Home() {
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(false);
 
-  useEffect(() => {
-    if (!selected) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key >= '0' && e.key <= '9') handlePinDigit(e.key);
-      if (e.key === 'Backspace') setPin(p => p.slice(0, -1));
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [selected, pin, checking]);
-
   const handleStudentTap = async (s: typeof students[0]) => {
     const { data } = await supabase
       .from('students')
@@ -54,6 +44,7 @@ export default function Home() {
   };
 
   const handlePinDigit = (digit: string) => {
+    if (checking) return;
     if (pin.length < 4) {
       const newPin = pin + digit;
       setPin(newPin);
@@ -80,6 +71,17 @@ export default function Home() {
     }
     setChecking(false);
   };
+
+  useEffect(() => {
+    if (!selected) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key >= '0' && e.key <= '9') handlePinDigit(e.key);
+      if (e.key === 'Backspace' && !checking) setPin(p => p.slice(0, -1));
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, pin, checking]);
 
   return (
     <main style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px 60px' }}>
@@ -129,7 +131,7 @@ export default function Home() {
       <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'var(--light)', fontStyle: 'italic', marginBottom: 8 }}>Forged in Focus</div>
       <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 48 }}>Your personal study ecosystem</div>
 
-      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'var(--light)', marginBottom: 20 }}>Who's studying today?</div>
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'var(--light)', marginBottom: 20 }}>Who&apos;s studying today?</div>
 
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 780, marginBottom: 32 }}>
         {students.map((s) => (
@@ -177,7 +179,7 @@ export default function Home() {
       </div>
 
       <div style={{ fontSize: 10, color: 'var(--light)', marginTop: 40, letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.8 }}>
-        Ascend v2.7.17 · June 2026<br />
+        Ascend v2.7.18 · October 2026<br />
         Founded April 2026 · Forged in Focus
       </div>
     </main>

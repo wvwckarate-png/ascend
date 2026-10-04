@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 
@@ -59,7 +59,6 @@ const inputStyle = { width: '100%', padding: '10px 12px', border: '1.5px solid #
 
 export default function TabBar({ student }: Props) {
   const pathname = usePathname();
-  const router = useRouter();
   const [showModal, setShowModal] = useState(false);
   const [classes, setClasses] = useState<{id: string; name: string}[]>([]);
   const [cls, setCls] = useState('');

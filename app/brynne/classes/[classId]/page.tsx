@@ -595,7 +595,7 @@ export default function BrynneClassBinder() {
             </div>
             {gradeScore && gradeMax && (
               <div style={{ background: light, borderRadius: 10, padding: '10px 14px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 12, color: '#6B6880' }}>That's a...</span>
+                <span style={{ fontSize: 12, color: '#6B6880' }}>That&apos;s a...</span>
                 <span style={{ fontSize: 18, fontWeight: 900, color: gradeColor((parseFloat(gradeScore) / parseFloat(gradeMax)) * 100) }}>
                   {((parseFloat(gradeScore) / parseFloat(gradeMax)) * 100).toFixed(1)}% 🌟
                 </span>

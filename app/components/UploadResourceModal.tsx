@@ -388,7 +388,7 @@ export default function UploadResourceModal({ student, onClose, onSaved }: Props
               {resType === 'image' && (
                 <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 10, background: '#FFF3E8', border: '1.5px solid #E8C4A0', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                   <svg width="14" height="14" viewBox="0 0 28 28" fill="none" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="14" cy="14" r="11" stroke="#E8956D" strokeWidth="1.6" fill="none"/><line x1="14" y1="10" x2="14" y2="15" stroke="#E8956D" strokeWidth="1.6" strokeLinecap="round"/><circle cx="14" cy="19" r="1" fill="#E8956D"/></svg>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#C4845A', lineHeight: 1.5 }}>Rename this photo to something descriptive — "IMG_3045" won't help you find it later. Try something like "Cell Diagram Ch. 4" or "Exam 2 Review Sheet".</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#C4845A', lineHeight: 1.5 }}>Rename this photo to something descriptive — &quot;IMG_3045&quot; won&apos;t help you find it later. Try something like &quot;Cell Diagram Ch. 4&quot; or &quot;Exam 2 Review Sheet&quot;.</span>
                 </div>
               )}
             </div>

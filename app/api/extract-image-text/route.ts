@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ transcript: extractedText });
 
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Extraction failed' }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error && err.message ? err.message : 'Extraction failed' }, { status: 500 });
   }
 }

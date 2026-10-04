@@ -1,7 +1,6 @@
 'use client';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import TabBar from '../../components/TabBar';
 import { supabase } from '../../../lib/supabase';
 
@@ -23,19 +22,6 @@ function IconCalendarEvent({ c, size = 20 }: { c: string; size?: number }) {
       <line x1="9" y1="3" x2="9" y2="8" stroke={c} strokeWidth="1.8" strokeLinecap="round"/>
       <line x1="19" y1="3" x2="19" y2="8" stroke={c} strokeWidth="1.8" strokeLinecap="round"/>
       <rect x="8" y="15" width="4" height="4" rx="1" fill={c} opacity="0.7"/>
-    </svg>
-  );
-}
-
-function IconEmptyDay({ size = 48 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect x="6" y="10" width="36" height="32" rx="4" stroke="#C4C1D4" strokeWidth="1.8" fill="none"/>
-      <line x1="6" y1="18" x2="42" y2="18" stroke="#C4C1D4" strokeWidth="1.4"/>
-      <line x1="15" y1="6" x2="15" y2="14" stroke="#C4C1D4" strokeWidth="2" strokeLinecap="round"/>
-      <line x1="33" y1="6" x2="33" y2="14" stroke="#C4C1D4" strokeWidth="2" strokeLinecap="round"/>
-      <line x1="14" y1="27" x2="34" y2="27" stroke="#E8E5F0" strokeWidth="2" strokeLinecap="round"/>
-      <line x1="14" y1="33" x2="26" y2="33" stroke="#E8E5F0" strokeWidth="2" strokeLinecap="round"/>
     </svg>
   );
 }
@@ -73,7 +59,6 @@ const color = '#E8956D';
 const light = '#FFF3E8';
 
 export default function BrynneCalendar() {
-  const router   = useRouter();
   const today    = new Date();
   const todayStr = today.toISOString().split('T')[0];
 

@@ -137,16 +137,6 @@ function MichaelPracticeExamInner() {
   const [newFileNames,    setNewFileNames]      = useState<Record<number, string>>({});
   const [fileInputRef,    setFileInputRef]     = useState<HTMLInputElement | null>(null);
 
-  const [buildDeckName,   setBuildDeckName]    = useState('');
-  const [buildCards,      setBuildCards]       = useState<{ front: string; back: string }[]>([{ front: '', back: '' }]);
-  const [buildFolderId,   setBuildFolderId]    = useState<string | null>(null);
-  const [buildFolderName, setBuildFolderName]  = useState('');
-  const [buildClassName,  setBuildClassName]   = useState('');
-  const [buildPickingFolder, setBuildPickingFolder] = useState(false);
-  const [bulkImportText,  setBulkImportText]   = useState('');
-  const [showBulkImport,  setShowBulkImport]   = useState(false);
-  const [buildSaving,     setBuildSaving]      = useState(false);
-
   const [questions,       setQuestions]       = useState<Question[]>([]);
   const [responses,       setResponses]       = useState<Record<number, string>>({});
   const [reviewed,        setReviewed]        = useState<Set<number>>(new Set());
@@ -219,8 +209,8 @@ function MichaelPracticeExamInner() {
     const { data } = await supabase.from('practice_exams').select('*').eq('student_id', 'michael').order('created_at', { ascending: false });
     if (data) {
       const folderIds = data.map(e => e.folder_id).filter(Boolean);
-      let folderMap: Record<string, { name: string; class_id: string }> = {};
-      let classMap: Record<string, string> = {};
+      const folderMap: Record<string, { name: string; class_id: string }> = {};
+      const classMap: Record<string, string> = {};
       if (folderIds.length > 0) {
         const { data: folders } = await supabase.from('exam_folders').select('id, name, class_id').in('id', folderIds);
         if (folders) {

@@ -40,17 +40,24 @@ export default function ParentDashboard() {
   const handleUnlock = async () => {
     setChecking(true);
     setPwError('');
-    const res = await fetch('/api/verify-parent-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
-    });
-    if (res.ok) {
-      setUnlocked(true);
-    } else {
-      setPwError('Incorrect password. Try again.');
+    try {
+      const res = await fetch('/api/verify-parent-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      if (res.ok) {
+        setUnlocked(true);
+      } else if (res.status === 500) {
+        setPwError('Parent password is not configured on the server.');
+      } else {
+        setPwError('Incorrect password. Try again.');
+      }
+    } catch {
+      setPwError('Could not reach the server. Try again.');
+    } finally {
+      setChecking(false);
     }
-    setChecking(false);
   };
 
   useEffect(() => {

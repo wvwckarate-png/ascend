@@ -330,8 +330,8 @@ function MatthewStudyInner() {
     const { data } = await supabase.from('study_guides').select('id, title, created_at, source_filename, folder_id').eq('student_id', 'matthew').order('created_at', { ascending: false });
     if (data) {
       const folderIds = data.map(g => g.folder_id).filter(Boolean);
-      let folderMap: Record<string, { name: string; class_id: string }> = {};
-      let classMap: Record<string, string> = {};
+      const folderMap: Record<string, { name: string; class_id: string }> = {};
+      const classMap: Record<string, string> = {};
       if (folderIds.length > 0) {
         const { data: folders } = await supabase.from('exam_folders').select('id, name, class_id').in('id', folderIds);
         if (folders) {
@@ -1007,7 +1007,7 @@ RULES:
               <div onClick={() => setSmartFigures(f => !f)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Smart Figures</div>
-                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>Include diagrams for concepts that can't be explained in text alone</div>
+                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>Include diagrams for concepts that can&apos;t be explained in text alone</div>
                 </div>
                 <div style={{ width: 40, height: 22, borderRadius: 999, background: smartFigures ? color : '#E8E5F0', transition: 'background 0.2s', position: 'relative', flexShrink: 0 }}>
                   <div style={{ position: 'absolute', top: 3, left: smartFigures ? 20 : 3, width: 16, height: 16, borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />

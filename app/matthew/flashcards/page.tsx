@@ -284,8 +284,8 @@ function MatthewFlashcardsInner() {
     const { data } = await supabase.from('flashcard_decks').select('*').eq('student_id', 'matthew').order('created_at', { ascending: false });
     if (data) {
       const folderIds = data.map(d => d.folder_id).filter(Boolean);
-      let folderMap: Record<string, { name: string; class_id: string }> = {};
-      let classMap: Record<string, string> = {};
+      const folderMap: Record<string, { name: string; class_id: string }> = {};
+      const classMap: Record<string, string> = {};
       if (folderIds.length > 0) {
         const { data: folders } = await supabase.from('exam_folders').select('id, name, class_id').in('id', folderIds);
         if (folders) {
@@ -382,7 +382,7 @@ function MatthewFlashcardsInner() {
 
     // Load existing flashcard_items for this deck
     const cardIds = cards.map(c => c.id).filter(Boolean);
-    let itemMap: Record<string, FlashcardItem> = {};
+    const itemMap: Record<string, FlashcardItem> = {};
     if (cardIds.length > 0) {
       const { data: items } = await supabase.from('flashcard_items').select('*').in('card_id', cardIds).eq('student_id', 'matthew');
       if (items) {
@@ -769,6 +769,7 @@ function MatthewFlashcardsInner() {
   const prev    = () => { if (qi > 0) { setQi(i => i - 1); setFlipped(false); } };
   const rate    = (correct: boolean) => {
     const card = mode === 'smart' ? queue[qi] : cards[qi];
+    if (!card) return;
     if (card.id && savedDeckId) recordRating(card.id, savedDeckId, correct);
     setRatings(r => ({ ...r, [qi]: correct ? 1 : 0 }));
     if (mode === 'smart') { const nq = requeue(queue, qi, correct); if (nq.length === 0) { setScreen('done'); return; } setQueue(nq); setFlipped(false); } else { next(); }
@@ -796,7 +797,8 @@ function MatthewFlashcardsInner() {
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [screen, qi, flipped, queue, cards]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen, qi, flipped, queue, cards, lightboxUrl, mode, savedDeckId, ratings]);
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
@@ -1355,7 +1357,7 @@ function MatthewFlashcardsInner() {
               </div>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 800, color: '#7B6FA0', letterSpacing: 0.3, marginBottom: 3 }}>Did you know?</div>
-                <div style={{ fontSize: 12, color: '#6B6880', lineHeight: 1.5 }}>Once saved, you can add new cards, edit any card's front or back, or remove cards — all from your deck library.</div>
+                <div style={{ fontSize: 12, color: '#6B6880', lineHeight: 1.5 }}>Once saved, you can add new cards, edit any card&apos;s front or back, or remove cards — all from your deck library.</div>
               </div>
             </div>
           )}
@@ -1544,7 +1546,7 @@ function MatthewFlashcardsInner() {
           {studyMode === 'due' && activeDeck && (
             <div style={{ background: light, borderRadius: 14, padding: '16px', marginBottom: 16, maxWidth: 340, margin: '0 auto 16px' }}>
               <div style={{ fontSize: 13, fontWeight: 800, color, marginBottom: 6 }}>Due cards done — nice work.</div>
-              <div style={{ fontSize: 12, color: '#6B6880', marginBottom: 12, lineHeight: 1.5 }}>Ready to run the full deck? You'll see today's cards again in the mix.</div>
+              <div style={{ fontSize: 12, color: '#6B6880', marginBottom: 12, lineHeight: 1.5 }}>Ready to run the full deck? You&apos;ll see today&apos;s cards again in the mix.</div>
               <button onClick={() => { if (activeDeck) studyDeck(activeDeck, deckCards, false); }} style={{ width: '100%', padding: '12px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Study Full Deck</button>
             </div>
           )}

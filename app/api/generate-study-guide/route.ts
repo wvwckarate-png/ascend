@@ -14,6 +14,8 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+type ContentBlock = Record<string, unknown>;
+
 // Returns Claude-supported media type, 'heic' for HEIC/HEIF (needs conversion), or null for non-image
 function getImageMediaType(filename: string, mimeType?: string): string | null {
   const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'));
@@ -123,19 +125,43 @@ async function extractPptxImages(file: File): Promise<{ name: string; base64: st
 async function extractPptxText(file: File): Promise<string> {
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
-  const tmpPath = join(tmpdir(), `ascend-${Date.now()}-${file.name}`);
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const tmpPath = join(tmpdir(), `ascend-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}`);
   await writeFile(tmpPath, buffer);
   try {
     const text = await new Promise<string>((resolve, reject) => {
-      officeParser.parseOffice(tmpPath, (ast: any, err?: any) => {
+      officeParser.parseOffice(tmpPath, (ast: unknown, err?: unknown) => {
         if (err) reject(err);
-        else resolve(typeof ast === 'string' ? ast : ast?.text || JSON.stringify(ast));
+        else resolve(typeof ast === 'string' ? ast : (ast as { text?: string })?.text || JSON.stringify(ast));
       });
     });
     return text;
   } finally {
     await unlink(tmpPath).catch(() => {});
   }
+}
+
+// Non-streaming Claude call. Returns the text, or throws with the API's own error message.
+async function callClaude(messageContent: ContentBlock[]): Promise<string> {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY!,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 8000,
+      messages: [{ role: 'user', content: messageContent }],
+    }),
+  });
+  const data = await response.json().catch(() => null);
+  const text = data?.content?.[0]?.text;
+  if (!response.ok || typeof text !== 'string') {
+    throw new Error(data?.error?.message || `Anthropic API error (${response.status})`);
+  }
+  return text;
 }
 
 export async function POST(req: NextRequest) {
@@ -152,7 +178,7 @@ export async function POST(req: NextRequest) {
         brynne:  'You are Ascend, an expert study assistant. Calibrate depth and vocabulary to match the level of the uploaded materials. Your job is exam preparation — stay strictly within what was taught.',
       };
 
-      const messageContent: any[] = [];
+      const messageContent: ContentBlock[] = [];
 
       if (transcripts && transcripts.length > 0) {
         for (const t of transcripts) {
@@ -168,22 +194,7 @@ export async function POST(req: NextRequest) {
         text: `${toneMap[student] || toneMap['matthew']}\n\n${prompt}`,
       });
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.ANTHROPIC_API_KEY!,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 8000,
-          messages: [{ role: 'user', content: messageContent }],
-        }),
-      });
-
-      const data = await response.json();
-      return NextResponse.json({ studyGuide: data.content[0].text });
+      return NextResponse.json({ studyGuide: await callClaude(messageContent) });
     }
 
     // FormData — study guide generation (streaming)
@@ -208,7 +219,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No files, transcripts, or prompt provided' }, { status: 400 });
     }
 
-    const messageContent: any[] = [];
+    const messageContent: ContentBlock[] = [];
 
     for (const t of transcripts) {
       messageContent.push({
@@ -232,7 +243,7 @@ export async function POST(req: NextRequest) {
           const cleanText = extracted.replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/\s+/g, ' ').trim();
           const wordCount = cleanText.split(/\s+/).filter(w => w.length > 3).length;
 
-          let slideImageUrls: { name: string; url: string }[] = [];
+          const slideImageUrls: { name: string; url: string }[] = [];
           if (isPptx) {
             try {
               const rawImages = await extractPptxImages(file);
@@ -353,21 +364,7 @@ Format with clear markdown headers.`;
 
     // Non-streaming for flashcards and exams
     if (requestType === 'flashcards' || requestType === 'exam') {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.ANTHROPIC_API_KEY!,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 8000,
-          messages: [{ role: 'user', content: messageContent }],
-        }),
-      });
-      const data = await response.json();
-      return NextResponse.json({ studyGuide: data.content[0].text });
+      return NextResponse.json({ studyGuide: await callClaude(messageContent) });
     }
 
     // Stream the response
@@ -444,6 +441,7 @@ Format with clear markdown headers.`;
 
   } catch (error) {
     console.error('Error:', error);
-    return NextResponse.json({ error: 'Failed to generate content' }, { status: 500 });
+    const message = error instanceof Error && error.message ? error.message : 'Failed to generate content';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

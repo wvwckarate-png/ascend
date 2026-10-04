@@ -1,5 +1,5 @@
-import { parseSMILES, Segment as SMILESSegment } from './parseSMILES';
-import { parseKaTeX, KaTeXSegment } from './parseKaTeX';
+import { parseSMILES } from './parseSMILES';
+import { parseKaTeX } from './parseKaTeX';
 
 export type ContentSegment =
   | { type: 'text'; value: string }

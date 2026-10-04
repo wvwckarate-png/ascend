@@ -28,14 +28,14 @@ export async function POST(req: NextRequest) {
     });
 
     if (!response.ok) {
-      const err = await response.json();
-      return NextResponse.json({ error: err.error?.message || 'Transcription failed' }, { status: 500 });
+      const err = await response.json().catch(() => null);
+      return NextResponse.json({ error: err?.error?.message || 'Transcription failed' }, { status: 500 });
     }
 
     const data = await response.json();
     return NextResponse.json({ transcript: data.text });
 
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Transcription failed' }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error && err.message ? err.message : 'Transcription failed' }, { status: 500 });
   }
 }

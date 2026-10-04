@@ -1,7 +1,6 @@
 'use client';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import TabBar from '../../components/TabBar';
 import { supabase } from '../../../lib/supabase';
 
@@ -75,7 +74,6 @@ const color = '#7B6FA0';
 const light = '#EDE9F7';
 
 export default function MatthewCalendar() {
-  const router   = useRouter();
   const today    = new Date();
   const todayStr = today.toISOString().split('T')[0];
 

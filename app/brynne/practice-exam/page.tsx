@@ -137,16 +137,6 @@ function BrynnePracticeExamInner() {
   const [newFileNames,    setNewFileNames]      = useState<Record<number, string>>({});
   const [fileInputRef,    setFileInputRef]     = useState<HTMLInputElement | null>(null);
 
-  const [buildDeckName,   setBuildDeckName]    = useState('');
-  const [buildCards,      setBuildCards]       = useState<{ front: string; back: string }[]>([{ front: '', back: '' }]);
-  const [buildFolderId,   setBuildFolderId]    = useState<string | null>(null);
-  const [buildFolderName, setBuildFolderName]  = useState('');
-  const [buildClassName,  setBuildClassName]   = useState('');
-  const [buildPickingFolder, setBuildPickingFolder] = useState(false);
-  const [bulkImportText,  setBulkImportText]   = useState('');
-  const [showBulkImport,  setShowBulkImport]   = useState(false);
-  const [buildSaving,     setBuildSaving]      = useState(false);
-
   const [questions,       setQuestions]       = useState<Question[]>([]);
   const [responses,       setResponses]       = useState<Record<number, string>>({});
   const [reviewed,        setReviewed]        = useState<Set<number>>(new Set());
@@ -219,8 +209,8 @@ function BrynnePracticeExamInner() {
     const { data } = await supabase.from('practice_exams').select('*').eq('student_id', 'brynne').order('created_at', { ascending: false });
     if (data) {
       const folderIds = data.map(e => e.folder_id).filter(Boolean);
-      let folderMap: Record<string, { name: string; class_id: string }> = {};
-      let classMap: Record<string, string> = {};
+      const folderMap: Record<string, { name: string; class_id: string }> = {};
+      const classMap: Record<string, string> = {};
       if (folderIds.length > 0) {
         const { data: folders } = await supabase.from('exam_folders').select('id, name, class_id').in('id', folderIds);
         if (folders) {
@@ -642,7 +632,7 @@ function BrynnePracticeExamInner() {
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 12, fontWeight: selected ? 700 : 400, color: selected ? '#1D1B26' : '#6B6880', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{w.question}</div>
-                            {w.missCount > 1 && <div style={{ fontSize: 10, fontWeight: 700, color: '#C47878', marginTop: 3 }}>Missed {w.missCount}x — let's fix that! 💪</div>}
+                            {w.missCount > 1 && <div style={{ fontSize: 10, fontWeight: 700, color: '#C47878', marginTop: 3 }}>Missed {w.missCount}x — let&apos;s fix that! 💪</div>}
                           </div>
                         </div>
                       );
@@ -971,7 +961,7 @@ function BrynnePracticeExamInner() {
               <div style={{ background: '#FDF2F2', border: '1.5px solid #C4787840', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 800, color: '#C47878', marginBottom: 2 }}>{missedCount} question{missedCount !== 1 ? 's' : ''} to practice 💪</div>
-                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>Drill just the tricky ones — you've got this!</div>
+                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>Drill just the tricky ones — you&apos;ve got this!</div>
                 </div>
                 <button onClick={() => retryMissed()} disabled={retryMissedLoading} style={{ padding: '10px 18px', borderRadius: 999, border: 'none', background: '#C47878', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0, opacity: retryMissedLoading ? 0.6 : 1 }}>
                   {retryMissedLoading ? 'Loading...' : 'Retry Missed 💪'}

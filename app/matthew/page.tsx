@@ -408,7 +408,7 @@ setLoading(false);
         {/* ── QUOTE ── */}
         <div style={{ textAlign: 'center', padding: '4px 8px', marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#6B6880', lineHeight: 1.6, fontStyle: 'italic', marginBottom: 4 }}>
-            "{QUOTES[quoteIndex].text}"
+            &quot;{QUOTES[quoteIndex].text}&quot;
           </div>
           {QUOTES[quoteIndex].author && (
             <div style={{ fontSize: 10, fontWeight: 700, color, letterSpacing: 0.5 }}>
@@ -515,7 +515,7 @@ setLoading(false);
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 800, color: 'white', marginBottom: 2 }}>Add Ascend to your home screen</div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>Tap Share → "Add to Home Screen" in Chrome</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>Tap Share → &quot;Add to Home Screen&quot; in Chrome</div>
           </div>
         </div>
 
