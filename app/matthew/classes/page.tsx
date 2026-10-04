@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import TabBar from '../../components/TabBar';
 import { supabase } from '../../../lib/supabase';
+import {
+  GPAClass, GPAGrade, LETTER_GRADES, classGPAPoints, computeGPA, gpaColor, isBCPMName, isExcludedLevel, letterToGPA,
+} from '../../../lib/gpa';
 
 function Mountain() {
   return (
@@ -28,88 +31,9 @@ function classLabel(name: string) {
   return name.slice(0, 3).toUpperCase();
 }
 
-type Class = {
-  id: string; name: string; semester: string | null; professor: string | null;
-  class_level: string | null; credit_hours: number; is_bcpm: boolean; is_science: boolean;
-  grade_only: boolean; letter_grade: string | null; grading_schema: Record<string, number> | null;
-};
-type Grade = { class_id: string; category: string; score: number; max_score: number; };
+type Class = GPAClass & { semester: string | null; professor: string | null; };
 
 const CLASS_COLORS = ['#9B8EC4', '#7B6FA0', '#A89EC4', '#6B7FA0', '#8E9BC4', '#7B8FA0'];
-
-const LETTER_GRADES = ['A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'D-', 'F'];
-
-function isBCPMName(name: string): boolean {
-  const n = name.toLowerCase();
-  return n.includes('bio') || n.includes('chem') || n.includes('physics') ||
-         n.includes('math') || n.includes('algebra') || n.includes('calculus') ||
-         n.includes('trig') || n.includes('statistic') || n.includes('anatomy') ||
-         n.includes('physiology') || n.includes('genetics') || n.includes('microbio') ||
-         n.includes('organic');
-}
-
-function percentToGPA(pct: number): number {
-  if (pct >= 93) return 4.0; if (pct >= 90) return 3.7; if (pct >= 87) return 3.3;
-  if (pct >= 83) return 3.0; if (pct >= 80) return 2.7; if (pct >= 77) return 2.3;
-  if (pct >= 73) return 2.0; if (pct >= 70) return 1.7; if (pct >= 60) return 1.0;
-  return 0.0;
-}
-
-function letterToGPA(letter: string): number | null {
-  const map: Record<string, number> = {
-    'A': 4.0, 'A-': 3.7, 'B+': 3.3, 'B': 3.0, 'B-': 2.7,
-    'C+': 2.3, 'C': 2.0, 'C-': 1.7, 'D+': 1.3, 'D': 1.0, 'D-': 0.7, 'F': 0.0,
-  };
-  return map[letter?.trim()] ?? null;
-}
-
-function classGPAPoints(cls: any, grades: any[]): number | null {
-  if (cls.grade_only) return cls.letter_grade ? letterToGPA(cls.letter_grade) : null;
-  const classGrades = grades.filter((g: any) => g.class_id === cls.id);
-  if (classGrades.length === 0) return null;
-  let pct: number;
-  if (cls.grading_schema && Object.keys(cls.grading_schema).length > 0) {
-    let totalWeight = 0; let weightedSum = 0;
-    for (const [cat, weight] of Object.entries(cls.grading_schema as Record<string, number>)) {
-      const catGrades = classGrades.filter((g: any) => g.category.toLowerCase() === cat.toLowerCase());
-      if (catGrades.length === 0) continue;
-      const avg = catGrades.reduce((sum: number, g: any) => sum + (g.score / g.max_score) * 100, 0) / catGrades.length;
-      weightedSum += avg * (weight / 100); totalWeight += weight;
-    }
-    if (totalWeight === 0) return null;
-    pct = weightedSum / (totalWeight / 100);
-  } else {
-    pct = classGrades.reduce((sum: number, g: any) => sum + (g.score / g.max_score) * 100, 0) / classGrades.length;
-  }
-  return percentToGPA(pct);
-}
-
-function computeGPA(classes: any[], grades: any[], filter: 'all' | 'science' | 'bcpm'): { gpa: number | null; count: number } {
-  const eligible = classes.filter(cls => {
-    const level = (cls.class_level || '').toLowerCase();
-    if (level.includes('ap') || level.includes('high school')) return false;
-    if (filter === 'bcpm' && !cls.is_bcpm) return false;
-    if (filter === 'science' && !cls.is_bcpm && !cls.is_science) return false;
-    return true;
-  });
-  let totalCredits = 0; let weightedPoints = 0; let count = 0;
-  for (const cls of eligible) {
-    const pts = classGPAPoints(cls, grades);
-    if (pts === null) continue;
-    const credits = cls.credit_hours || 3;
-    totalCredits += credits; weightedPoints += pts * credits; count++;
-  }
-  if (totalCredits === 0) return { gpa: null, count: 0 };
-  return { gpa: Math.round((weightedPoints / totalCredits) * 100) / 100, count };
-}
-
-function gpaColor(gpa: number | null): string {
-  if (gpa === null) return '#C4C1D4';
-  if (gpa >= 3.5) return '#5FAD8E';
-  if (gpa >= 3.0) return '#7B6FA0';
-  if (gpa >= 2.5) return '#C8965A';
-  return '#C47878';
-}
 
 export default function MatthewClasses() {
   const router = useRouter();
@@ -117,7 +41,7 @@ export default function MatthewClasses() {
   const [archived,       setArchived]       = useState<Class[]>([]);
   const [loading,        setLoading]        = useState(true);
   const [showArchived,   setShowArchived]   = useState(false);
-  const [grades,         setGrades]         = useState<Grade[]>([]);
+  const [grades,         setGrades]         = useState<GPAGrade[]>([]);
   const [showGPAModal,   setShowGPAModal]   = useState(false);
   const [editGPAClass,   setEditGPAClass]   = useState<Class | null>(null);
   const [gpaName,        setGpaName]        = useState('');
@@ -133,7 +57,8 @@ export default function MatthewClasses() {
       const cols = 'id, name, semester, professor, class_level, credit_hours, is_bcpm, is_science, grade_only, letter_grade, grading_schema';
       const { data: active }   = await supabase.from('classes').select(cols).eq('student_id', 'matthew').eq('is_active', true).order('created_at', { ascending: false });
       const { data: inactive } = await supabase.from('classes').select(cols).eq('student_id', 'matthew').eq('is_active', false).order('created_at', { ascending: false });
-      const { data: gradeData } = await supabase.from('grades').select('class_id, category, score, max_score').eq('student_id', 'matthew');
+      const { data: gradeData, error: gradeError } = await supabase.from('grades').select('class_id, category, score, max_score').eq('student_id', 'matthew');
+      if (gradeError) console.error('Could not load grades:', gradeError.message);
       if (gradeData) setGrades(gradeData);
 
       // Auto-detect BCPM from class name for non-grade-only classes
@@ -160,13 +85,15 @@ export default function MatthewClasses() {
 
   const toggleBCPM = async (cls: Class) => {
     const val = !cls.is_bcpm;
-    await supabase.from('classes').update({ is_bcpm: val }).eq('id', cls.id);
+    const { error } = await supabase.from('classes').update({ is_bcpm: val }).eq('id', cls.id);
+    if (error) { console.error('BCPM toggle failed:', error.message); return; }
     setClasses(prev => prev.map(c => c.id === cls.id ? { ...c, is_bcpm: val } : c));
   };
 
   const toggleScience = async (cls: Class) => {
     const val = !cls.is_science;
-    await supabase.from('classes').update({ is_science: val }).eq('id', cls.id);
+    const { error } = await supabase.from('classes').update({ is_science: val }).eq('id', cls.id);
+    if (error) { console.error('Science toggle failed:', error.message); return; }
     setClasses(prev => prev.map(c => c.id === cls.id ? { ...c, is_science: val } : c));
   };
 
@@ -190,16 +117,18 @@ export default function MatthewClasses() {
     setGpaSaving(true);
     const payload = {
       name: gpaName.trim(), semester: gpaSemester.trim() || null,
-      credit_hours: parseFloat(gpaCredits) || 3,
+      credit_hours: Math.max(0.5, parseFloat(gpaCredits) || 3),
       letter_grade: gpaLetter, is_bcpm: gpaBCPM, is_science: gpaScience,
       grade_only: true,
     };
     if (editGPAClass) {
-      await supabase.from('classes').update(payload).eq('id', editGPAClass.id);
+      const { error } = await supabase.from('classes').update(payload).eq('id', editGPAClass.id);
+      if (error) { console.error('GPA class save failed:', error.message); setGpaSaving(false); return; }
       setClasses(prev => prev.map(c => c.id === editGPAClass.id ? { ...c, ...payload } : c));
     } else {
-      const { data } = await supabase.from('classes').insert({ ...payload, student_id: 'matthew', is_active: true }).select().single();
-      if (data) setClasses(prev => [data, ...prev]);
+      const { data, error } = await supabase.from('classes').insert({ ...payload, student_id: 'matthew', is_active: true }).select().single();
+      if (error || !data) { console.error('GPA class save failed:', error?.message); setGpaSaving(false); return; }
+      setClasses(prev => [data, ...prev]);
     }
     setGpaSaving(false); setShowGPAModal(false);
   };
@@ -267,7 +196,7 @@ export default function MatthewClasses() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(155px, 1fr))', gap: 10 }}>
             {classes.map((cls, i) => {
               const cardColor = CLASS_COLORS[i % CLASS_COLORS.length];
-              const isAP = (cls.class_level || '').toLowerCase().includes('ap') || (cls.class_level || '').toLowerCase().includes('high school');
+              const isAP = isExcludedLevel(cls.class_level);
               const gpaPoints = classGPAPoints(cls, grades);
 
               if (cls.grade_only) {
@@ -345,7 +274,7 @@ export default function MatthewClasses() {
                         <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26' }}>{cls.name}</div>
                         <div style={{ fontSize: 10, color: '#9E9BB0' }}>{cls.semester || ''}</div>
                       </div>
-                      <button onClick={async () => { await supabase.from('classes').update({ is_active: true }).eq('id', cls.id); setArchived(prev => prev.filter(a => a.id !== cls.id)); setClasses(prev => [cls, ...prev]); }} style={{ fontSize: 11, fontWeight: 700, color: '#7B6FA0', background: '#EDE9F7', border: 'none', borderRadius: 8, padding: '5px 12px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>Restore</button>
+                      <button onClick={async () => { const { error } = await supabase.from('classes').update({ is_active: true }).eq('id', cls.id); if (error) { console.error('Restore failed:', error.message); return; } setArchived(prev => prev.filter(a => a.id !== cls.id)); setClasses(prev => [cls, ...prev]); }} style={{ fontSize: 11, fontWeight: 700, color: '#7B6FA0', background: '#EDE9F7', border: 'none', borderRadius: 8, padding: '5px 12px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>Restore</button>
                     </div>
                   );
                 })}
@@ -402,7 +331,8 @@ export default function MatthewClasses() {
             {editGPAClass && (
               <button onClick={async () => {
                 if (!confirm(`Remove ${editGPAClass.name} from GPA tracking?`)) return;
-                await supabase.from('classes').delete().eq('id', editGPAClass.id);
+                const { error } = await supabase.from('classes').delete().eq('id', editGPAClass.id);
+                if (error) { console.error('GPA class delete failed:', error.message); return; }
                 setClasses(prev => prev.filter(c => c.id !== editGPAClass.id));
                 setShowGPAModal(false);
               }} style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: '#FDF2F2', color: '#C47878', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', marginBottom: 10 }}>

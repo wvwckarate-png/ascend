@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import TabBar from '../../components/TabBar';
 import { supabase } from '../../../lib/supabase';
+import { localDateStr } from '../../../lib/dates';
+import { useMounted } from '../../../lib/useMounted';
 
 function Mountain() {
   return (
@@ -59,8 +61,9 @@ const color = '#E8956D';
 const light = '#FFF3E8';
 
 export default function BrynneCalendar() {
+  const mounted = useMounted();
   const today    = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = localDateStr(today);
 
   const [view,     setView]     = useState<'month' | 'week' | 'day'>('month');
   const [curYear,  setCurYear]  = useState(today.getFullYear());
@@ -83,7 +86,7 @@ export default function BrynneCalendar() {
       const [{ data: taskData }, { data: folderData }, { data: classData }] = await Promise.all([
         supabase.from('tasks').select('*').eq('student_id', 'brynne').order('due_date', { ascending: true }),
         supabase.from('exam_folders').select('id, name, exam_date, class_id').not('exam_date', 'is', null),
-        supabase.from('classes').select('id, name').eq('student_id', 'brynne').eq('is_active', true),
+        supabase.from('classes').select('id, name').eq('student_id', 'brynne').eq('is_active', true).eq('grade_only', false),
       ]);
       if (taskData)  setTasks(taskData);
       if (classData) setClasses(classData);
@@ -127,7 +130,7 @@ export default function BrynneCalendar() {
   const allForDate   = (d: string) => ({ tasks: tasksForDate(d), exams: examsForDate(d) });
 
   const selectedDate = new Date(curYear, curMonth, curDay);
-  const selStr       = selectedDate.toISOString().split('T')[0];
+  const selStr       = localDateStr(selectedDate);
 
   const prevMonth = () => { if (curMonth === 0) { setCurMonth(11); setCurYear(y => y - 1); } else setCurMonth(m => m - 1); };
   const nextMonth = () => { if (curMonth === 11) { setCurMonth(0); setCurYear(y => y + 1); } else setCurMonth(m => m + 1); };
@@ -167,6 +170,9 @@ export default function BrynneCalendar() {
       <button onClick={() => { if (confirm('Delete this task?')) deleteTask(task.id); }} style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>✕</button>
     </div>
   );
+
+  // Date-dependent UI: wait for the client so build-time server HTML can't mismatch (hydration error #418).
+  if (!mounted) return <div style={{ minHeight: '100vh', background: '#FAFAF8' }} />;
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAF8' }}>
@@ -232,7 +238,7 @@ export default function BrynneCalendar() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
               {weekDays.map((d, i) => {
-                const dateStr = d.toISOString().split('T')[0];
+                const dateStr = localDateStr(d);
                 const isToday = dateStr === todayStr;
                 const { tasks: dayTasks, exams: dayExams } = allForDate(dateStr);
                 return (

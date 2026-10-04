@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import TabBar from '../../components/TabBar';
 import { supabase } from '../../../lib/supabase';
+import { localDateStr } from '../../../lib/dates';
+import { parseJSONArray } from '../../../lib/parseAI';
 import FolderPicker from '../../components/FolderPicker';
 
 function Mountain() {
@@ -352,7 +354,7 @@ function MichaelPracticeExamInner() {
       if (transcripts.length > 0) fd.append('transcripts', JSON.stringify(transcripts));
       const res = await fetch('/api/generate-study-guide', { method: 'POST', body: fd });
       const d = await res.json(); raw = (d.studyGuide || d.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsed: Question[] = JSON.parse(raw);
+      const parsed = parseJSONArray<Question>(raw);
       const title = examNameInput.trim() || topic.trim() || folderName || `Practice Exam — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
       const { data: examData } = await supabase.from('practice_exams').insert({ student_id: 'michael', title, questions: parsed, responses: {}, status: 'in_progress', timer_seconds: timerEnabled ? timerMinutes * 60 : null, folder_id: selectedFolderId || folderId || null }).select().single();
       if (examData) { setExamId(examData.id); setActiveExam(examData); }
@@ -383,6 +385,8 @@ function MichaelPracticeExamInner() {
       return { exam_id: examId, student_id: 'michael', folder_id: activeExam?.folder_id || folderId || null, question_index: i, question_type: q.type, question_text: q.question, is_correct: isCorrect };
     });
     await supabase.from('practice_exam_items').insert(items);
+    // Keep activeExam in sync with what was just submitted — Retry Missed reads its responses.
+    setActiveExam(prev => prev ? { ...prev, responses: Object.fromEntries(Object.entries(responses)), score: scoreVal, status: 'completed' } : prev);
     setSubmitting(false); setScreen('results'); loadHistory();
   };
 
@@ -395,12 +399,17 @@ function MichaelPracticeExamInner() {
     else { if (exam.timer_seconds) { setTimeLeft(exam.timer_seconds); setTimerRunning(true); } setScreen('exam'); }
   };
 
-  const retakeExam = async () => {
-    if (!examId) return;
-    await supabase.from('practice_exams').update({ responses: {}, score: null, status: 'in_progress', completed_at: null }).eq('id', examId);
-    await supabase.from('practice_exam_items').delete().eq('exam_id', examId);
+  // `target` is passed from the history list, where examId/activeExam state isn't set yet.
+  const retakeExam = async (target?: PastExam) => {
+    const exam = target ?? activeExam;
+    const id = target?.id ?? examId;
+    if (!id) return;
+    await supabase.from('practice_exams').update({ responses: {}, score: null, status: 'in_progress', completed_at: null }).eq('id', id);
+    await supabase.from('practice_exam_items').delete().eq('exam_id', id);
+    if (target) { setExamId(target.id); setExamTitle(target.title); setQuestions(target.questions); }
+    setActiveExam(exam ? { ...exam, responses: {}, score: null, status: 'in_progress' } : exam);
     setResponses({}); setReviewed(new Set()); setShowExplanation(new Set()); setScheduleReview(false); setReviewScheduled(false);
-    if (activeExam?.timer_seconds) { setTimeLeft(activeExam.timer_seconds); setTimerRunning(true); }
+    if (exam?.timer_seconds) { setTimeLeft(exam.timer_seconds); setTimerRunning(true); }
     setScreen('exam');
   };
 
@@ -557,7 +566,7 @@ function MichaelPracticeExamInner() {
                   </div>
                   <button onClick={() => openExam(exam)} style={{ width: '100%', padding: '8px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{exam.status === 'completed' ? 'View Results' : 'Continue'}</button>
                   {exam.status === 'completed' && (
-                    <button onClick={() => { setActiveExam(exam); setExamId(exam.id); setExamTitle(exam.title); setQuestions(exam.questions); const resp: Record<number, string> = {}; Object.entries(exam.responses || {}).forEach(([k, v]) => { resp[parseInt(k)] = v as string; }); setResponses(resp); setReviewed(new Set()); setShowExplanation(new Set()); retakeExam(); }} style={{ width: '100%', padding: '8px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#F3F1EC', color: '#6B6880', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear & Retake</button>
+                    <button onClick={() => retakeExam(exam)} style={{ width: '100%', padding: '8px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#F3F1EC', color: '#6B6880', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear & Retake</button>
                   )}
                   {exam.status === 'completed' && (() => {
                     const missedCount = exam.questions.filter((q, i) => {
@@ -970,7 +979,7 @@ function MichaelPracticeExamInner() {
             ) : null;
           })()}
           <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
-            <button onClick={retakeExam} style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: '#F3F1EC', color: '#6B6880', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear & Retake</button>
+            <button onClick={() => retakeExam()} style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: '#F3F1EC', color: '#6B6880', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear & Retake</button>
             <button onClick={() => setScreen('history')} style={{ flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>My Exams</button>
           </div>
 
@@ -1042,7 +1051,7 @@ function MichaelPracticeExamInner() {
               {scheduleReview && (
                 <button onClick={async () => {
                   const today = new Date();
-                  const tasks = [1, 3, 7].map(d => { const due = new Date(today); due.setDate(today.getDate() + d); return { student_id: 'michael', title: `Review: ${examTitle}`, due_date: due.toISOString().split('T')[0], task_type: 'review', completed: false, resource_id: examId, resource_type: 'practice_exam' }; });
+                  const tasks = [1, 3, 7].map(d => { const due = new Date(today); due.setDate(today.getDate() + d); return { student_id: 'michael', title: `Review: ${examTitle}`, due_date: localDateStr(due), task_type: 'review', completed: false, resource_id: examId, resource_type: 'practice_exam' }; });
                   await supabase.from('tasks').insert(tasks);
                   setReviewScheduled(true);
                 }} style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Confirm Schedule</button>
@@ -1056,7 +1065,7 @@ function MichaelPracticeExamInner() {
           )}
 
           <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-            <button onClick={retakeExam} style={{ flex: 1, padding: '13px', borderRadius: 14, border: '1.5px solid #E8E5F0', background: '#F3F1EC', color: '#6B6880', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear & Retake</button>
+            <button onClick={() => retakeExam()} style={{ flex: 1, padding: '13px', borderRadius: 14, border: '1.5px solid #E8E5F0', background: '#F3F1EC', color: '#6B6880', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear & Retake</button>
             <button onClick={() => setScreen('history')} style={{ flex: 1, padding: '13px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>My Exams</button>
           </div>
         </main>

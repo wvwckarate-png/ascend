@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import TabBar from '../../../components/TabBar';
 import { supabase } from '../../../../lib/supabase';
+import { localDateStr } from '../../../../lib/dates';
 
 function Mountain() {
   return (
@@ -49,7 +50,7 @@ async function createNudges(examName: string, examDate: string, studentId: strin
   const nudges = nudgeDays
     .map(n => { const d = new Date(exam); d.setDate(exam.getDate() - n.days); return { date: d, label: n.label }; })
     .filter(n => n.date >= today)
-    .map(n => ({ student_id: studentId, title: n.label, due_date: n.date.toISOString().split('T')[0], task_type: 'nudge', completed: false }));
+    .map(n => ({ student_id: studentId, title: n.label, due_date: localDateStr(n.date), task_type: 'nudge', completed: false }));
   if (nudges.length > 0) await supabase.from('tasks').insert(nudges);
 }
 
@@ -92,6 +93,7 @@ export default function MatthewClassBinder() {
   const [gradeScore,    setGradeScore]    = useState('');
   const [gradeMax,      setGradeMax]      = useState('100');
   const [gradeSaving,   setGradeSaving]   = useState(false);
+  const [gradeError,    setGradeError]    = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -209,19 +211,29 @@ export default function MatthewClassBinder() {
 
   const saveGrade = async () => {
     if (!gradeCategory || !gradeItem || gradeScore === '') return;
+    const scoreNum = parseFloat(gradeScore);
+    if (Number.isNaN(scoreNum)) return;
     setGradeSaving(true);
-    const { data } = await supabase.from('grades').insert({
+    setGradeError('');
+    const { data, error: gradeInsertError } = await supabase.from('grades').insert({
       class_id: classId, student_id: 'matthew',
       category: gradeCategory, item_name: gradeItem,
-      score: parseFloat(gradeScore), max_score: parseFloat(gradeMax) || 100,
+      score: scoreNum, max_score: parseFloat(gradeMax) || 100,
     }).select().single();
-    if (data) setGrades(prev => [...prev, data]);
+    if (gradeInsertError || !data) {
+      console.error('Grade save failed:', gradeInsertError?.message);
+      setGradeError("Couldn't save that grade. Please try again.");
+      setGradeSaving(false);
+      return;
+    }
+    setGrades(prev => [...prev, data]);
     setGradeCategory(''); setGradeItem(''); setGradeScore(''); setGradeMax('100');
     setShowAddGrade(false); setGradeSaving(false);
   };
 
   const deleteGrade = async (id: string) => {
-    await supabase.from('grades').delete().eq('id', id);
+    const { error: gradeDeleteError } = await supabase.from('grades').delete().eq('id', id);
+    if (gradeDeleteError) { console.error('Grade delete failed:', gradeDeleteError.message); return; }
     setGrades(prev => prev.filter(g => g.id !== id));
   };
 
@@ -236,7 +248,8 @@ export default function MatthewClassBinder() {
       totalWeight += weight;
     }
     if (totalWeight === 0) return null;
-    return Math.round((weightedSum / totalWeight) * totalWeight * 10) / 10;
+    // Re-normalise to the categories graded so far (e.g. only Exams at 60% weight, avg 90 -> 90, not 54).
+    return Math.round((weightedSum / (totalWeight / 100)) * 10) / 10;
   };
 
   const gradeColor = (g: number) => g >= 90 ? '#5FAD8E' : g >= 80 ? '#7B6FA0' : g >= 70 ? '#C8965A' : '#C47878';
@@ -633,7 +646,7 @@ export default function MatthewClassBinder() {
                 <input type="number" value={gradeMax} onChange={e => setGradeMax(e.target.value)} placeholder="100" style={inputStyle} />
               </div>
             </div>
-            {gradeScore && gradeMax && (
+            {gradeScore && parseFloat(gradeMax) > 0 && (
               <div style={{ background: light, borderRadius: 10, padding: '10px 14px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 12, color: '#6B6880' }}>Grade preview</span>
                 <span style={{ fontSize: 18, fontWeight: 900, color: gradeColor((parseFloat(gradeScore) / parseFloat(gradeMax)) * 100) }}>
@@ -641,8 +654,9 @@ export default function MatthewClassBinder() {
                 </span>
               </div>
             )}
+            {gradeError && <div style={{ background: '#FDF2F2', color: '#C47878', fontSize: 12, fontWeight: 700, padding: '10px 14px', borderRadius: 10, marginBottom: 12 }}>{gradeError}</div>}
             <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => setShowAddGrade(false)} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => { setShowAddGrade(false); setGradeError(''); }} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
               <button onClick={saveGrade} disabled={!gradeCategory || !gradeItem || gradeScore === '' || gradeSaving} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: (!gradeCategory || !gradeItem || gradeScore === '') ? 0.4 : 1 }}>
                 {gradeSaving ? 'Saving...' : 'Save Grade'}
               </button>

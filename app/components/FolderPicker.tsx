@@ -25,6 +25,7 @@ export default function FolderPicker({ studentId, currentFolderId, onSelect, onC
         .select('id, name')
         .eq('student_id', studentId)
         .eq('is_active', true)
+        .eq('grade_only', false)
         .order('created_at', { ascending: true });
       if (!classData) { setLoading(false); return; }
       const classIds = classData.map(c => c.id);

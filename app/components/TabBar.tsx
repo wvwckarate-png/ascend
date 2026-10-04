@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { localDateStr } from '../../lib/dates';
 
 type Props = { student: 'matthew' | 'michael' | 'brynne'; };
 
@@ -64,7 +65,7 @@ export default function TabBar({ student }: Props) {
   const [cls, setCls] = useState('');
   const [type, setType] = useState('Assignment');
   const [title, setTitle] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(localDateStr(new Date()));
   const [time, setTime] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -72,7 +73,7 @@ export default function TabBar({ student }: Props) {
 
   useEffect(() => {
     if (showModal) {
-      supabase.from('classes').select('id, name').eq('student_id', student).eq('is_active', true).then(({ data }) => {
+      supabase.from('classes').select('id, name').eq('student_id', student).eq('is_active', true).eq('grade_only', false).then(({ data }) => {
         if (data) setClasses(data);
       });
     }
@@ -107,7 +108,7 @@ export default function TabBar({ student }: Props) {
   });
 
   const reset = () => {
-    setTitle(''); setDate(new Date().toISOString().split('T')[0]);
+    setTitle(''); setDate(localDateStr(new Date()));
     setTime(''); setCls(''); setType('Assignment');
     setSaved(false); setSaving(false); setError('');
   };

@@ -195,7 +195,7 @@ export default function UploadResourceModal({ student, onClose, onSaved }: Props
   const acceptStr      = selectedType?.accept || '*';
 
   useEffect(() => {
-    supabase.from('classes').select('id, name').eq('student_id', student).eq('is_active', true).order('created_at', { ascending: true })
+    supabase.from('classes').select('id, name').eq('student_id', student).eq('is_active', true).eq('grade_only', false).order('created_at', { ascending: true })
       .then(({ data }) => { if (data) setClasses(data); });
   }, [student]);
 

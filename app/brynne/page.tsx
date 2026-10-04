@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import TabBar from '../components/TabBar';
 import UploadResourceModal from '../components/UploadResourceModal';
 import { supabase } from '../../lib/supabase';
+import { localDateStr } from '../../lib/dates';
+import { useMounted } from '../../lib/useMounted';
 
 function Mountain() {
   return (
@@ -144,9 +146,10 @@ const DAYS   = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export default function BrynneDashboard() {
+  const mounted = useMounted();
   const router   = useRouter();
   const today    = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = localDateStr(today);
 
   const [student,    setStudent]    = useState<{ name: string; grade: string; focus: string } | null>(null);
   const [classes,    setClasses]    = useState<ClassRow[]>([]);
@@ -166,7 +169,7 @@ export default function BrynneDashboard() {
   useEffect(() => {
     const load = async () => {
       const { data: studentData } = await supabase.from('students').select('name, grade, focus').eq('id', 'brynne').single();
-      const { data: classData }   = await supabase.from('classes').select('id, name, semester, professor').eq('student_id', 'brynne').eq('is_active', true).order('created_at', { ascending: false });
+      const { data: classData }   = await supabase.from('classes').select('id, name, semester, professor').eq('student_id', 'brynne').eq('is_active', true).eq('grade_only', false).order('created_at', { ascending: false });
       const { data: taskData }    = await supabase.from('tasks').select('*').eq('student_id', 'brynne').order('due_date', { ascending: true });
       const classIds = (classData || []).map(c => c.id);
       const { data: folderData }  = classIds.length > 0 ? await supabase.from('exam_folders').select('id, name, exam_date, class_id').in('class_id', classIds).not('exam_date', 'is', null) : { data: [] };
@@ -264,6 +267,9 @@ setLoading(false);
     </div>
   );
 
+  // Date-dependent UI: wait for the client so build-time server HTML can't mismatch (hydration error #418).
+  if (!mounted) return <div style={{ minHeight: '100vh', background: '#FAFAF8' }} />;
+
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAF8' }}>
       <nav style={{ height: 58, display: 'flex', alignItems: 'center', padding: '0 20px', gap: 10, background: 'rgba(250,250,248,0.95)', backdropFilter: 'blur(16px)', borderBottom: '1px solid #E8E5F0', position: 'sticky', top: 0, zIndex: 90 }}>
@@ -327,7 +333,7 @@ setLoading(false);
           {calView === 'week' ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
               {weekDays.map((d, i) => {
-                const ds      = d.toISOString().split('T')[0];
+                const ds      = localDateStr(d);
                 const isToday = ds === todayStr;
                 const active  = hasActivity(ds);
                 return (

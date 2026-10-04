@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import TabBar from '../../components/TabBar';
 import { supabase } from '../../../lib/supabase';
+import { localDateStr } from '../../../lib/dates';
+import { parseJSONArray } from '../../../lib/parseAI';
 import { MoleculeStructure } from '../../components/MoleculeStructure';
 import { KaTeXRenderer } from '../../components/KaTeXRenderer';
 import { parseContent } from '../../../lib/parseContent';
@@ -683,7 +685,7 @@ function BrynneFlashcardsInner() {
       const res = await fetch('/api/generate-study-guide', { method: 'POST', body: formData });
       const data = await res.json();
       raw = (data.studyGuide || data.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsed: Card[] = JSON.parse(raw);
+      const parsed = parseJSONArray<Card>(raw);
       setCards(parsed); setQueue([...parsed]); setQi(0); setFlipped(false); setRatings({});
       setSaved(false); setSavedDeckId(null); setShowSave(true);
       if (!deckName) setDeckName(topic.trim() || (newFiles[0]?.name.replace('.pdf', '')) || 'New Deck');
@@ -706,7 +708,7 @@ function BrynneFlashcardsInner() {
           const reviewTasks = [1, 3, 7].map(d => {
             const due = new Date(today);
             due.setDate(today.getDate() + d);
-            return { student_id: 'brynne', title: `Review: ${deckName.trim()} flashcards`, due_date: due.toISOString().split('T')[0], task_type: 'review', completed: false, resource_id: deck.id, resource_type: 'flashcard_deck' };
+            return { student_id: 'brynne', title: `Review: ${deckName.trim()} flashcards`, due_date: localDateStr(due), task_type: 'review', completed: false, resource_id: deck.id, resource_type: 'flashcard_deck' };
           });
           await supabase.from('tasks').insert(reviewTasks);
         }

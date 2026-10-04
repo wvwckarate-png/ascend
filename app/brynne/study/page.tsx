@@ -4,8 +4,10 @@ import { useState, useRef, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '../../../lib/supabase';
+import { localDateStr } from '../../../lib/dates';
 import TabBar from '../../components/TabBar';
 import FolderPicker from '../../components/FolderPicker';
+import { sanitizeHtml } from '../../../lib/sanitizeHtml';
 
 function Mountain() {
   return (
@@ -96,7 +98,7 @@ const LEVELS = [
 const QUESTION_FORMATS = ['Multiple Choice', 'Short Answer', 'Both'];
 
 function addDays(date: Date, days: number): string {
-  const d = new Date(date); d.setDate(d.getDate() + days); return d.toISOString().split('T')[0];
+  const d = new Date(date); d.setDate(d.getDate() + days); return localDateStr(d);
 }
 
 type LibResource = { id: string; file_name: string; file_type: string; storage_url: string; folder_id: string; };
@@ -596,6 +598,17 @@ RULES:
         setScreen('view');
         setShowNamePrompt(false);
         setSaved(false);
+        let finished = false;
+        const finalize = () => {
+          let output = accumulated;
+          const htmlStart = output.indexOf('<');
+          if (htmlStart > 0) output = output.slice(htmlStart);
+          output = output.replace(/^```html?\s*/i, '').replace(/\s*```$/, '').replace(/\sheight="auto"/g, '').trim();
+          if (!output) throw new Error('Empty response');
+          setStudyGuide(output);
+          setShowNamePrompt(true);
+          finished = true;
+        };
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -604,29 +617,28 @@ RULES:
           buffer = lines.pop() || '';
           for (const line of lines) {
             if (!line.startsWith('data: ')) continue;
-            try {
-              const parsed = JSON.parse(line.slice(6));
-              if (parsed.type === 'meta') {
-                setSlideImagePaths(parsed.slideImagePaths || []);
-              } else if (parsed.type === 'delta') {
-                accumulated += parsed.text;
-                let output = accumulated;
-                const htmlStart = output.indexOf('<');
-                if (htmlStart > 0) output = output.slice(htmlStart);
-                output = output.replace(/^```html?\s*/i, '').replace(/\s*```$/, '').trim();
-                setStudyGuide(output);
-              } else if (parsed.type === 'done') {
-                let output = accumulated;
-                const htmlStart = output.indexOf('<');
-                if (htmlStart > 0) output = output.slice(htmlStart);
-                output = output.replace(/^```html?\s*/i, '').replace(/\s*```$/, '').replace(/\sheight="auto"/g, '').trim();
-                setStudyGuide(output);
-                setShowNamePrompt(true);
-              } else if (parsed.type === 'error') {
-                throw new Error(parsed.message);
-              }
-            } catch {}
+            let parsed: { type?: string; text?: string; message?: string; slideImagePaths?: string[] };
+            try { parsed = JSON.parse(line.slice(6)); } catch { continue; }
+            if (parsed.type === 'meta') {
+              setSlideImagePaths(parsed.slideImagePaths || []);
+            } else if (parsed.type === 'delta') {
+              accumulated += parsed.text || '';
+              let output = accumulated;
+              const htmlStart = output.indexOf('<');
+              if (htmlStart > 0) output = output.slice(htmlStart);
+              output = output.replace(/^```html?\s*/i, '').replace(/\s*```$/, '').trim();
+              setStudyGuide(output);
+            } else if (parsed.type === 'done') {
+              finalize();
+            } else if (parsed.type === 'error') {
+              throw new Error(parsed.message || 'Generation failed');
+            }
           }
+        }
+        // Stream ended without a "done" event (e.g. the server hit its time limit): keep what arrived so it can be saved.
+        if (!finished) {
+          if (!accumulated.trim()) throw new Error('Empty response');
+          finalize();
         }
       } else {
         const data = await res.json();
@@ -641,7 +653,13 @@ RULES:
       const transcriptNames = transcripts.map(t => t.name).filter(n => !fileNames.includes(n));
       setSourceFiles([...fileNames, ...transcriptNames]);
       if (!guideName) setGuideName(allFiles.length > 0 ? allFiles[0].name.replace('.pdf', '') : transcripts.length > 0 ? transcripts[0].name : 'Study Guide');
-    } catch (e: any) { if (e?.name !== 'AbortError') setError('Something went wrong. Please try again!'); }
+    } catch (e: unknown) {
+      if ((e as { name?: string })?.name !== 'AbortError') {
+        setError('Something went wrong. Please try again!');
+        // The view screen opens as soon as the stream starts; on failure go back to setup so the error is visible.
+        setScreen('setup'); setStudyGuide(''); setShowNamePrompt(false);
+      }
+    }
     finally { setLoading(false); abortControllerRef.current = null; }
   };
 
@@ -1088,7 +1106,7 @@ RULES:
                   </div>
                 )}
                 {studyGuide.trim().replace(/^[\s\n\r]+/, '').startsWith('<') ? (
-                  <div dangerouslySetInnerHTML={{ __html: studyGuide.replace(/\sheight="auto"/g, '') }} />
+                  <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(studyGuide.replace(/\sheight="auto"/g, '')) }} />
                 ) : (
                   <ReactMarkdown components={{
                     h1: ({children}) => <h1 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.4rem', fontWeight: 800, color, marginTop: '1.5rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: `2px solid ${light}` }}>{children}</h1>,

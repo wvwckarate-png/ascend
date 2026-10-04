@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import TabBar from '../components/TabBar';
 import UploadResourceModal from '../components/UploadResourceModal';
 import { supabase } from '../../lib/supabase';
+import { localDateStr } from '../../lib/dates';
+import { useMounted } from '../../lib/useMounted';
 
 function Mountain() {
   return (
@@ -145,9 +147,10 @@ const DAYS   = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export default function MatthewDashboard() {
+  const mounted = useMounted();
   const router   = useRouter();
   const today    = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = localDateStr(today);
 
   const [student,    setStudent]    = useState<{ name: string; grade: string; focus: string } | null>(null);
   const [classes,    setClasses]    = useState<ClassRow[]>([]);
@@ -263,6 +266,9 @@ setLoading(false);
     </div>
   );
 
+  // Date-dependent UI: wait for the client so build-time server HTML can't mismatch (hydration error #418).
+  if (!mounted) return <div style={{ minHeight: '100vh', background: '#FAFAF8' }} />;
+
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAF8' }}>
       <nav style={{ height: 58, display: 'flex', alignItems: 'center', padding: '0 20px', gap: 10, background: 'rgba(250,250,248,0.95)', backdropFilter: 'blur(16px)', borderBottom: '1px solid #E8E5F0', position: 'sticky', top: 0, zIndex: 90 }}>
@@ -326,7 +332,7 @@ setLoading(false);
           {calView === 'week' ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
               {weekDays.map((d, i) => {
-                const ds      = d.toISOString().split('T')[0];
+                const ds      = localDateStr(d);
                 const isToday = ds === todayStr;
                 const active  = hasActivity(ds);
                 return (
