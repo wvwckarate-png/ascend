@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import sharp from 'sharp';
+import { getSharp } from '../../../lib/optionalDeps';
 import { CLAUDE_MODEL } from '../../../lib/models';
 import { guardAI } from '../../../lib/apiGuard';
 
@@ -19,7 +19,15 @@ export async function POST(req: NextRequest) {
 
     // Phone photos are often HEIC or several MB: normalise to a reasonably sized JPEG Claude accepts.
     const bytes = Buffer.from(await file.arrayBuffer());
-    const jpeg = await sharp(bytes).rotate().resize({ width: 2000, height: 2000, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer();
+    const sharp = await getSharp();
+    let jpeg: Buffer = bytes;
+    let mediaType = file.type;
+    if (sharp) {
+      jpeg = await sharp(bytes).rotate().resize({ width: 2000, height: 2000, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer();
+      mediaType = 'image/jpeg';
+    } else if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(mediaType)) {
+      return NextResponse.json({ error: 'This image format needs conversion, which is unavailable right now. Try a JPG or PNG.' }, { status: 415 });
+    }
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -32,7 +40,7 @@ export async function POST(req: NextRequest) {
         model: CLAUDE_MODEL,
         max_tokens: 4000,
         messages: [{ role: 'user', content: [
-          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: jpeg.toString('base64') } },
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: jpeg.toString('base64') } },
           { type: 'text', text: 'Extract all text from this image exactly as written. If it contains handwritten notes, diagrams, or printed text, transcribe everything you can read. Output only the extracted text, no commentary.' }
         ]}]
       }),

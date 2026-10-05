@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 export const maxDuration = 60;
 
-import officeParser from 'officeparser';
-import JSZip from 'jszip';
-import sharp from 'sharp';
+import { getSharp, getOfficeParser, getJSZip } from '../../../lib/optionalDeps';
 import { writeFile, unlink } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -27,6 +25,8 @@ function getImageMediaType(filename: string, mimeType?: string): string | null {
 }
 
 async function convertImageToJpeg(buffer: Buffer): Promise<Buffer> {
+  const sharp = await getSharp();
+  if (!sharp) throw new Error('Image conversion is unavailable right now');
   return sharp(buffer).jpeg({ quality: 85 }).toBuffer();
 }
 
@@ -36,6 +36,8 @@ async function compressAndUploadImage(
   guideId: string
 ): Promise<string | null> {
   try {
+    const sharp = await getSharp();
+    if (!sharp) return null; // slide images are a bonus; the guide is still generated from the slide text
     const compressed = await sharp(imageBuffer)
       .resize({ width: 1200, withoutEnlargement: true })
       .jpeg({ quality: 80 })
@@ -69,6 +71,8 @@ async function compressAndUploadImage(
 async function extractPptxImages(file: File): Promise<{ name: string; base64: string; mediaType: string }[]> {
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
+  const JSZip = await getJSZip();
+  if (!JSZip) return [];
   const zip = await JSZip.loadAsync(buffer);
   const images: { name: string; base64: string; mediaType: string }[] = [];
 
@@ -78,7 +82,7 @@ async function extractPptxImages(file: File): Promise<{ name: string; base64: st
   const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'];
   const candidateImages: { name: string; buffer: Buffer; mediaType: string }[] = [];
 
-  for (const [filename, zipEntry] of Object.entries(zip.files)) {
+  for (const [filename, zipEntry] of Object.entries(zip.files) as [string, { async: (t: "nodebuffer") => Promise<Buffer> }][]) {
     if (!filename.startsWith('ppt/media/')) continue;
     const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'));
     if (!imageExtensions.includes(ext)) continue;
@@ -128,6 +132,8 @@ async function extractPptxText(file: File): Promise<string> {
   const tmpPath = join(tmpdir(), `ascend-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}`);
   await writeFile(tmpPath, buffer);
   try {
+    const officeParser = await getOfficeParser();
+    if (!officeParser) throw new Error('Slide/Word text extraction is unavailable right now');
     const text = await new Promise<string>((resolve, reject) => {
       officeParser.parseOffice(tmpPath, (ast: unknown, err?: unknown) => {
         if (err) reject(err);
@@ -334,6 +340,8 @@ export async function POST(req: NextRequest) {
 
           // Resize large images before sending to Claude (max 4MB base64 safe)
           if (finalBuffer.length > 3 * 1024 * 1024) {
+            const sharp = await getSharp();
+            if (!sharp) throw new Error('Image resizing is unavailable right now');
             finalBuffer = await sharp(finalBuffer)
               .resize({ width: 1600, withoutEnlargement: true })
               .jpeg({ quality: 82 })
