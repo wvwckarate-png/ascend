@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { loadRDKit } from '../../lib/rdkit';
 
 interface MoleculeStructureProps {
   smiles: string;
@@ -14,27 +15,22 @@ export default function MoleculeStructure({ smiles, width = 200, height = 150 }:
 
   useEffect(() => {
     if (!smiles) return;
+    let cancelled = false;
 
-    const render = () => {
-      try {
-        const RDKit = (window as any).RDKit;
-        if (!RDKit) { setTimeout(render, 100); return; }
+    loadRDKit()
+      .then(RDKit => {
+        if (cancelled) return;
         const mol = RDKit.get_mol(smiles);
         if (!mol) { setError(true); return; }
-        const svg = mol.get_svg_with_highlights(JSON.stringify({
-          width,
-          height,
-          bondLineWidth: 1.5,
-          addStereoAnnotation: true,
-        }));
-        mol.delete();
-        setSvg(svg);
-      } catch {
-        setError(true);
-      }
-    };
+        try {
+          setSvg(mol.get_svg_with_highlights(JSON.stringify({ width, height, bondLineWidth: 1.5, addStereoAnnotation: true })));
+        } finally {
+          mol.delete();
+        }
+      })
+      .catch(() => { if (!cancelled) setError(true); });
 
-    render();
+    return () => { cancelled = true; };
   }, [smiles, width, height]);
 
   if (error) return (

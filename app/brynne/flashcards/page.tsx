@@ -10,6 +10,7 @@ import { MoleculeStructure } from '../../components/MoleculeStructure';
 import { KaTeXRenderer } from '../../components/KaTeXRenderer';
 import { parseContent } from '../../../lib/parseContent';
 import FolderPicker from '../../components/FolderPicker';
+import { MATH_FORMAT_RULES_JSON } from '../../../lib/prompts';
 
 function Mountain() {
   return (
@@ -347,6 +348,7 @@ function BrynneFlashcardsInner() {
         const due = data.filter((c: any) => {
           const item = itemMap[c.id];
           if (!item) return true;
+          if (item.is_retired) return false;   // "Mark as Mastered" -> spaced repetition stops
           if (!item.next_review) return true;
           return new Date(item.next_review) <= now;
         });
@@ -389,6 +391,7 @@ function BrynneFlashcardsInner() {
       if (!c.id) return true;
       const item = itemMap[c.id];
       if (!item) return true;
+      if (item.is_retired) return false;   // "Mark as Mastered" -> spaced repetition stops
       if (!item.next_review) return true;
       return new Date(item.next_review) <= now;
     });
@@ -416,13 +419,13 @@ function BrynneFlashcardsInner() {
     const now = new Date().toISOString();
     if (existing) {
       const newInterval = correct ? Math.min(existing.interval_days * 2, 365) : 1;
-      const nextReview = new Date(); nextReview.setDate(nextReview.getDate() + newInterval);
+      const nextReview = new Date(); nextReview.setDate(nextReview.getDate() + newInterval); nextReview.setHours(0, 0, 0, 0);
       const updated = { ...existing, times_seen: existing.times_seen + 1, times_correct: correct ? existing.times_correct + 1 : existing.times_correct, times_missed: correct ? existing.times_missed : existing.times_missed + 1, last_seen: now, next_review: nextReview.toISOString(), interval_days: newInterval };
       setFlashcardItems(prev => ({ ...prev, [cardId]: updated }));
       await supabase.from('flashcard_items').update({ times_seen: updated.times_seen, times_correct: updated.times_correct, times_missed: updated.times_missed, last_seen: now, next_review: updated.next_review, interval_days: newInterval }).eq('id', existing.id);
     } else {
       const newInterval = correct ? 2 : 1;
-      const nextReview = new Date(); nextReview.setDate(nextReview.getDate() + newInterval);
+      const nextReview = new Date(); nextReview.setDate(nextReview.getDate() + newInterval); nextReview.setHours(0, 0, 0, 0);
       const { data } = await supabase.from('flashcard_items').insert({ card_id: cardId, deck_id: deckId, student_id: 'brynne', times_seen: 1, times_correct: correct ? 1 : 0, times_missed: correct ? 0 : 1, last_seen: now, next_review: nextReview.toISOString(), interval_days: newInterval, is_retired: false }).select().single();
       if (data) setFlashcardItems(prev => ({ ...prev, [cardId]: data }));
     }
@@ -453,7 +456,13 @@ function BrynneFlashcardsInner() {
   };
 
   const deleteDeck = async (deckId: string) => {
-    await supabase.from('flashcard_decks').delete().eq('id', deckId);
+    // Clear the deck's cards, study history and scheduled reviews first so nothing is left behind (and the dashboard
+    // doesn't keep nagging about a deck that's gone).
+    await supabase.from('flashcard_items').delete().eq('deck_id', deckId);
+    await supabase.from('flashcard_cards').delete().eq('deck_id', deckId);
+    await supabase.from('tasks').delete().eq('resource_id', deckId).eq('resource_type', 'flashcard_deck');
+    const { error: deckError } = await supabase.from('flashcard_decks').delete().eq('id', deckId);
+    if (deckError) { console.error('Deck delete failed:', deckError.message); return; }
     setDecks(prev => prev.filter(d => d.id !== deckId));
     if (activeDeck?.id === deckId) setScreen('decks');
   };
@@ -600,7 +609,7 @@ function BrynneFlashcardsInner() {
   const toggleResource = (id: string) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleFolder   = (folder: LibFolder) => { const ids = folder.resources.map(r => r.id); const allSel = ids.length > 0 && ids.every(id => selectedIds.has(id)); setSelectedIds(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; }); };
   const toggleClass    = (cls: LibClass) => { const ids = cls.folders.flatMap(f => f.resources.map(r => r.id)); const allSel = ids.length > 0 && ids.every(id => selectedIds.has(id)); setSelectedIds(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; }); };
-  const handleNewFileInput = (e: React.ChangeEvent<HTMLInputElement>) => { const imageExts = ['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.gif']; const selected = Array.from(e.target.files || []).filter(f => f.type === 'application/pdf' || f.name.endsWith('.pptx') || f.name.endsWith('.ppt') || imageExts.some(ext => f.name.toLowerCase().endsWith(ext))); setNewFiles(prev => [...prev, ...selected]); e.target.value = ''; };
+  const handleNewFileInput = (e: React.ChangeEvent<HTMLInputElement>) => { const imageExts = ['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.gif']; const selected = Array.from(e.target.files || []).filter(f => f.type === 'application/pdf' || ['.pdf', '.pptx', '.ppt', '.docx', '.doc', ...imageExts].some(ext => f.name.toLowerCase().endsWith(ext))); setNewFiles(prev => [...prev, ...selected]); e.target.value = ''; };
 
   const totalSelected = selectedIds.size + newFiles.length;
   const canGenerate   = totalSelected > 0 || topic.trim().length > 0;
@@ -627,26 +636,12 @@ function BrynneFlashcardsInner() {
         }
       }
 
-      const fetchedFiles: File[] = [];
-      const imageExts = ['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.gif'];
-      for (const r of selectedResources) {
-        if (!r.storage_url) continue;
-        if (r.file_type === 'youtube') continue;
-        try {
-          const res = await fetch(r.storage_url);
-          const blob = await res.blob();
-          const fname = r.file_name.toLowerCase();
-          if (fname.endsWith('.pptx') || fname.endsWith('.ppt')) {
-            fetchedFiles.push(new File([blob], r.file_name, { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }));
-          } else if (r.file_type === 'image' || imageExts.some(ext => fname.endsWith(ext))) {
-            const ext = fname.slice(fname.lastIndexOf('.'));
-            const mimeType = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.png' ? 'image/png' : ext === '.gif' ? 'image/gif' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
-            fetchedFiles.push(new File([blob], r.file_name, { type: mimeType }));
-          } else {
-            fetchedFiles.push(new File([blob], r.file_name, { type: 'application/pdf' }));
-          }
-        } catch { /* skip */ }
-      }
+      // Library files are fetched by the server straight from storage (no download + re-upload through the browser,
+      // which also avoids the ~4.5 MB request-size cap). Name-only stand-ins keep the file counts and labels below working.
+      const storedResources = selectedResources
+        .filter(r => r.storage_url && r.file_type !== 'youtube')
+        .map(r => ({ name: r.file_name, url: r.storage_url }));
+      const fetchedFiles: File[] = storedResources.map(r => new File([], r.name));
       const renamedFiles = newFiles.map((f, i) => {
         const customName = newFileNames[i]?.trim();
         if (!customName) return f;
@@ -654,6 +649,10 @@ function BrynneFlashcardsInner() {
         return new File([f], customName + ext, { type: f.type });
       });
       const allFiles = [...fetchedFiles, ...renamedFiles];
+      if (renamedFiles.reduce((n, f) => n + f.size, 0) > 4 * 1024 * 1024) {
+        setError('Files attached here must be under 4 MB in total. Add bigger files to a class folder first, then pick them from your library.');
+        return;
+      }
       const countPhrase = autoCount ? 'as many flashcards as needed to comprehensively cover all key concepts (determine the ideal number yourself)' : `${count} flashcards`;
       const studentCtx = classMeta
         ? `You are building flashcards for ${classMeta.studentName}. Calibrate depth and vocabulary to match the level of the uploaded materials.${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
@@ -674,10 +673,10 @@ function BrynneFlashcardsInner() {
       const chemInject = chemMode
         ? ' CHEMISTRY MODE — For common, stable molecules only (not reaction intermediates or charged species), include their SMILES string formatted exactly as [SMILES: xxx | Molecule Name] at the END of the answer text, after the explanation. Always include the molecule name after the pipe character. Only use SMILES for simple recognizable molecules like reactants and products. Use standard neutral SMILES notation only. Keep card text concise — one clear concept per card.'
         : '';
-      const prompt = baseInstruction + custom + chemInject + ' Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]';
+      const prompt = baseInstruction + custom + chemInject + MATH_FORMAT_RULES_JSON + ' Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]';
       let raw = '';
       const formData = new FormData();
-      allFiles.forEach(f => formData.append('files', f));
+      renamedFiles.forEach(f => formData.append('files', f)); formData.append('resources', JSON.stringify(storedResources));
       formData.append('student', 'brynne');
       formData.append('prompt', prompt);
       formData.append('type', 'flashcards');
@@ -857,7 +856,7 @@ function BrynneFlashcardsInner() {
                     <button onClick={() => setMovingId(deck.id)} style={{ color: '#9E9BB0', background: '#F3F1EC', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <svg width="11" height="11" viewBox="0 0 28 28" fill="none"><path d="M5 14h18M14 5l9 9-9 9" stroke="#9E9BB0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     </button>
-                    <button onClick={() => { if (confirm('Delete this deck?')) deleteDeck(deck.id); }} style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '5px 8px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>✕</button>
+                    <button onClick={() => { if (confirm('Delete this deck?')) deleteDeck(deck.id); }} aria-label="Delete" title="Delete" style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '5px 8px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>✕</button>
                   </div>
                   <button onClick={() => openDeck(deck)} style={{ width: '100%', padding: '8px', borderRadius: 10, background: color, border: 'none', color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Study</button>
                 </div>
@@ -932,7 +931,7 @@ function BrynneFlashcardsInner() {
                     <div style={{ marginBottom: 8 }}>
                       <div style={{ position: 'relative', marginBottom: 6 }}>
                         <img src={frontImageUrl} alt="Front" style={{ width: '100%', borderRadius: 10, objectFit: 'contain', maxHeight: 180 }} />
-                        <button onClick={() => { setFrontImageUrl(null); setFrontImageFile(null); setFrontBlocks([]); }} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(29,27,38,0.6)', border: 'none', borderRadius: 999, color: 'white', width: 24, height: 24, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                        <button onClick={() => { setFrontImageUrl(null); setFrontImageFile(null); setFrontBlocks([]); }} aria-label="Remove image" title="Remove image" style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(29,27,38,0.6)', border: 'none', borderRadius: 999, color: 'white', width: 24, height: 24, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                       </div>
                       <button onClick={() => setBlockEditor({ side: 'front', imageUrl: frontImageUrl, blocks: [...frontBlocks] })} style={{ width: '100%', padding: '7px', borderRadius: 8, border: `1.5px solid ${color}`, background: light, color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
                         ✎ Block Labels {frontBlocks.length > 0 ? `(${frontBlocks.length} block${frontBlocks.length !== 1 ? 's' : ''})` : ''}
@@ -953,7 +952,7 @@ function BrynneFlashcardsInner() {
                     <div style={{ marginBottom: 8 }}>
                       <div style={{ position: 'relative', marginBottom: 6 }}>
                         <img src={backImageUrl} alt="Back" style={{ width: '100%', borderRadius: 10, objectFit: 'contain', maxHeight: 180 }} />
-                        <button onClick={() => { setBackImageUrl(null); setBackImageFile(null); setBackBlocks([]); }} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(29,27,38,0.6)', border: 'none', borderRadius: 999, color: 'white', width: 24, height: 24, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                        <button onClick={() => { setBackImageUrl(null); setBackImageFile(null); setBackBlocks([]); }} aria-label="Remove image" title="Remove image" style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(29,27,38,0.6)', border: 'none', borderRadius: 999, color: 'white', width: 24, height: 24, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                       </div>
                       <button onClick={() => setBlockEditor({ side: 'back', imageUrl: backImageUrl, blocks: [...backBlocks] })} style={{ width: '100%', padding: '7px', borderRadius: 8, border: `1.5px solid ${color}`, background: light, color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
                         ✎ Block Labels {backBlocks.length > 0 ? `(${backBlocks.length} block${backBlocks.length !== 1 ? 's' : ''})` : ''}
@@ -1095,7 +1094,7 @@ function BrynneFlashcardsInner() {
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 {totalSelected > 0 && <button onClick={() => { setSelectedIds(new Set()); setNewFiles([]); setNewFileNames({}); }} style={{ padding: '6px 10px', borderRadius: 999, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#9E9BB0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear</button>}
-                <input type="file" accept=".pdf,.pptx,.ppt,.jpg,.jpeg,.png,.heic,.heif,.webp,.gif" multiple ref={el => setFileInputRef(el)} onChange={handleNewFileInput} style={{ display: 'none' }} />
+                <input type="file" accept=".pdf,.pptx,.ppt,.docx,.doc,.jpg,.jpeg,.png,.heic,.heif,.webp,.gif" multiple ref={el => setFileInputRef(el)} onChange={handleNewFileInput} style={{ display: 'none' }} />
                 <button onClick={() => fileInputRef?.click()} style={{ padding: '6px 12px', borderRadius: 999, background: light, border: 'none', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Upload</button>
               </div>
             </div>
@@ -1108,7 +1107,7 @@ function BrynneFlashcardsInner() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px' }}>
                         {f.name.endsWith('.pptx') || f.name.endsWith('.ppt') ? <IconPptx c={color} size={14} /> : isImage ? <IconPhoto c={color} size={14} /> : <IconFile c={color} size={14} />}
                         <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
-                        <button onClick={() => { setNewFiles(prev => prev.filter((_, idx) => idx !== i)); setNewFileNames(prev => { const n = { ...prev }; delete n[i]; return n; }); }} style={{ fontSize: 11, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+                        <button onClick={() => { setNewFiles(prev => prev.filter((_, idx) => idx !== i)); setNewFileNames(prev => { const n = { ...prev }; delete n[i]; return n; }); }} aria-label="Remove file" title="Remove file" style={{ fontSize: 11, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
                       </div>
                       {isImage && (
                         <div style={{ padding: '0 10px 8px' }}>
@@ -1546,7 +1545,7 @@ function BrynneFlashcardsInner() {
           <div style={{ marginTop: 16, fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>
             {lightboxFlipped ? 'Tap to flip back' : 'Tap to reveal answer'}
           </div>
-          <button onClick={() => { setLightboxUrl(null); setLightboxBlocks([]); setLightboxCard(null); setLightboxFlipped(false); }} style={{ position: 'absolute', top: 20, right: 20, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 999, color: 'white', width: 36, height: 36, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+          <button onClick={() => { setLightboxUrl(null); setLightboxBlocks([]); setLightboxCard(null); setLightboxFlipped(false); }} aria-label="Close" title="Close" style={{ position: 'absolute', top: 20, right: 20, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 999, color: 'white', width: 36, height: 36, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
         </div>
       )}
       <TabBar student="brynne" />

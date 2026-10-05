@@ -7,12 +7,11 @@ import sharp from 'sharp';
 import { writeFile, unlink } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '../../../lib/supabaseAdmin';
+import { CLAUDE_MODEL } from '../../../lib/models';
+import { guardAI } from '../../../lib/apiGuard';
+import { fetchOwnStorageFile } from '../../../lib/storageFetch';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 type ContentBlock = Record<string, unknown>;
 
@@ -141,6 +140,27 @@ async function extractPptxText(file: File): Promise<string> {
   }
 }
 
+// Stored library files are fetched here, server-side, so their size isn't limited by the ~4.5 MB request-body cap.
+const MAX_RESOURCE_BYTES = 40 * 1024 * 1024;
+
+async function fetchStoredResources(list: { name: string; url: string }[]): Promise<{ files: File[]; failed: string[] }> {
+  const slots: (File | null)[] = list.map(() => null);
+  const failed: string[] = [];
+  await Promise.all(list.map(async (r, i) => {
+    try {
+      if (!r || typeof r.name !== 'string') throw new Error('bad resource');
+      // Library names have no extension ("Lecture 1"), but the stored path does — use it so slides/images/PDFs are handled correctly.
+      const ext = (new URL(r.url).pathname.match(/\.[a-z0-9]{2,5}$/i)?.[0] || '').toLowerCase();
+      const fname = ext && !r.name.toLowerCase().endsWith(ext) ? r.name + ext : r.name;
+      slots[i] = await fetchOwnStorageFile(r.url, fname, MAX_RESOURCE_BYTES);
+    } catch (err) {
+      console.error(`Could not fetch stored resource ${r?.name}:`, err);
+      failed.push(r?.name || 'file');
+    }
+  }));
+  return { files: slots.filter((f): f is File => f !== null), failed }; // keeps the order the student picked them in
+}
+
 // Non-streaming Claude call. Returns the text, or throws with the API's own error message.
 async function callClaude(messageContent: ContentBlock[]): Promise<string> {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -151,7 +171,7 @@ async function callClaude(messageContent: ContentBlock[]): Promise<string> {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
+      model: CLAUDE_MODEL,
       max_tokens: 8000,
       messages: [{ role: 'user', content: messageContent }],
     }),
@@ -165,6 +185,9 @@ async function callClaude(messageContent: ContentBlock[]): Promise<string> {
 }
 
 export async function POST(req: NextRequest) {
+  const blocked = guardAI(req, 'generate', 40);
+  if (blocked) return blocked;
+
   try {
     const contentType = req.headers.get('content-type') || '';
 
@@ -205,9 +228,15 @@ export async function POST(req: NextRequest) {
     const customPrompt = formData.get('prompt') as string | null;
     const transcriptsRaw = formData.get('transcripts') as string | null;
 
-    const allFiles = filesRaw.length > 0
+    const uploadedFiles = filesRaw.length > 0
       ? filesRaw as File[]
       : singleFile ? [singleFile as File] : [];
+
+    // Library files arrive as storage URLs (see fetchStoredResources) instead of re-uploaded bytes.
+    let storedList: { name: string; url: string }[] = [];
+    try { storedList = JSON.parse((formData.get('resources') as string | null) || '[]'); } catch { storedList = []; }
+    const stored = await fetchStoredResources(Array.isArray(storedList) ? storedList.slice(0, 20) : []);
+    const allFiles = [...stored.files, ...uploadedFiles];
 
     const transcripts: { name: string; text: string }[] = transcriptsRaw
       ? JSON.parse(transcriptsRaw)
@@ -217,6 +246,9 @@ export async function POST(req: NextRequest) {
 
     if (allFiles.length === 0 && !customPrompt && transcripts.length === 0) {
       return NextResponse.json({ error: 'No files, transcripts, or prompt provided' }, { status: 400 });
+    }
+    if (stored.failed.length > 0 && allFiles.length === 0 && transcripts.length === 0) {
+      return NextResponse.json({ error: `Could not read ${stored.failed.join(', ')}. Try re-uploading the file.` }, { status: 422 });
     }
 
     const messageContent: ContentBlock[] = [];
@@ -248,10 +280,12 @@ export async function POST(req: NextRequest) {
             try {
               const rawImages = await extractPptxImages(file);
               const tempGuideId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-              for (const img of rawImages) {
-                const imageBuffer = Buffer.from(img.base64, 'base64');
-                const url = await compressAndUploadImage(imageBuffer, img.name, tempGuideId);
-                if (url) slideImageUrls.push({ name: img.name, url });
+              // Compress + upload in small parallel batches (sequential uploads can blow the function time limit on big decks).
+              for (let i = 0; i < rawImages.length; i += 6) {
+                const batch = rawImages.slice(i, i + 6);
+                const urls = await Promise.all(batch.map(img =>
+                  compressAndUploadImage(Buffer.from(img.base64, 'base64'), img.name, tempGuideId)));
+                batch.forEach((img, j) => { if (urls[j]) slideImageUrls.push({ name: img.name, url: urls[j] as string }); });
               }
               allSlideImagePaths.push(...slideImageUrls.map(img => img.url));
             } catch (imgErr) {
@@ -383,7 +417,7 @@ Format with clear markdown headers.`;
               'anthropic-version': '2023-06-01',
             },
             body: JSON.stringify({
-              model: 'claude-sonnet-4-6',
+              model: CLAUDE_MODEL,
               max_tokens: 8000,
               stream: true,
               messages: [{ role: 'user', content: messageContent }],

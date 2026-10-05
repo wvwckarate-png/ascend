@@ -60,15 +60,30 @@ export default function ParentDashboard() {
     }
   };
 
+  // PINs live server-side only; the parent password is re-checked on every call.
+  const refreshPins = async (action: 'status' | 'set' | 'clear', studentId?: string, pin?: string): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/parent-pins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password, action, student: studentId, pin }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) { setError(data?.error || 'Could not update PIN. Please try again.'); return false; }
+      const map: Record<string, string> = {};
+      Object.entries(data.pins as Record<string, boolean>).forEach(([id, has]) => { map[id] = has ? 'set' : ''; });
+      setPins(map);
+      return true;
+    } catch {
+      setError('Could not reach the server. Please try again.');
+      return false;
+    }
+  };
+
   useEffect(() => {
     if (!unlocked) return;
     const fetchData = async () => {
-      const { data: pinData } = await supabase.from('students').select('id, pin');
-      if (pinData) {
-        const map: Record<string, string> = {};
-        pinData.forEach(s => { map[s.id] = s.pin || ''; });
-        setPins(map);
-      }
+      await refreshPins('status');
 
       const statMap: Record<string, Stats> = {};
       for (const s of students) {
@@ -90,19 +105,16 @@ export default function ParentDashboard() {
       setStatsLoading(false);
     };
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unlocked]);
 
   const handleSavePin = async (studentId: string) => {
-    if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
+    if (!/^\d{4}$/.test(newPin)) {
       setError('PIN must be exactly 4 digits.');
       return;
     }
     setSaving(true); setError('');
-    const { error: updateError } = await supabase.from('students').update({ pin: newPin }).eq('id', studentId);
-    if (updateError) {
-      setError('Could not save PIN. Please try again.');
-    } else {
-      setPins(p => ({ ...p, [studentId]: newPin }));
+    if (await refreshPins('set', studentId, newPin)) {
       setSaved(studentId); setEditing(null); setNewPin('');
       setTimeout(() => setSaved(null), 2000);
     }
@@ -110,9 +122,8 @@ export default function ParentDashboard() {
   };
 
   const handleRemovePin = async (studentId: string) => {
-    setSaving(true);
-    await supabase.from('students').update({ pin: null }).eq('id', studentId);
-    setPins(p => ({ ...p, [studentId]: '' }));
+    setSaving(true); setError('');
+    await refreshPins('clear', studentId);
     setSaving(false);
   };
 
@@ -260,7 +271,7 @@ export default function ParentDashboard() {
                 <div style={{ borderTop: '1px solid #E8E5F0', paddingTop: 14 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#9E9BB0', marginBottom: 10 }}>Enter a 4-digit PIN for {s.name}</div>
                   <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                    <input type="number" maxLength={4} value={newPin} onChange={e => setNewPin(e.target.value.slice(0, 4))} placeholder="••••" style={{ width: 100, padding: '10px 14px', border: `1.5px solid ${s.color}`, borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 18, color: '#1D1B26', background: '#FAFAF8', outline: 'none', letterSpacing: 6, textAlign: 'center' }} />
+                    <input type="text" inputMode="numeric" autoComplete="off" maxLength={4} value={newPin} onChange={e => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="••••" style={{ width: 100, padding: '10px 14px', border: `1.5px solid ${s.color}`, borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 18, color: '#1D1B26', background: '#FAFAF8', outline: 'none', letterSpacing: 6, textAlign: 'center' }} />
                     <button onClick={() => handleSavePin(s.id)} disabled={saving || newPin.length !== 4} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: s.color, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: newPin.length !== 4 || saving ? 0.4 : 1 }}>
                       {saving ? 'Saving...' : 'Save PIN'}
                     </button>

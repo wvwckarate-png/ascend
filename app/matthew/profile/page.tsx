@@ -179,6 +179,20 @@ export default function MatthewProfile() {
           )}
           {savedField === 'grade' && <div style={{ fontSize: 11, color: '#5FAD8E', fontWeight: 700, marginBottom: 4 }}>✅ Saved!</div>}
 
+          {/* Focus — the tagline shown under the name on the home screen */}
+          {editingField === 'focus' ? (
+            <div style={{ width: '100%', maxWidth: 320, textAlign: 'left', marginBottom: 8 }}>
+              <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('focus'); if (e.key === 'Escape') cancelEdit(); }} placeholder="e.g. WVU Biology · Pre-Dental" style={inputStyle} />
+              {renderSaveButtons('focus')}
+            </div>
+          ) : (
+            <div onClick={() => startEdit('focus', focus)} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: focus ? '#9E9BB0' : '#C4C1D4' }}>{focus || 'Add your focus'}</div>
+              <EditIcon />
+            </div>
+          )}
+          {savedField === 'focus' && <div style={{ fontSize: 11, color: '#5FAD8E', fontWeight: 700, marginBottom: 4 }}>✅ Saved!</div>}
+
           {/* Tags row */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
             {/* Track */}

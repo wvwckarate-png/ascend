@@ -3,14 +3,17 @@ export type KaTeXSegment =
   | { type: 'katex-inline'; value: string }
   | { type: 'katex-block'; value: string };
 
+// $$…$$ is display math. $…$ is inline math only when it looks like math: no space just inside the dollar signs,
+// and the closing $ isn't followed by a digit — so prices like "$5 and $10" stay plain text.
+const MATH = /\$\$([^$]+)\$\$|\$(?!\s)((?:\\.|[^$\n\\])*?[^\s$\\])\$(?!\d)/g;
+
 export function parseKaTeX(text: string): KaTeXSegment[] {
   const segments: KaTeXSegment[] = [];
-  // Match $$...$$ (block) and $...$ (inline)
-  const regex = /\$\$([^$]+)\$\$|\$([^$\n]+)\$/g;
   let lastIndex = 0;
   let match;
+  MATH.lastIndex = 0;
 
-  while ((match = regex.exec(text)) !== null) {
+  while ((match = MATH.exec(text)) !== null) {
     if (match.index > lastIndex) {
       segments.push({ type: 'text', value: text.slice(lastIndex, match.index) });
     }

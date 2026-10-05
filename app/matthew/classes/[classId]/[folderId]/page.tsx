@@ -290,7 +290,12 @@ export default function MatthewBinder() {
   };
 
   const deleteResource = async (id: string) => {
-    await supabase.from('resources').delete().eq('id', id);
+    const target = resources.find(r => r.id === id);
+    const { error: resourceError } = await supabase.from('resources').delete().eq('id', id);
+    if (resourceError) { console.error('Resource delete failed:', resourceError.message); return; }
+    // Also free the stored file (best effort) — uploads live in the 'resources' bucket.
+    const stored = target?.storage_url?.split('/object/public/resources/')[1];
+    if (stored) await supabase.storage.from('resources').remove([decodeURIComponent(stored)]);
     setResources(prev => prev.filter(r => r.id !== id));
   };
 
@@ -341,9 +346,8 @@ export default function MatthewBinder() {
 
         if (upType === 'audio') {
           try {
-            const audioForm = new FormData();
-            audioForm.append('file', upFile);
-            const transcribeRes = await fetch('/api/transcribe-audio', { method: 'POST', body: audioForm });
+            // The file is already in storage: the server reads it from there (lecture audio is far bigger than the ~4.5 MB request cap).
+            const transcribeRes = await fetch('/api/transcribe-audio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: storageUrl, name: upFile.name }) });
             const transcribeData = await transcribeRes.json();
             if (transcribeData.transcript) {
               const { data } = await supabase.from('resources').insert({ folder_id: folderId, file_name: upName.trim(), file_type: 'audio', storage_url: storageUrl, transcript: transcribeData.transcript }).select().single();
@@ -412,8 +416,9 @@ export default function MatthewBinder() {
         }
       }
 
-      const { data } = await supabase.from('resources').insert({ folder_id: folderId, file_name: upName.trim(), file_type: upType, storage_url: storageUrl }).select().single();
-      if (data) setResources(prev => [data, ...prev]);
+      const { data, error: insertError } = await supabase.from('resources').insert({ folder_id: folderId, file_name: upName.trim(), file_type: upType, storage_url: storageUrl }).select().single();
+      if (insertError || !data) throw new Error('Uploaded the file but could not save it. Please try again.');
+      setResources(prev => [data, ...prev]);
       setUpSaved(true);
       setTimeout(() => { setShowUpload(false); resetUpload(); }, 900);
 
@@ -588,7 +593,7 @@ export default function MatthewBinder() {
                           {r.storage_url && (
                             <a href={r.storage_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 700, color: '#7B6FA0', textDecoration: 'none', flexShrink: 0, padding: '5px 12px', background: '#EDE9F7', borderRadius: 999 }}>Open</a>
                           )}
-                          <button onClick={() => { if (confirm('Delete this resource?')) deleteResource(r.id); }} style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>✕</button>
+                          <button onClick={() => { if (confirm('Delete this resource?')) deleteResource(r.id); }} aria-label="Delete" title="Delete" style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>✕</button>
                         </div>
                       ))}
                     </div>
@@ -764,7 +769,7 @@ export default function MatthewBinder() {
                       <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{upFile.name}</div>
                       <div style={{ fontSize: 11, color: '#9E9BB0' }}>{(upFile.size / 1024 / 1024).toFixed(1)} MB</div>
                     </div>
-                    <button onClick={() => { setUpFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} style={{ fontSize: 13, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>✕</button>
+                    <button onClick={() => { setUpFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} aria-label="Remove file" title="Remove file" style={{ fontSize: 13, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>✕</button>
                   </div>
                 ) : (
                   <div onClick={() => fileInputRef.current?.click()} style={{ border: '2px dashed #E8E5F0', borderRadius: 12, padding: '28px 20px', textAlign: 'center', cursor: 'pointer', background: '#FAFAF8' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.borderColor = '#7B6FA0'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.borderColor = '#E8E5F0'}>

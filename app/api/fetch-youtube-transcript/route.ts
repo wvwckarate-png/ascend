@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { YoutubeTranscript } from 'youtube-transcript';
+import { guardAI } from '../../../lib/apiGuard';
 
 export async function POST(req: NextRequest) {
+  const blocked = guardAI(req, 'youtube', 30);
+  if (blocked) return blocked;
+
   try {
     const { url } = await req.json();
 
-    const videoId = extractVideoId(url);
+    const videoId = typeof url === 'string' ? extractVideoId(url.trim()) : null;
     if (!videoId) {
       return NextResponse.json({ error: 'Invalid YouTube URL' }, { status: 400 });
     }
@@ -16,7 +20,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No captions available for this video' }, { status: 404 });
     }
 
-    const transcript = transcriptItems.map(item => item.text).join(' ').replace(/\s+/g, ' ').trim();
+    // Cap very long videos so the transcript can't blow up a later prompt (~200k chars ≈ 50k tokens).
+    const transcript = transcriptItems.map(item => item.text).join(' ').replace(/\s+/g, ' ').trim().slice(0, 200000);
 
     return NextResponse.json({ transcript, videoId });
 

@@ -7,6 +7,8 @@ import { supabase } from '../../../lib/supabase';
 import { localDateStr } from '../../../lib/dates';
 import { parseJSONArray } from '../../../lib/parseAI';
 import FolderPicker from '../../components/FolderPicker';
+import RichText from '../../components/RichText';
+import { MATH_FORMAT_RULES_JSON } from '../../../lib/prompts';
 
 function Mountain() {
   return (
@@ -158,7 +160,6 @@ function BrynnePracticeExamInner() {
 
   const [timeLeft,     setTimeLeft]     = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     loadHistory(); loadLibrary();
@@ -171,11 +172,24 @@ function BrynnePracticeExamInner() {
     } else if (folderId) { setScreen('setup'); if (folderName) setTopic(folderName); fetchClassMeta(folderId); loadWeakAreas(folderId); }
   }, []);
 
+  // Countdown based on an absolute end time, so it stays correct when the tab is in the background (browsers throttle
+  // timers there) and it auto-submits at 0:00 instead of just stopping.
+  const endAtRef = useRef<number | null>(null);
+  const submitRef = useRef<() => void>(() => {});
   useEffect(() => {
-    if (timerRunning && timeLeft > 0) { timerRef.current = setTimeout(() => setTimeLeft(t => t - 1), 1000); }
-    else if (timerRunning && timeLeft === 0) { setTimerRunning(false); }
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [timerRunning, timeLeft]);
+    if (!timerRunning) { endAtRef.current = null; return; }
+    if (endAtRef.current === null) endAtRef.current = Date.now() + timeLeft * 1000;
+    const tick = () => {
+      if (endAtRef.current === null) return;
+      const remaining = Math.max(0, Math.round((endAtRef.current - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      if (remaining === 0) { endAtRef.current = null; setTimerRunning(false); submitRef.current(); }
+    };
+    const id = setInterval(tick, 500);
+    document.addEventListener('visibilitychange', tick);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', tick); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timerRunning]);
 
   // Auto-save every 30 seconds while on exam screen
   useEffect(() => {
@@ -260,7 +274,7 @@ function BrynnePracticeExamInner() {
   const toggleResource = (id: string) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleFolder   = (folder: LibFolder) => { const ids = folder.resources.map(r => r.id); const allSel = ids.every(id => selectedIds.has(id)); setSelectedIds(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; }); };
   const toggleClass    = (cls: LibClass) => { const ids = cls.folders.flatMap(f => f.resources.map(r => r.id)); const allSel = ids.every(id => selectedIds.has(id)); setSelectedIds(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; }); };
-  const handleNewFileInput = (e: React.ChangeEvent<HTMLInputElement>) => { const imageExts = ['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.gif']; const sel = Array.from(e.target.files || []).filter(f => f.type === 'application/pdf' || f.name.endsWith('.pptx') || f.name.endsWith('.ppt') || imageExts.some(ext => f.name.toLowerCase().endsWith(ext))); setNewFiles(prev => [...prev, ...sel]); e.target.value = ''; };
+  const handleNewFileInput = (e: React.ChangeEvent<HTMLInputElement>) => { const imageExts = ['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.gif']; const sel = Array.from(e.target.files || []).filter(f => f.type === 'application/pdf' || ['.pdf', '.pptx', '.ppt', '.docx', '.doc', ...imageExts].some(ext => f.name.toLowerCase().endsWith(ext))); setNewFiles(prev => [...prev, ...sel]); e.target.value = ''; };
 
   const totalSelected = selectedIds.size + newFiles.length;
   const canGenerate   = totalSelected > 0 || topic.trim().length > 0;
@@ -296,7 +310,7 @@ function BrynnePracticeExamInner() {
       ? ` PRIORITY FOCUS — These are Brynne's confirmed weak spots from prior study sessions: ${weakSpotsList.map((w, i) => `${i + 1}. ${w}`).join('; ')}. Weight at least half of the questions toward these specific concepts, approaching them from fresh angles using simple, encouraging language to help them click! 🌟`
       : '';
     const chemInject = chemMode ? ' CHEMISTRY MODE — When referencing molecules, compounds, or chemical structures, include their SMILES string formatted exactly as [SMILES: xxx] inline so they can be rendered as structural diagrams. Use standard SMILES notation.' : '';
-    return `You are Ascend generating a practice exam. ${studentCtx} ${classCtx}\n\n${goalCtx}${topic.trim() ? ` Topic focus: ${topic.trim()}.` : ''} ${crossDoc}Generate ${countStr} questions of these types: ${typeDescriptions}. ${typeList.length > 1 ? 'Distribute evenly across all types.' : ''}${weakAreasInject}${weakSpotsInject}${chemInject}${custom}\n\nReturn ONLY a JSON array, no markdown, no backticks. Use these exact formats:\n${formats}`;
+    return `You are Ascend generating a practice exam. ${studentCtx} ${classCtx}\n\n${goalCtx}${topic.trim() ? ` Topic focus: ${topic.trim()}.` : ''} ${crossDoc}Generate ${countStr} questions of these types: ${typeDescriptions}. ${typeList.length > 1 ? 'Distribute evenly across all types.' : ''}${weakAreasInject}${weakSpotsInject}${chemInject}${custom}\n\nReturn ONLY a JSON array, no markdown, no backticks.${MATH_FORMAT_RULES_JSON} Use these exact formats:\n${formats}`;
   };
 
   const generate = async () => {
@@ -321,26 +335,12 @@ function BrynnePracticeExamInner() {
         }
       }
 
-      const fetchedFiles: File[] = [];
-      const imageExts = ['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.gif'];
-      for (const r of selResources) {
-        if (!r.storage_url) continue;
-        if (r.file_type === 'youtube') continue;
-        try {
-          const res = await fetch(r.storage_url);
-          const blob = await res.blob();
-          const fname = r.file_name.toLowerCase();
-          if (fname.endsWith('.pptx') || fname.endsWith('.ppt')) {
-            fetchedFiles.push(new File([blob], r.file_name, { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }));
-          } else if (r.file_type === 'image' || imageExts.some(ext => fname.endsWith(ext))) {
-            const ext = fname.slice(fname.lastIndexOf('.'));
-            const mimeType = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.png' ? 'image/png' : ext === '.gif' ? 'image/gif' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
-            fetchedFiles.push(new File([blob], r.file_name, { type: mimeType }));
-          } else {
-            fetchedFiles.push(new File([blob], r.file_name, { type: 'application/pdf' }));
-          }
-        } catch {}
-      }
+      // Library files are fetched by the server straight from storage (no download + re-upload through the browser,
+      // which also avoids the ~4.5 MB request-size cap). Name-only stand-ins keep the file counts and labels below working.
+      const storedResources = selResources
+        .filter(r => r.storage_url && r.file_type !== 'youtube')
+        .map(r => ({ name: r.file_name, url: r.storage_url }));
+      const fetchedFiles: File[] = storedResources.map(r => new File([], r.name));
       const renamedFiles = newFiles.map((f, i) => {
         const customName = newFileNames[i]?.trim();
         if (!customName) return f;
@@ -348,9 +348,13 @@ function BrynnePracticeExamInner() {
         return new File([f], customName + ext, { type: f.type });
       });
       const allFiles = [...fetchedFiles, ...renamedFiles];
+      if (renamedFiles.reduce((n, f) => n + f.size, 0) > 4 * 1024 * 1024) {
+        setError('Files attached here must be under 4 MB in total. Add bigger files to a class folder first, then pick them from your library.');
+        return;
+      }
       const prompt   = buildPrompt(allFiles.length + transcripts.length);
       let raw = '';
-      const fd = new FormData(); allFiles.forEach(f => fd.append('files', f)); fd.append('student', 'brynne'); fd.append('prompt', prompt); fd.append('type', 'exam');
+      const fd = new FormData(); renamedFiles.forEach(f => fd.append('files', f)); fd.append('resources', JSON.stringify(storedResources)); fd.append('student', 'brynne'); fd.append('prompt', prompt); fd.append('type', 'exam');
       if (transcripts.length > 0) fd.append('transcripts', JSON.stringify(transcripts));
       const res = await fetch('/api/generate-study-guide', { method: 'POST', body: fd });
       const d = await res.json(); raw = (d.studyGuide || d.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
@@ -485,9 +489,15 @@ function BrynnePracticeExamInner() {
   };
 
   const deleteExam = async (id: string) => {
-    await supabase.from('practice_exams').delete().eq('id', id);
+    // Items feed the Weak Areas banner — remove them with the exam so deleted exams stop counting against the student.
+    await supabase.from('practice_exam_items').delete().eq('exam_id', id);
+    await supabase.from('tasks').delete().eq('resource_id', id).eq('resource_type', 'practice_exam');
+    const { error: examError } = await supabase.from('practice_exams').delete().eq('id', id);
+    if (examError) { console.error('Exam delete failed:', examError.message); return; }
     setPastExams(prev => prev.filter(e => e.id !== id));
   };
+
+  useEffect(() => { submitRef.current = submitExam; });
 
   const objQuestions = questions.filter(q => q.type === 'mc' || q.type === 'tf');
   const correctCount = objQuestions.filter(q => { const i = questions.indexOf(q); return (responses[i] || '') === q.answer; }).length;
@@ -676,7 +686,7 @@ function BrynnePracticeExamInner() {
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 {totalSelected > 0 && <button onClick={() => { setSelectedIds(new Set()); setNewFiles([]); setNewFileNames({}); }} style={{ padding: '6px 10px', borderRadius: 999, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#9E9BB0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear</button>}
-                <input type="file" accept=".pdf,.pptx,.ppt,.jpg,.jpeg,.png,.heic,.heif,.webp,.gif" multiple ref={el => setFileInputRef(el)} onChange={handleNewFileInput} style={{ display: 'none' }} />
+                <input type="file" accept=".pdf,.pptx,.ppt,.docx,.doc,.jpg,.jpeg,.png,.heic,.heif,.webp,.gif" multiple ref={el => setFileInputRef(el)} onChange={handleNewFileInput} style={{ display: 'none' }} />
                 <button onClick={() => fileInputRef?.click()} style={{ padding: '6px 12px', borderRadius: 999, background: light, border: 'none', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Upload</button>
               </div>
             </div>
@@ -689,7 +699,7 @@ function BrynnePracticeExamInner() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px' }}>
                         {f.name.endsWith('.pptx') || f.name.endsWith('.ppt') ? <IconPptx c={color} size={14} /> : isImage ? <IconPhoto c={color} size={14} /> : <IconFile c={color} size={14} />}
                         <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
-                        <button onClick={() => { setNewFiles(prev => prev.filter((_, idx) => idx !== i)); setNewFileNames(prev => { const n = { ...prev }; delete n[i]; return n; }); }} style={{ fontSize: 11, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+                        <button onClick={() => { setNewFiles(prev => prev.filter((_, idx) => idx !== i)); setNewFileNames(prev => { const n = { ...prev }; delete n[i]; return n; }); }} aria-label="Remove file" title="Remove file" style={{ fontSize: 11, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
                       </div>
                       {isImage && (
                         <div style={{ padding: '0 10px 8px' }}>
@@ -881,7 +891,7 @@ function BrynnePracticeExamInner() {
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 2 }}>{questions.length} Questions</div>
               <div style={{ fontSize: 18, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.4px' }}>{examTitle}</div>
             </div>
-            {timerEnabled && (
+            {(timerEnabled || timerRunning) && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: timeLeft < 300 ? '#FDF2F2' : light, border: `1.5px solid ${timeLeft < 300 ? '#C47878' : color}40`, borderRadius: 10, padding: '8px 14px' }}>
                 <IconTimer c={timeLeft < 300 ? '#C47878' : color} size={14} />
                 <span style={{ fontSize: 14, fontWeight: 800, color: timeLeft < 300 ? '#C47878' : color, fontFamily: 'monospace' }}>{formatTime(timeLeft)}</span>
@@ -899,7 +909,7 @@ function BrynnePracticeExamInner() {
                     {q.type === 'mc' ? 'Multiple Choice' : q.type === 'tf' ? 'True / False' : q.type === 'sa' ? 'Short Answer' : 'Essay'}
                   </span>
                 </div>
-                <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.6, color: '#1D1B26', marginBottom: 16 }}>{q.question}</div>
+                <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.6, color: '#1D1B26', marginBottom: 16 }}><RichText text={q.question} /></div>
                 {q.type === 'mc' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {Object.entries((q as MCQuestion).options).map(([letter, text]) => {
@@ -909,7 +919,7 @@ function BrynnePracticeExamInner() {
                           <div style={{ width: 22, height: 22, borderRadius: '50%', border: `2px solid ${selected ? color : '#C4C1D4'}`, background: selected ? color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
                             {selected ? <span style={{ color: 'white', fontSize: 10, fontWeight: 800 }}>{letter}</span> : <span style={{ color: '#9E9BB0', fontSize: 10, fontWeight: 700 }}>{letter}</span>}
                           </div>
-                          <span style={{ fontSize: 13, fontWeight: selected ? 700 : 400, color: selected ? color : '#1D1B26', lineHeight: 1.5 }}>{text}</span>
+                          <span style={{ fontSize: 13, fontWeight: selected ? 700 : 400, color: selected ? color : '#1D1B26', lineHeight: 1.5 }}><RichText text={text} /></span>
                         </div>
                       );
                     })}
@@ -1005,7 +1015,7 @@ function BrynnePracticeExamInner() {
                       </div>
                     </div>
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.6, color: '#1D1B26', marginBottom: 14 }}>{q.question}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.6, color: '#1D1B26', marginBottom: 14 }}><RichText text={q.question} /></div>
                   {userResp ? (
                     <div style={{ background: '#F3F1EC', borderRadius: 10, padding: '10px 14px', marginBottom: 10 }}>
                       <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 4 }}>Your Answer</div>
@@ -1019,19 +1029,19 @@ function BrynnePracticeExamInner() {
                   {(q.type === 'mc' || q.type === 'tf') && (
                     <div style={{ background: '#EDF7F2', border: '1.5px solid #5FAD8E40', borderRadius: 10, padding: '10px 14px', marginBottom: 10 }}>
                       <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#5FAD8E', marginBottom: 4 }}>Correct Answer</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26' }}>{q.type === 'mc' ? `${q.answer} — ${((q as MCQuestion).options as any)[q.answer]}` : q.answer}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26' }}><RichText text={q.type === 'mc' ? `${q.answer} — ${(q as MCQuestion).options[q.answer as keyof MCQuestion['options']]}` : q.answer} /></div>
                     </div>
                   )}
                   {(q.type === 'mc' || q.type === 'tf') && (
                     <div>
                       <button onClick={() => setShowExplanation(s => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; })} style={{ fontSize: 12, fontWeight: 700, color, background: light, border: 'none', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', marginBottom: showExp ? 10 : 0 }}>{showExp ? 'Hide Explanation' : 'Show Explanation'}</button>
-                      {showExp && <div style={{ background: light, border: `1.5px solid ${color}30`, borderRadius: 10, padding: '12px 14px' }}><div style={{ fontSize: 13, color: '#C4845A', lineHeight: 1.6 }}>{(q as MCQuestion | TFQuestion).explanation}</div></div>}
+                      {showExp && <div style={{ background: light, border: `1.5px solid ${color}30`, borderRadius: 10, padding: '12px 14px' }}><div style={{ fontSize: 13, color: '#C4845A', lineHeight: 1.6 }}><RichText text={(q as MCQuestion | TFQuestion).explanation} /></div></div>}
                     </div>
                   )}
                   {(q.type === 'sa' || q.type === 'essay') && (
                     <div style={{ background: light, border: `1.5px solid ${color}30`, borderRadius: 10, padding: '12px 14px' }}>
                       <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color, marginBottom: 6 }}>{q.type === 'sa' ? 'Model Answer' : 'Key Points'}</div>
-                      <div style={{ fontSize: 13, color: '#C4845A', lineHeight: 1.6 }}>{q.type === 'sa' ? (q as SAQuestion).model_answer : (q as EssayQuestion).key_points}</div>
+                      <div style={{ fontSize: 13, color: '#C4845A', lineHeight: 1.6 }}><RichText text={q.type === 'sa' ? (q as SAQuestion).model_answer : (q as EssayQuestion).key_points} /></div>
                     </div>
                   )}
                 </div>

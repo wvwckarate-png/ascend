@@ -228,6 +228,20 @@ export default function UploadResourceModal({ student, onClose, onSaved }: Props
         if (uploadError) throw new Error(uploadError.message);
         const { data: urlData } = supabase.storage.from('resources').getPublicUrl(path);
         storageUrl = urlData.publicUrl;
+
+        // Same as the class-folder uploader: lecture audio gets transcribed so it can feed study guides and flashcards.
+        if (resType === 'audio') {
+          try {
+            const tr = await fetch('/api/transcribe-audio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: storageUrl, name: file.name }) });
+            const td = await tr.json();
+            if (td.transcript) {
+              await supabase.from('resources').insert({ folder_id: folderId, file_name: fileName.trim(), file_type: 'audio', storage_url: storageUrl, transcript: td.transcript });
+              setSaved(true);
+              setTimeout(() => { onSaved?.(); onClose(); }, 900);
+              return;
+            }
+          } catch { /* fall through: save the audio without a transcript */ }
+        }
       } else if (resType === 'link' && fileLink.trim()) {
         const isYouTube = fileLink.includes('youtube.com') || fileLink.includes('youtu.be');
         if (isYouTube) {
@@ -253,11 +267,12 @@ export default function UploadResourceModal({ student, onClose, onSaved }: Props
       } else if (isGdoc && fileLink.trim()) {
         storageUrl = fileLink.trim();
       }
-      await supabase.from('resources').insert({ folder_id: folderId, file_name: fileName.trim(), file_type: fileTypeFromKey(resType), storage_url: storageUrl });
+      const { error: insertError } = await supabase.from('resources').insert({ folder_id: folderId, file_name: fileName.trim(), file_type: fileTypeFromKey(resType), storage_url: storageUrl });
+      if (insertError) throw new Error('Uploaded the file but could not save it. Please try again.');
       setSaved(true);
       setTimeout(() => { onSaved?.(); onClose(); }, 900);
-    } catch (err: any) {
-      setError(err.message || 'Upload failed. Please try again.');
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : 'Upload failed. Please try again.');
       setUploadProgress(0);
     } finally {
       setUploading(false); }
@@ -418,7 +433,7 @@ export default function UploadResourceModal({ student, onClose, onSaved }: Props
                       <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.name}</div>
                       <div style={{ fontSize: 11, color: '#9E9BB0' }}>{(file.size / 1024 / 1024).toFixed(1)} MB</div>
                     </div>
-                    <button onClick={() => { setFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} style={{ fontSize: 13, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>✕</button>
+                    <button onClick={() => { setFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} aria-label="Remove file" title="Remove file" style={{ fontSize: 13, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>✕</button>
                   </div>
                 ) : (
                   <div

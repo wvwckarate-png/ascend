@@ -337,7 +337,7 @@ export default function BrynneClassBinder() {
                             <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 7, background: '#FAFAF8' }}>
                               <span style={{ flex: 1, fontSize: 11, color: '#6B6880' }}>{g.item_name}</span>
                               <span style={{ fontSize: 11, fontWeight: 700, color: gradeColor((g.score / g.max_score) * 100) }}>{g.score}/{g.max_score}</span>
-                              <button onClick={() => deleteGrade(g.id)} style={{ fontSize: 10, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}>✕</button>
+                              <button onClick={() => deleteGrade(g.id)} aria-label="Delete" title="Delete" style={{ fontSize: 10, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}>✕</button>
                             </div>
                           ))}
                         </div>
@@ -523,7 +523,7 @@ export default function BrynneClassBinder() {
                       <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{syllabusFile.name}</div>
                       <div style={{ fontSize: 11, color: '#9E9BB0' }}>{(syllabusFile.size / 1024 / 1024).toFixed(1)} MB</div>
                     </div>
-                    <button onClick={resetSyllabus} style={{ fontSize: 13, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>✕</button>
+                    <button onClick={resetSyllabus} aria-label="Remove file" title="Remove file" style={{ fontSize: 13, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>✕</button>
                   </div>
                 ) : (
                   <div onClick={() => syllabusRef.current?.click()} style={{ border: '2px dashed #E8E5F0', borderRadius: 12, padding: '28px 20px', textAlign: 'center', cursor: 'pointer', background: '#FAFAF8', marginBottom: 14 }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.borderColor = color} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.borderColor = '#E8E5F0'}>
@@ -558,7 +558,7 @@ export default function BrynneClassBinder() {
                         <input value={exam.name} onChange={e => updateParsedExam(i, 'name', e.target.value)} style={{ padding: '7px 10px', border: `1.5px solid ${color}`, borderRadius: 8, fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, color: '#1D1B26', background: '#FFFFFF', outline: 'none', width: '100%', boxSizing: 'border-box' as const }} />
                         <input type="date" value={exam.date || ''} onChange={e => updateParsedExam(i, 'date', e.target.value)} style={{ padding: '7px 10px', border: '1.5px solid #E8E5F0', borderRadius: 8, fontFamily: 'var(--font-jakarta)', fontSize: 12, color: '#9E9BB0', background: '#FFFFFF', outline: 'none', width: '100%', boxSizing: 'border-box' as const }} />
                       </div>
-                      <button onClick={() => removeParsedExam(i)} style={{ fontSize: 14, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', flexShrink: 0 }}>✕</button>
+                      <button onClick={() => removeParsedExam(i)} aria-label="Remove" title="Remove" style={{ fontSize: 14, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', flexShrink: 0 }}>✕</button>
                     </div>
                   ))}
                 </div>

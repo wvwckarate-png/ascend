@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mammoth from 'mammoth';
+import { guardAI } from '../../../lib/apiGuard';
 
 export async function POST(req: NextRequest) {
+  const blocked = guardAI(req, 'extract', 30);
+  if (blocked) return blocked;
+
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File;

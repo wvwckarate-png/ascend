@@ -3,7 +3,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '../lib/supabase';
 function Mountain() {
   return (
     <svg width="44" height="42" viewBox="0 0 60 56" fill="none">
@@ -28,18 +27,22 @@ export default function Home() {
   const [checking, setChecking] = useState(false);
 
   const handleStudentTap = async (s: typeof students[0]) => {
-    const { data } = await supabase
-      .from('students')
-      .select('pin')
-      .eq('id', s.id)
-      .single();
-
-    if (data?.pin) {
+    setError('');
+    try {
+      const res = await fetch('/api/pin-status', { cache: 'no-store' });
+      if (!res.ok) throw new Error('status');
+      const status: Record<string, boolean> = await res.json();
+      if (status[s.id]) {
+        setSelected(s);
+        setPin('');
+      } else {
+        router.push(`/${s.id}`);
+      }
+    } catch {
+      // Fail closed: if we can't tell whether a PIN is set, don't just open the profile.
       setSelected(s);
       setPin('');
-      setError('');
-    } else {
-      router.push(`/${s.id}`);
+      setError("Can't reach Ascend right now. Check your connection and try again.");
     }
   };
 
@@ -55,27 +58,34 @@ export default function Home() {
   };
 
   const verifyPin = async (enteredPin: string) => {
+    if (!selected) return;
     setChecking(true);
     setError('');
-    const { data } = await supabase
-      .from('students')
-      .select('pin')
-      .eq('id', selected!.id)
-      .single();
-
-    if (data?.pin === enteredPin) {
-      router.push(`/${selected!.id}`);
-    } else {
-      setError('Wrong PIN. Try again.');
-      setPin('');
+    try {
+      const res = await fetch('/api/verify-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student: selected.id, pin: enteredPin }),
+      });
+      if (res.ok) {
+        router.push(`/${selected.id}`);
+        return;
+      }
+      setError(res.status === 429 ? 'Too many tries. Wait a few minutes and try again.'
+        : res.status === 401 ? 'Wrong PIN. Try again.'
+        : "Can't check your PIN right now. Try again.");
+    } catch {
+      setError("Can't reach Ascend right now. Try again.");
     }
+    setPin('');
     setChecking(false);
   };
 
+  // Typing digits / Backspace on a physical keyboard works the same as the on-screen keypad.
   useEffect(() => {
     if (!selected) return;
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key >= '0' && e.key <= '9') handlePinDigit(e.key);
+      if (e.key >= '0' && e.key <= '9' && e.key.length === 1) handlePinDigit(e.key);
       if (e.key === 'Backspace' && !checking) setPin(p => p.slice(0, -1));
     };
     window.addEventListener('keydown', handleKey);
@@ -179,7 +189,7 @@ export default function Home() {
       </div>
 
       <div style={{ fontSize: 10, color: 'var(--light)', marginTop: 40, letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.8 }}>
-        Ascend v2.8.0 · October 2026<br />
+        Ascend v2.9.0 · October 2026<br />
         Founded April 2026 · Forged in Focus
       </div>
     </main>

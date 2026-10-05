@@ -169,7 +169,9 @@ export default function MatthewDashboard() {
 useEffect(() => {
     const load = async () => {      const { data: studentData } = await supabase.from('students').select('name, grade, focus').eq('id', 'matthew').single();
       const { data: classData }   = await supabase.from('classes').select('id, name, semester, professor').eq('student_id', 'matthew').eq('is_active', true).eq('grade_only', false).order('created_at', { ascending: false });
-      const { data: taskData }    = await supabase.from('tasks').select('*').eq('student_id', 'matthew').order('due_date', { ascending: true });
+      // Everything unfinished, plus anything dated in the last 3 weeks — years of old completed tasks don't need to load every time.
+      const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 21);
+      const { data: taskData }    = await supabase.from('tasks').select('*').eq('student_id', 'matthew').or(`completed.eq.false,due_date.gte.${localDateStr(cutoff)}`).order('due_date', { ascending: true });
       const classIds = (classData || []).map(c => c.id);
       const { data: folderData }  = classIds.length > 0 ? await supabase.from('exam_folders').select('id, name, exam_date, class_id').in('class_id', classIds).not('exam_date', 'is', null) : { data: [] };
 
@@ -189,8 +191,18 @@ useEffect(() => {
 setLoading(false);
     };
     load();
-    const interval = setInterval(load, 15000);
-    return () => clearInterval(interval);
+    // Stay fresh without hammering the database: refresh when the student comes back to the tab, plus once a minute while it's open.
+    const refresh = () => { if (document.visibilityState === 'visible') load(); };
+    const interval = setInterval(refresh, 60000);
+    document.addEventListener('visibilitychange', refresh);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('ascend:data-changed', load);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', refresh);
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('ascend:data-changed', load);
+    };
   }, []);
   const toggleTask = async (task: Task) => {
     const updated = !task.completed;
@@ -205,7 +217,7 @@ setLoading(false);
 
   const upcomingTasks  = tasks.filter(t => t.due_date >= todayStr).slice(0, 8);
   const overdueTasks   = tasks.filter(t => !t.completed && t.due_date < todayStr);
-  const completedTasks = tasks.filter(t => t.completed).slice(0, 5);
+  const completedTasks = tasks.filter(t => t.completed).sort((a, b) => b.due_date.localeCompare(a.due_date)).slice(0, 5);
   const todayExams     = exams.filter(e => e.exam_date === todayStr);
   const reviewTasks    = tasks.filter(t => t.task_type === 'review' && !t.completed && t.due_date >= todayStr).slice(0, 3);
   const nudgeTasks     = tasks.filter(t => t.task_type === 'nudge'  && !t.completed && t.due_date >= todayStr).slice(0, 3);
@@ -262,7 +274,7 @@ setLoading(false);
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M12 5l7 7-7 7" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </button>
       )}
-      <button onClick={() => { if (confirm('Delete this task?')) deleteTask(task.id); }} style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>✕</button>
+      <button onClick={() => { if (confirm('Delete this task?')) deleteTask(task.id); }} aria-label="Delete" title="Delete" style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>✕</button>
     </div>
   );
 

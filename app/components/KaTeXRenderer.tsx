@@ -11,7 +11,10 @@ export function KaTeXRenderer({ expression, displayMode = false }: KaTeXRenderer
 
   useEffect(() => {
     if (!ref.current) return;
-    import('katex').then(({ default: katex }) => {
+    // mhchem adds \ce{…} so chemical formulas/equations typeset correctly.
+    // @ts-expect-error -- the mhchem contrib ships no type declarations
+    const loadChem = import('katex/contrib/mhchem').catch(() => null);
+    Promise.all([import('katex'), loadChem]).then(([{ default: katex }]) => {
       try {
         katex.render(expression, ref.current!, {
           displayMode,

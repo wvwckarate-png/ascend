@@ -8,7 +8,8 @@ import { supabase } from '../../../lib/supabase';
 import { localDateStr } from '../../../lib/dates';
 import TabBar from '../../components/TabBar';
 import FolderPicker from '../../components/FolderPicker';
-import { sanitizeHtml } from '../../../lib/sanitizeHtml';
+import GuideHtml from '../../components/GuideHtml';
+import { MATH_FORMAT_RULES } from '../../../lib/prompts';
 
 function Mountain() {
   return (
@@ -437,14 +438,16 @@ function MichaelStudyInner() {
         await supabase.storage.from('slide-images').remove(pathsToDelete);
       }
     }
-    await supabase.from('study_guides').delete().eq('id', id);
+    await supabase.from('tasks').delete().eq('resource_id', id).eq('resource_type', 'study_guide');
+    const { error: guideError } = await supabase.from('study_guides').delete().eq('id', id);
+    if (guideError) { console.error('Guide delete failed:', guideError.message); return; }
     setSavedGuides(prev => prev.filter(g => g.id !== id));
   };
 
   const toggleResource = (id: string) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleFolder   = (folder: LibFolder) => { const ids = folder.resources.map(r => r.id); const allSel = ids.every(id => selectedIds.has(id)); setSelectedIds(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; }); };
   const toggleClass    = (cls: LibClass) => { const ids = cls.folders.flatMap(f => f.resources.map(r => r.id)); const allSel = ids.length > 0 && ids.every(id => selectedIds.has(id)); setSelectedIds(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; }); };
-  const handleNewFileInput = (e: React.ChangeEvent<HTMLInputElement>) => { const imageExts = ['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.gif']; const selected = Array.from(e.target.files || []).filter(f => f.type === 'application/pdf' || f.name.endsWith('.pptx') || f.name.endsWith('.ppt') || imageExts.some(ext => f.name.toLowerCase().endsWith(ext))); setNewFiles(prev => [...prev, ...selected]); e.target.value = ''; };
+  const handleNewFileInput = (e: React.ChangeEvent<HTMLInputElement>) => { const imageExts = ['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.gif']; const selected = Array.from(e.target.files || []).filter(f => f.type === 'application/pdf' || ['.pdf', '.pptx', '.ppt', '.docx', '.doc', ...imageExts].some(ext => f.name.toLowerCase().endsWith(ext))); setNewFiles(prev => [...prev, ...selected]); e.target.value = ''; };
 
   const buildPrompt = (fileCount: number) => {
     const levelInstructions: Record<string, string> = {
@@ -529,7 +532,7 @@ RULES:
 
     const htmlInstructions = guideMode === 'adaptive' ? adaptiveInstructions : standardInstructions;
 
-    return `You are Ascend, an expert study assistant. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\n${crossDoc}\n\n${level ? levelInstructions[level] : ''}${c}${w}${chem}${figuresInject}${q}${imageInstructions}${htmlInstructions}`;
+    return `You are Ascend, an expert study assistant. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\n${crossDoc}\n\n${level ? levelInstructions[level] : ''}${c}${w}${chem}${figuresInject}${q}${imageInstructions}${MATH_FORMAT_RULES}${htmlInstructions}`;
   };
 
   const handleGenerate = async () => {
@@ -554,26 +557,12 @@ RULES:
             .map(r => ({ name: r.file_name, text: r.transcript }));
         }
       }
-      const fetchedFiles: File[] = [];
-      const imageExts = ['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.gif'];
-      for (const r of selectedResources) {
-        if (!r.storage_url) continue;
-        if (r.file_type === 'youtube') continue;
-        try {
-          const res = await fetch(r.storage_url);
-          const blob = await res.blob();
-          const fname = r.file_name.toLowerCase();
-          if (fname.endsWith('.pptx') || fname.endsWith('.ppt')) {
-            fetchedFiles.push(new File([blob], r.file_name, { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }));
-          } else if (r.file_type === 'image' || imageExts.some(ext => fname.endsWith(ext))) {
-            const ext = fname.slice(fname.lastIndexOf('.'));
-            const mimeType = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.png' ? 'image/png' : ext === '.gif' ? 'image/gif' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
-            fetchedFiles.push(new File([blob], r.file_name, { type: mimeType }));
-          } else {
-            fetchedFiles.push(new File([blob], r.file_name, { type: 'application/pdf' }));
-          }
-        } catch { /* skip */ }
-      }
+      // Library files are fetched by the server straight from storage (no download + re-upload through the browser,
+      // which also avoids the ~4.5 MB request-size cap). Name-only stand-ins keep the file counts and labels below working.
+      const storedResources = selectedResources
+        .filter(r => r.storage_url && r.file_type !== 'youtube')
+        .map(r => ({ name: r.file_name, url: r.storage_url }));
+      const fetchedFiles: File[] = storedResources.map(r => new File([], r.name));
       const renamedFiles = newFiles.map((f, i) => {
         const customName = newFileNames[i]?.trim();
         if (!customName) return f;
@@ -581,9 +570,13 @@ RULES:
         return new File([f], customName + ext, { type: f.type });
       });
       const allFiles = [...fetchedFiles, ...renamedFiles];
+      if (renamedFiles.reduce((n, f) => n + f.size, 0) > 4 * 1024 * 1024) {
+        setError('Files attached here must be under 4 MB in total. Add bigger files to a class folder first, then pick them from your library.');
+        return;
+      }
       setLoadingMessage(newFiles.some(f => f.name.endsWith('.pptx') || f.name.endsWith('.ppt')) ? 'Extracting slides and images...' : 'Analyzing your materials...');
       const formData = new FormData();
-      allFiles.forEach(f => formData.append('files', f));
+      renamedFiles.forEach(f => formData.append('files', f)); formData.append('resources', JSON.stringify(storedResources));
       formData.append('student', 'michael');
       formData.append('prompt', buildPrompt(allFiles.length + transcripts.length));
       if (transcripts.length > 0) formData.append('transcripts', JSON.stringify(transcripts));
@@ -761,7 +754,7 @@ RULES:
                       <button onClick={() => setMovingId(guide.id)} style={{ color: '#9E9BB0', background: '#F3F1EC', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <svg width="11" height="11" viewBox="0 0 28 28" fill="none"><path d="M5 14h18M14 5l9 9-9 9" stroke="#9E9BB0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
                       </button>
-                      <button onClick={() => { if (confirm('Delete this study guide?')) deleteGuide(guide.id); }} style={{ fontSize: 10, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                      <button onClick={() => { if (confirm('Delete this study guide?')) deleteGuide(guide.id); }} aria-label="Delete" title="Delete" style={{ fontSize: 10, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                     </div>
                   </div>
                   <button onClick={() => openGuide(guide.id)} style={{ width: '100%', padding: '8px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>View Guide</button>
@@ -804,7 +797,7 @@ RULES:
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {totalSelected > 0 && <button onClick={() => { setSelectedIds(new Set()); setNewFiles([]); setNewFileNames({}); }} style={{ padding: '6px 12px', borderRadius: 999, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#9E9BB0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear</button>}
-                  <input ref={fileInputRef} type="file" accept=".pdf,.pptx,.ppt,.jpg,.jpeg,.png,.heic,.heif,.webp,.gif" multiple onChange={handleNewFileInput} style={{ display: 'none' }} />
+                  <input ref={fileInputRef} type="file" accept=".pdf,.pptx,.ppt,.docx,.doc,.jpg,.jpeg,.png,.heic,.heif,.webp,.gif" multiple onChange={handleNewFileInput} style={{ display: 'none' }} />
                   <button onClick={() => fileInputRef.current?.click()} style={{ padding: '6px 14px', borderRadius: 999, background: light, border: 'none', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Upload</button>
                 </div>
               </div>
@@ -818,7 +811,7 @@ RULES:
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px' }}>
                           {f.name.endsWith('.pptx') || f.name.endsWith('.ppt') ? <IconPptx c={color} size={14} /> : isImage ? <IconPhoto c={color} size={14} /> : <IconFile c={color} size={14} />}
                           <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
-                          <button onClick={() => { setNewFiles(prev => prev.filter((_, idx) => idx !== i)); setNewFileNames(prev => { const n = { ...prev }; delete n[i]; return n; }); }} style={{ fontSize: 12, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+                          <button onClick={() => { setNewFiles(prev => prev.filter((_, idx) => idx !== i)); setNewFileNames(prev => { const n = { ...prev }; delete n[i]; return n; }); }} aria-label="Remove file" title="Remove file" style={{ fontSize: 12, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
                         </div>
                         {isImage && (
                           <div style={{ padding: '0 12px 10px' }}>
@@ -1107,7 +1100,7 @@ RULES:
                   </div>
                 )}
                 {studyGuide.trim().replace(/^[\s\n\r]+/, '').startsWith('<') ? (
-                  <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(studyGuide.replace(/\sheight="auto"/g, '')) }} />
+                  <GuideHtml html={studyGuide.replace(/\sheight="auto"/g, '')} />
                 ) : (
                   <ReactMarkdown components={{
                     h1: ({children}) => <h1 style={{ fontFamily: 'var(--font-jakarta)', fontSize: '1.4rem', fontWeight: 800, color, marginTop: '1.5rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: `2px solid ${light}` }}>{children}</h1>,

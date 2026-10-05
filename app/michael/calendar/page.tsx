@@ -98,21 +98,28 @@ export default function MichaelCalendar() {
 
   useEffect(() => {
     const load = async () => {
-      const [{ data: taskData }, { data: folderData }, { data: classData }] = await Promise.all([
+      // Classes first: exam folders must be limited to THIS student's active classes (an unscoped query pulled in everyone's exams).
+      const { data: classData } = await supabase.from('classes').select('id, name').eq('student_id', 'michael').eq('is_active', true).eq('grade_only', false);
+      const classIds = (classData || []).map(c => c.id);
+      const [{ data: taskData }, { data: folderData }] = await Promise.all([
         supabase.from('tasks').select('*').eq('student_id', 'michael').order('due_date', { ascending: true }),
-        supabase.from('exam_folders').select('id, name, exam_date, class_id').not('exam_date', 'is', null),
-        supabase.from('classes').select('id, name').eq('student_id', 'michael').eq('is_active', true).eq('grade_only', false),
+        classIds.length > 0
+          ? supabase.from('exam_folders').select('id, name, exam_date, class_id').in('class_id', classIds).not('exam_date', 'is', null)
+          : Promise.resolve({ data: [] as { id: string; name: string; exam_date: string | null; class_id: string }[] }),
       ]);
       if (taskData)  setTasks(taskData);
       if (classData) setClasses(classData);
       if (folderData && classData) {
         const classMap: Record<string, string> = {};
         classData.forEach(c => { classMap[c.id] = c.name; });
-        setExams(folderData.filter(f => f.exam_date).map(f => ({ id: f.id, name: f.name, exam_date: f.exam_date, class_name: classMap[f.class_id] || '' })));
+        setExams(folderData.filter(f => f.exam_date).map(f => ({ id: f.id, name: f.name, exam_date: f.exam_date as string, class_name: classMap[f.class_id] || '' })));
       }
       setLoading(false);
     };
     load();
+    // Quick-add (the + tab) announces new tasks instead of reloading the page.
+    window.addEventListener('ascend:data-changed', load);
+    return () => window.removeEventListener('ascend:data-changed', load);
   }, []);
 
   const deleteTask = async (id: string) => {
@@ -182,7 +189,7 @@ export default function MichaelCalendar() {
           <span style={{ fontSize: 10, fontWeight: 700, color: taskColor(task.task_type), background: taskColor(task.task_type) + '18', padding: '2px 8px', borderRadius: 999 }}>{task.task_type.charAt(0).toUpperCase() + task.task_type.slice(1)}</span>
         </div>
       </div>
-      <button onClick={() => { if (confirm('Delete this task?')) deleteTask(task.id); }} style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>✕</button>
+      <button onClick={() => { if (confirm('Delete this task?')) deleteTask(task.id); }} aria-label="Delete" title="Delete" style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>✕</button>
     </div>
   );
 

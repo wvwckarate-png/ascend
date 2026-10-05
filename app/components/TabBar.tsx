@@ -135,7 +135,8 @@ export default function TabBar({ student }: Props) {
     setTimeout(() => {
       setShowModal(false);
       reset();
-      window.location.reload();
+      // Tell whichever page is open (dashboard / calendar) to refetch — no full-page reload.
+      window.dispatchEvent(new Event('ascend:data-changed'));
     }, 800);
   };
 

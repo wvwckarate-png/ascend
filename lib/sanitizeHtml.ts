@@ -11,7 +11,6 @@ export function sanitizeHtml(html: string): string {
   doc.body.querySelectorAll('*').forEach(el => {
     for (const attr of Array.from(el.attributes)) {
       const name = attr.name.toLowerCase();
-      // eslint-disable-next-line no-control-regex
       const value = attr.value.replace(/[\u0000- ]/g, '').toLowerCase();
       if (name.startsWith('on') || name === 'srcdoc') { el.removeAttribute(attr.name); continue; }
       if (URL_ATTRS.has(name) && /^(javascript|vbscript|data:(?!image\/(png|jpe?g|gif|webp)))/.test(value)) el.removeAttribute(attr.name);

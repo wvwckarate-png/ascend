@@ -1,6 +1,4 @@
-import type { Metadata } from "next";
-import Script from 'next/script';
-import RDKitLoader from './components/RDKitLoader';
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import 'katex/dist/katex.min.css';
@@ -15,6 +13,7 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "Ascend — Forged in Focus",
   description: "Your personal study ecosystem",
+  robots: { index: false, follow: false },
   icons: {
     icon: '/favicon.svg',
     apple: '/apple-touch-icon.png',
@@ -27,6 +26,14 @@ export const metadata: Metadata = {
   },
 };
 
+// Phone-first: respect the notch / home-indicator safe areas (TabBar uses env(safe-area-inset-bottom)) and tint the browser chrome.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#7B6FA0',
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -34,13 +41,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      
       <body className={jakarta.variable}>
-        <Script
-          src="https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js"
-          strategy="afterInteractive"
-        />
-        <RDKitLoader />
         {children}
       </body>
     </html>
