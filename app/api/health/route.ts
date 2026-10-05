@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSameOrigin } from '../../../lib/apiGuard';
-import { getSharp, getOfficeParser, getJSZip } from '../../../lib/optionalDeps';
+import { getSharp, getOfficeParser, getJSZip, loadErrors } from '../../../lib/optionalDeps';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
       cronSecret: !!process.env.CRON_SECRET,
     },
     libs: { sharp: !!sharp, officeParser: !!officeParser, jszip: !!jszip },
+    libErrors: loadErrors,
     node: process.version,
     platform: `${process.platform}-${process.arch}`,
   }, { headers: { 'Cache-Control': 'no-store' } });
