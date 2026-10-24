@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { APP_VERSION_LABEL } from '../lib/version';
 function Mountain() {
   return (
     <svg width="44" height="42" viewBox="0 0 60 56" fill="none">
@@ -189,7 +190,7 @@ export default function Home() {
       </div>
 
       <div style={{ fontSize: 10, color: 'var(--light)', marginTop: 40, letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.8 }}>
-        Ascend v2.9.5 · October 2026<br />
+        {APP_VERSION_LABEL}<br />
         Founded April 2026 · Forged in Focus
       </div>
     </main>
