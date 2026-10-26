@@ -163,10 +163,10 @@ function classLabel(name: string) {
   return name.slice(0, 3).toUpperCase();
 }
 
-type ClassRow = { id: string; name: string; semester: string; professor: string; };
-type Folder   = { id: string; name: string; exam_date: string | null; };
-type Resource = { id: string; file_name: string; file_type: string; storage_url: string | null; created_at: string; };
-type WeakSpot = { text: string; source: 'flashcard' | 'exam'; };
+type ClassRow  = { id: string; name: string; semester: string; professor: string; };
+type Folder    = { id: string; name: string; exam_date: string | null; };
+type Resource  = { id: string; file_name: string; file_type: string; storage_url: string | null; created_at: string; };
+type WeakSpot  = { text: string; source: 'flashcard' | 'exam'; };
 
 const TABS = [
   { key: 'resources', label: 'Resources' },
@@ -183,9 +183,6 @@ const FILE_TYPES = [
   { key: 'link',  label: 'Link',   accept: '' },
 ];
 
-const color = '#E8956D';
-const light = '#FFF3E8';
-
 function formatDate(d: string | null) {
   if (!d) return null;
   return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -195,7 +192,7 @@ function daysUntil(d: string | null) {
   if (!d) return null;
   const diff = Math.ceil((new Date(d + 'T00:00:00').getTime() - Date.now()) / 86400000);
   if (diff < 0)   return null;
-  if (diff === 0) return 'Today!';
+  if (diff === 0) return 'Today';
   if (diff === 1) return '1 day away';
   return `${diff} days away`;
 }
@@ -227,10 +224,10 @@ export default function BrynneBinder() {
   const [upSaved,        setUpSaved]        = useState(false);
 
   // Date editing state
-  const [editingDate, setEditingDate] = useState(false);
-  const [newDate,     setNewDate]     = useState('');
-  const [savingDate,  setSavingDate]  = useState(false);
-  const [dateSaved,   setDateSaved]   = useState(false);
+  const [editingDate,   setEditingDate]   = useState(false);
+  const [newDate,       setNewDate]       = useState('');
+  const [savingDate,    setSavingDate]    = useState(false);
+  const [dateSaved,     setDateSaved]     = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -252,6 +249,7 @@ export default function BrynneBinder() {
       if (guideData)    setFolderGuide(guideData);
       setLoading(false);
 
+      // Weak spots
       const weak: WeakSpot[] = [];
       const { data: deckRows } = await supabase.from('flashcard_decks').select('id').eq('folder_id', folderId).eq('student_id', 'brynne');
       if (deckRows && deckRows.length > 0) {
@@ -277,8 +275,13 @@ export default function BrynneBinder() {
     if (!folder) return;
     setSavingDate(true);
     const dateToSave = newDate || null;
+
+    // Update exam_folders
     await supabase.from('exam_folders').update({ exam_date: dateToSave }).eq('id', folderId);
+
+    // Update linked calendar task via folder_id
     await supabase.from('tasks').update({ due_date: dateToSave }).eq('folder_id', folderId).eq('student_id', 'brynne');
+
     setFolder(prev => prev ? { ...prev, exam_date: dateToSave } : prev);
     setSavingDate(false);
     setDateSaved(true);
@@ -313,18 +316,32 @@ export default function BrynneBinder() {
     if (!upName.trim() || !upType) return;
     setUploading(true);
     setUpError('');
+
     try {
       let storageUrl: string | null = null;
+
       if (upFile && upType !== 'link') {
         const ext      = upFile.name.split('.').pop();
         const safeName = upName.trim().replace(/[^a-zA-Z0-9-_]/g, '_');
         const path     = `brynne/${folderId}/${Date.now()}_${safeName}.${ext}`;
-        const progressInterval = setInterval(() => { setUploadProgress(p => Math.min(p + 12, 85)); }, 200);
-        const { error: uploadError } = await supabase.storage.from('resources').upload(path, upFile, { upsert: false });
+
+        const progressInterval = setInterval(() => {
+          setUploadProgress(p => Math.min(p + 12, 85));
+        }, 200);
+
+        const { error: uploadError } = await supabase.storage
+          .from('resources')
+          .upload(path, upFile, { upsert: false });
+
         clearInterval(progressInterval);
         setUploadProgress(100);
+
         if (uploadError) throw new Error(uploadError.message);
-        const { data: urlData } = supabase.storage.from('resources').getPublicUrl(path);
+
+        const { data: urlData } = supabase.storage
+          .from('resources')
+          .getPublicUrl(path);
+
         storageUrl = urlData.publicUrl;
 
         if (upType === 'audio') {
@@ -377,7 +394,11 @@ export default function BrynneBinder() {
       } else if (upType === 'link' && upLink.trim()) {
         const isYouTube = upLink.includes('youtube.com') || upLink.includes('youtu.be');
         if (isYouTube) {
-          const res = await fetch('/api/fetch-youtube-transcript', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: upLink.trim() }) });
+          const res = await fetch('/api/fetch-youtube-transcript', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: upLink.trim() }),
+          });
           const data = await res.json();
           if (data.transcript) {
             const { data: saved } = await supabase.from('resources').insert({ folder_id: folderId, file_name: upName.trim(), file_type: 'youtube', storage_url: upLink.trim(), transcript: data.transcript }).select().single();
@@ -394,13 +415,15 @@ export default function BrynneBinder() {
           storageUrl = upLink.trim();
         }
       }
+
       const { data, error: insertError } = await supabase.from('resources').insert({ folder_id: folderId, file_name: upName.trim(), file_type: upType, storage_url: storageUrl }).select().single();
       if (insertError || !data) throw new Error('Uploaded the file but could not save it. Please try again.');
       setResources(prev => [data, ...prev]);
       setUpSaved(true);
       setTimeout(() => { setShowUpload(false); resetUpload(); }, 900);
+
     } catch (err: any) {
-      setUpError(err.message || 'Upload failed. Please try again!');
+      setUpError(err.message || 'Upload failed. Please try again.');
       setUploadProgress(0);
     } finally {
       setUploading(false);
@@ -408,7 +431,7 @@ export default function BrynneBinder() {
   };
 
   const countdown    = folder ? daysUntil(folder.exam_date) : null;
-  const isUrgent     = countdown && countdown !== 'Today!' && parseInt(countdown) <= 7;
+  const isUrgent     = countdown && countdown !== 'Today' && parseInt(countdown) <= 7;
   const hasResources = resources.length > 0;
   const selectedType = FILE_TYPES.find(f => f.key === upType);
 
@@ -430,10 +453,11 @@ export default function BrynneBinder() {
         {!loading && cls && folder && (
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 20, overflow: 'hidden', boxShadow: '0 2px 12px rgba(29,27,38,0.07)' }}>
 
+            {/* Header */}
             <div style={{ padding: '22px 24px 0' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <div style={{ width: 48, height: 48, borderRadius: 13, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color, flexShrink: 0 }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 13, background: '#FFF3E8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#E8956D', flexShrink: 0 }}>
                     {classLabel(cls.name)}
                   </div>
                   <div>
@@ -443,29 +467,42 @@ export default function BrynneBinder() {
                   </div>
                 </div>
 
+                {/* Date section with edit */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0, paddingTop: 4 }}>
                   {editingDate ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                      <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} style={{ padding: '5px 10px', border: `1.5px solid ${color}`, borderRadius: 8, fontFamily: 'var(--font-jakarta)', fontSize: 12, color: '#1D1B26', background: '#FAFAF8', outline: 'none' }} />
+                      <input
+                        type="date"
+                        value={newDate}
+                        onChange={e => setNewDate(e.target.value)}
+                        style={{ padding: '5px 10px', border: '1.5px solid #E8956D', borderRadius: 8, fontFamily: 'var(--font-jakarta)', fontSize: 12, color: '#1D1B26', background: '#FAFAF8', outline: 'none' }}
+                      />
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button onClick={() => { setEditingDate(false); setNewDate(folder.exam_date || ''); }} style={{ fontSize: 11, fontWeight: 700, color: '#9E9BB0', background: '#F3F1EC', border: 'none', borderRadius: 7, padding: '4px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Cancel</button>
-                        <button onClick={handleSaveDate} disabled={savingDate} style={{ fontSize: 11, fontWeight: 700, color: 'white', background: color, border: 'none', borderRadius: 7, padding: '4px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: savingDate ? 0.6 : 1 }}>{savingDate ? 'Saving...' : 'Save'}</button>
+                        <button onClick={handleSaveDate} disabled={savingDate} style={{ fontSize: 11, fontWeight: 700, color: 'white', background: '#E8956D', border: 'none', borderRadius: 7, padding: '4px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: savingDate ? 0.6 : 1 }}>
+                          {savingDate ? 'Saving...' : 'Save'}
+                        </button>
                       </div>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {folder.exam_date ? <div style={{ fontSize: 13, fontWeight: 700, color: '#6B6880' }}>{formatDate(folder.exam_date)}</div> : <div style={{ fontSize: 12, color: '#C4C1D4' }}>No date set</div>}
+                        {folder.exam_date
+                          ? <div style={{ fontSize: 13, fontWeight: 700, color: '#6B6880' }}>{formatDate(folder.exam_date)}</div>
+                          : <div style={{ fontSize: 12, color: '#C4C1D4' }}>No date set</div>
+                        }
                         <button onClick={() => setEditingDate(true)} style={{ background: '#F3F1EC', border: 'none', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <IconEdit c="#9E9BB0" size={12} />
                         </button>
                       </div>
                       {countdown && (
-                        <div style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: countdown === 'Today!' ? '#FDF2F2' : light, color: countdown === 'Today!' ? '#C47878' : isUrgent ? '#C8965A' : color }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: countdown === 'Today' ? '#FDF2F2' : isUrgent ? '#FFF3E8' : '#FFF3E8', color: countdown === 'Today' ? '#C47878' : isUrgent ? '#C8965A' : '#E8956D' }}>
                           {countdown}
                         </div>
                       )}
-                      {dateSaved && <div style={{ fontSize: 11, fontWeight: 700, color: '#5FAD8E' }}>✓ Date updated</div>}
+                      {dateSaved && (
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#5FAD8E' }}>✓ Date updated</div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -473,13 +510,14 @@ export default function BrynneBinder() {
 
               <div style={{ marginBottom: 16 }}>
                 <span style={{ fontSize: 11, color: '#9E9BB0' }}>
-                  <span style={{ fontWeight: 700, color: hasResources ? color : '#C4C1D4' }}>{resources.length}</span> resource{resources.length !== 1 ? 's' : ''}
+                  <span style={{ fontWeight: 700, color: hasResources ? '#E8956D' : '#C4C1D4' }}>{resources.length}</span> resource{resources.length !== 1 ? 's' : ''}
                 </span>
               </div>
 
+              {/* Tabs */}
               <div style={{ display: 'flex', borderBottom: '1.5px solid #E8E5F0', marginLeft: -24, marginRight: -24, paddingLeft: 24 }}>
                 {TABS.map(t => (
-                  <button key={t.key} onClick={() => setTab(t.key)} style={{ padding: '10px 18px', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none', background: 'transparent', borderBottom: `2.5px solid ${tab === t.key ? color : 'transparent'}`, marginBottom: -1.5, color: tab === t.key ? color : '#9E9BB0', whiteSpace: 'nowrap', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <button key={t.key} onClick={() => setTab(t.key)} style={{ padding: '10px 18px', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none', background: 'transparent', borderBottom: `2.5px solid ${tab === t.key ? '#E8956D' : 'transparent'}`, marginBottom: -1.5, color: tab === t.key ? '#E8956D' : '#9E9BB0', whiteSpace: 'nowrap', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', gap: 5 }}>
                     <TabIcon tabKey={t.key} active={tab === t.key} />
                     {t.label}
                   </button>
@@ -487,38 +525,40 @@ export default function BrynneBinder() {
               </div>
             </div>
 
+            {/* Weak Spots */}
             {!weakLoading && weakSpots.length >= 3 && (
               <div style={{ margin: '0 24px 0', borderTop: '1.5px solid #E8E5F0', paddingTop: 20, paddingBottom: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#C47878', flexShrink: 0 }} />
-                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' as const, color: '#C47878' }}>Needs Work</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' as const, color: '#C47878' }}>Weak Spots</div>
                   <div style={{ fontSize: 10, fontWeight: 600, color: '#9E9BB0' }}>{weakSpots.length} item{weakSpots.length !== 1 ? 's' : ''} flagged</div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
                   {weakSpots.map((w, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 12px', background: '#FDF2F2', borderRadius: 10, border: '1.5px solid #C4787820' }}>
-                      <div style={{ width: 18, height: 18, borderRadius: 5, background: '#FFF3E8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
-                        <span style={{ fontSize: 9, fontWeight: 800, color: '#E8956D' }}>{w.source === 'flashcard' ? 'FC' : 'EX'}</span>
+                      <div style={{ width: 18, height: 18, borderRadius: 5, background: w.source === 'flashcard' ? '#FFF3E8' : '#FFF3E8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                        <span style={{ fontSize: 9, fontWeight: 800, color: w.source === 'flashcard' ? '#E8956D' : '#C8965A' }}>{w.source === 'flashcard' ? 'FC' : 'EX'}</span>
                       </div>
                       <div style={{ fontSize: 12, color: '#1D1B26', lineHeight: 1.5, flex: 1 }}>{w.text.length > 120 ? w.text.slice(0, 120) + '...' : w.text}</div>
                     </div>
                   ))}
                 </div>
-                <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 12 }}>Let&apos;s make some targeted study materials for these! 🌟</div>
+                <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 12 }}>Generate targeted material focused on these weak areas:</div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={() => router.push(`/brynne/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}&weakSpots=${encodeURIComponent(JSON.stringify(weakSpots.map(w => w.text)))}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-                    <IconCards c={color} size={13} />Flashcards
+                  <button onClick={() => router.push(`/brynne/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}&weakSpots=${encodeURIComponent(JSON.stringify(weakSpots.map(w => w.text)))}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: '#E8956D', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                    <IconCards c="#E8956D" size={13} />Flashcards
                   </button>
-                  <button onClick={() => router.push(`/brynne/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}&weakSpots=${encodeURIComponent(JSON.stringify(weakSpots.map(w => w.text)))}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-                    <IconExam c={color} size={13} />Practice Test
+                  <button onClick={() => router.push(`/brynne/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}&weakSpots=${encodeURIComponent(JSON.stringify(weakSpots.map(w => w.text)))}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: '#E8956D', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                    <IconExam c="#E8956D" size={13} />Practice Exam
                   </button>
-                  <button onClick={() => router.push(`/brynne/study?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}&weakSpots=${encodeURIComponent(JSON.stringify(weakSpots.map(w => w.text)))}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-                    <IconBrain c={color} size={13} />Study Guide
+                  <button onClick={() => router.push(`/brynne/study?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}&weakSpots=${encodeURIComponent(JSON.stringify(weakSpots.map(w => w.text)))}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: '#E8956D', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                    <IconBrain c="#E8956D" size={13} />Study Guide
                   </button>
                 </div>
               </div>
             )}
 
+            {/* Tab content */}
             <div style={{ padding: '24px' }}>
 
               {tab === 'resources' && (
@@ -526,31 +566,33 @@ export default function BrynneBinder() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Resources</div>
-                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>Notes, worksheets, audio — everything for this unit!</div>
+                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>Lecture notes, PDFs, slides, audio, links</div>
                     </div>
-                    <button onClick={() => setShowUpload(true)} style={{ padding: '9px 18px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>+ Upload</button>
+                    <button onClick={() => setShowUpload(true)} style={{ padding: '9px 18px', borderRadius: 999, background: '#E8956D', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>+ Upload</button>
                   </div>
                   {resources.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
-                      <div style={{ width: 64, height: 64, borderRadius: 18, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                        <IconFolder c={color} size={32} />
+                      <div style={{ width: 64, height: 64, borderRadius: 18, background: '#FFF3E8', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                        <IconFolder c="#E8956D" size={32} />
                       </div>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>Nothing here yet!</div>
-                      <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>Upload your notes, worksheets, or anything from class to get started. 🌟</div>
-                      <button onClick={() => setShowUpload(true)} style={{ padding: '11px 24px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Upload Something</button>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No resources yet</div>
+                      <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>Upload PDFs, slides, audio recordings, old exams, or Google Doc links.</div>
+                      <button onClick={() => setShowUpload(true)} style={{ padding: '11px 24px', borderRadius: 999, background: '#E8956D', border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Upload First Resource</button>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {resources.map(r => (
                         <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', background: '#FAFAF8', borderRadius: 12, border: '1.5px solid #E8E5F0' }}>
-                          <div style={{ width: 36, height: 36, borderRadius: 10, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <FileTypeIcon type={r.file_type} c={color} size={18} />
+                          <div style={{ width: 36, height: 36, borderRadius: 10, background: '#FFF3E8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <FileTypeIcon type={r.file_type} c="#E8956D" size={18} />
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.file_name}</div>
                             <div style={{ fontSize: 11, color: '#9E9BB0', textTransform: 'capitalize', marginTop: 2 }}>{r.file_type}</div>
                           </div>
-                          {r.storage_url && <a href={r.storage_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 700, color, textDecoration: 'none', flexShrink: 0, padding: '5px 12px', background: light, borderRadius: 999 }}>Open</a>}
+                          {r.storage_url && (
+                            <a href={r.storage_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 700, color: '#E8956D', textDecoration: 'none', flexShrink: 0, padding: '5px 12px', background: '#FFF3E8', borderRadius: 999 }}>Open</a>
+                          )}
                           <button onClick={() => { if (confirm('Delete this resource?')) deleteResource(r.id); }} aria-label="Delete" title="Delete" style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>✕</button>
                         </div>
                       ))}
@@ -564,32 +606,32 @@ export default function BrynneBinder() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Flashcards</div>
-                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>{folderDeck ? `${folderDeck.card_count} cards saved` : 'Make flashcards from your notes!'}</div>
+                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>{folderDeck ? `${folderDeck.card_count} cards saved` : 'Generate a deck from this folder\'s material'}</div>
                     </div>
-                    <button onClick={() => router.push(`/brynne/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                    <button onClick={() => router.push(`/brynne/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: '#E8956D', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
                       {folderDeck ? 'New Deck' : 'Generate'}
                     </button>
                   </div>
                   {folderDeck ? (
-                    <div onClick={() => router.push('/brynne/flashcards')} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '18px 20px', background: '#FAFAF8', borderRadius: 14, border: '1.5px solid #E8E5F0', cursor: 'pointer' }}>
-                      <div style={{ width: 48, height: 48, borderRadius: 13, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <IconCards c={color} size={26} />
+                    <div onClick={() => router.push(`/brynne/flashcards`)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '18px 20px', background: '#FAFAF8', borderRadius: 14, border: '1.5px solid #E8E5F0', cursor: 'pointer' }}>
+                      <div style={{ width: 48, height: 48, borderRadius: 13, background: '#FFF3E8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <IconCards c="#E8956D" size={26} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{folderDeck.title}</div>
                         <div style={{ fontSize: 11, color: '#9E9BB0' }}>{folderDeck.card_count} cards</div>
                       </div>
-                      <div style={{ padding: '8px 16px', borderRadius: 999, background: color, color: 'white', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>Study</div>
+                      <div style={{ padding: '8px 16px', borderRadius: 999, background: '#E8956D', color: 'white', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>Study</div>
                     </div>
                   ) : (
                     <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
-                      <div style={{ width: 64, height: 64, borderRadius: 18, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                        <IconCards c={color} size={32} />
+                      <div style={{ width: 64, height: 64, borderRadius: 18, background: '#FFF3E8', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                        <IconCards c="#E8956D" size={32} />
                       </div>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No flashcards yet!</div>
-                      <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Ascend can make flashcards from your notes — great for studying! ✨' : 'Upload your notes first, then Ascend will make flashcards for you!'}</div>
-                      <button onClick={() => hasResources ? router.push(`/brynne/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`) : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? color : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                        {hasResources ? 'Generate Flashcards' : 'Upload Notes First'}
+                      <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No flashcard deck yet</div>
+                      <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Generate a Smart or Basic deck from the resources in this folder.' : 'Upload resources first, then generate a flashcard deck.'}</div>
+                      <button onClick={() => hasResources ? router.push(`/brynne/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`) : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? '#E8956D' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                        {hasResources ? 'Generate Flashcards' : 'Upload Resources First'}
                       </button>
                     </div>
                   )}
@@ -601,35 +643,35 @@ export default function BrynneBinder() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Practice Exam</div>
-                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>{folderExam ? `${folderExam.questions?.length || 0} questions · ${folderExam.status === 'completed' ? `Score: ${folderExam.score ?? 'n/a'}%` : 'In progress'}` : 'Practice before the real test!'}</div>
+                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>{folderExam ? `${folderExam.questions?.length || 0} questions · ${folderExam.status === 'completed' ? `Score: ${folderExam.score ?? 'n/a'}%` : 'In progress'}` : 'Generate a practice exam from this folder'}</div>
                     </div>
-                    <button onClick={() => router.push(`/brynne/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>
-                      {folderExam ? 'New Test' : 'Generate'}
+                    <button onClick={() => router.push(`/brynne/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: '#E8956D', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>
+                      {folderExam ? 'New Exam' : 'Generate'}
                     </button>
                   </div>
                   {folderExam ? (
                     <div onClick={() => router.push('/brynne/practice-exam')} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '18px 20px', background: '#FAFAF8', borderRadius: 14, border: '1.5px solid #E8E5F0', cursor: 'pointer' }}>
-                      <div style={{ width: 48, height: 48, borderRadius: 13, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <IconExam c={color} size={26} />
+                      <div style={{ width: 48, height: 48, borderRadius: 13, background: '#FFF3E8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <IconExam c="#E8956D" size={26} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{folderExam.title}</div>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: folderExam.status === 'completed' ? '#5FAD8E' : color, background: folderExam.status === 'completed' ? '#EDF7F2' : light, padding: '2px 8px', borderRadius: 999 }}>{folderExam.status === 'completed' ? 'Done! 🌟' : 'In Progress'}</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: folderExam.status === 'completed' ? '#5FAD8E' : '#E8956D', background: folderExam.status === 'completed' ? '#EDF7F2' : '#FFF3E8', padding: '2px 8px', borderRadius: 999 }}>{folderExam.status === 'completed' ? 'Completed' : 'In Progress'}</span>
                           {folderExam.score !== null && <span style={{ fontSize: 11, fontWeight: 700, color: (folderExam.score ?? 0) >= 80 ? '#5FAD8E' : (folderExam.score ?? 0) >= 60 ? '#C8965A' : '#C47878' }}>{folderExam.score}%</span>}
                         </div>
                       </div>
-                      <div style={{ padding: '8px 16px', borderRadius: 999, background: color, color: 'white', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{folderExam.status === 'completed' ? 'Review' : 'Continue'}</div>
+                      <div style={{ padding: '8px 16px', borderRadius: 999, background: '#E8956D', color: 'white', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{folderExam.status === 'completed' ? 'Review' : 'Continue'}</div>
                     </div>
                   ) : (
                     <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
-                      <div style={{ width: 64, height: 64, borderRadius: 18, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                        <IconExam c={color} size={32} />
+                      <div style={{ width: 64, height: 64, borderRadius: 18, background: '#FFF3E8', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                        <IconExam c="#E8956D" size={32} />
                       </div>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No practice test yet!</div>
-                      <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Let Ascend make a practice test from your notes! ✨' : 'Upload your notes first, then Ascend will make a practice test!'}</div>
-                      <button onClick={() => hasResources ? router.push(`/brynne/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`) : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? color : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                        {hasResources ? 'Generate Practice Test' : 'Upload Notes First'}
+                      <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No practice exam yet</div>
+                      <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Generate a practice exam from the resources in this folder.' : 'Upload resources first, then generate a practice exam.'}</div>
+                      <button onClick={() => hasResources ? router.push(`/brynne/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`) : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? '#E8956D' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                        {hasResources ? 'Generate Practice Exam' : 'Upload Resources First'}
                       </button>
                     </div>
                   )}
@@ -641,32 +683,32 @@ export default function BrynneBinder() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Study Guide</div>
-                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>{folderGuide ? 'Study guide generated! 🌟' : 'Ascend builds a study guide from your notes!'}</div>
+                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>{folderGuide ? 'Study guide generated' : 'Generate a full study guide from this folder'}</div>
                     </div>
-                    <button onClick={() => router.push(`/brynne/study?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>
+                    <button onClick={() => router.push(`/brynne/study?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: '#E8956D', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
                       {folderGuide ? 'New Guide' : 'Generate'}
                     </button>
                   </div>
                   {folderGuide ? (
                     <div onClick={() => router.push(`/brynne/study?guideId=${folderGuide.id}&folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '18px 20px', background: '#FAFAF8', borderRadius: 14, border: '1.5px solid #E8E5F0', cursor: 'pointer' }}>
-                      <div style={{ width: 48, height: 48, borderRadius: 13, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <IconBrain c={color} size={26} />
+                      <div style={{ width: 48, height: 48, borderRadius: 13, background: '#FFF3E8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <IconBrain c="#E8956D" size={26} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{folderGuide.title}</div>
                         <div style={{ fontSize: 11, color: '#9E9BB0' }}>{new Date(folderGuide.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
                       </div>
-                      <div style={{ padding: '8px 16px', borderRadius: 999, background: color, color: 'white', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>View</div>
+                      <div style={{ padding: '8px 16px', borderRadius: 999, background: '#E8956D', color: 'white', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>View</div>
                     </div>
                   ) : (
                     <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
-                      <div style={{ width: 64, height: 64, borderRadius: 18, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                        <IconBrain c={color} size={32} />
+                      <div style={{ width: 64, height: 64, borderRadius: 18, background: '#FFF3E8', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                        <IconBrain c="#E8956D" size={32} />
                       </div>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No study guide yet!</div>
-                      <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Ascend will build you an awesome study guide from everything in this folder! 🌟' : 'Upload your notes first — then Ascend builds your study guide!'}</div>
-                      <button onClick={() => hasResources ? router.push(`/brynne/study?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`) : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? color : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                        {hasResources ? 'Generate Study Guide' : 'Upload Notes First'}
+                      <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No study guide yet</div>
+                      <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Ascend builds a full outline and active recall guide from your uploaded material.' : 'Upload resources first — Ascend builds the study guide from your material.'}</div>
+                      <button onClick={() => hasResources ? router.push(`/brynne/study?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`) : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? '#E8956D' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                        {hasResources ? 'Generate Study Guide' : 'Upload Resources First'}
                       </button>
                     </div>
                   )}
@@ -678,38 +720,39 @@ export default function BrynneBinder() {
         )}
       </main>
 
+      {/* Upload Modal */}
       {showUpload && (
         <div onClick={e => { if (e.target === e.currentTarget) { setShowUpload(false); resetUpload(); }}} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '24px 20px 32px', width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(29,27,38,0.18)', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 20px' }} />
-            <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>Add Something</div>
-            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>What kind of file is this?</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>Add Resource</div>
+            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>What type of resource is this?</div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 20 }}>
               {FILE_TYPES.map(ft => (
-                <div key={ft.key} onClick={() => { setUpType(ft.key); setUpFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} style={{ padding: '12px 6px', borderRadius: 12, border: `1.5px solid ${upType === ft.key ? color : '#E8E5F0'}`, background: upType === ft.key ? light : '#FAFAF8', cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s' }}>
+                <div key={ft.key} onClick={() => { setUpType(ft.key); setUpFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} style={{ padding: '12px 6px', borderRadius: 12, border: `1.5px solid ${upType === ft.key ? '#E8956D' : '#E8E5F0'}`, background: upType === ft.key ? '#FFF3E8' : '#FAFAF8', cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s' }}>
                   <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 5 }}>
-                    <FileTypeIcon type={ft.key} c={upType === ft.key ? color : '#C4C1D4'} size={22} />
+                    <FileTypeIcon type={ft.key} c={upType === ft.key ? '#E8956D' : '#C4C1D4'} size={22} />
                   </div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: upType === ft.key ? color : '#9E9BB0' }}>{ft.label}</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: upType === ft.key ? '#E8956D' : '#9E9BB0' }}>{ft.label}</div>
                 </div>
               ))}
             </div>
 
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Name it</label>
-              <input autoFocus value={upName} onChange={e => setUpName(e.target.value)} placeholder='e.g. "Chapter 7 Notes"' style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${color}`, borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
+              <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Name</label>
+              <input autoFocus value={upName} onChange={e => setUpName(e.target.value)} placeholder='e.g. "Lecture 8 - Krebs Cycle"' style={{ width: '100%', padding: '12px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
             </div>
 
             {upType === 'link' && (
               <div style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Link <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(YouTube, Google Doc, article, lecture recording)</span></label>
                 <input value={upLink} onChange={e => setUpLink(e.target.value)} placeholder="https://..." style={{ width: '100%', padding: '12px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
-                {(upLink.includes('youtube.com') || upLink.includes('youtu.be')) && (
-                  <div style={{ marginTop: 8, fontSize: 11, fontWeight: 600, color, background: light, padding: '6px 10px', borderRadius: 8 }}>
-                    YouTube detected — Ascend will fetch the transcript automatically 🌟
+                {upLink && upLink.includes('youtube.com') || upLink.includes('youtu.be') ? (
+                  <div style={{ marginTop: 8, fontSize: 11, fontWeight: 600, color: '#E8956D', background: '#FFF3E8', padding: '6px 10px', borderRadius: 8 }}>
+                    YouTube detected — Ascend will fetch the transcript automatically
                   </div>
-                )}
+                ) : null}
               </div>
             )}
 
@@ -718,9 +761,9 @@ export default function BrynneBinder() {
                 <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>File</label>
                 <input ref={fileInputRef} type="file" accept={selectedType?.accept || '*'} onChange={handleFileChange} style={{ display: 'none' }} />
                 {upFile ? (
-                  <div style={{ padding: '14px 16px', borderRadius: 12, border: `1.5px solid ${color}`, background: light, display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ padding: '14px 16px', borderRadius: 12, border: '1.5px solid #E8956D', background: '#FFF3E8', display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <FileTypeIcon type={upType} c={color} size={24} />
+                      <FileTypeIcon type={upType} c="#E8956D" size={24} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{upFile.name}</div>
@@ -729,7 +772,7 @@ export default function BrynneBinder() {
                     <button onClick={() => { setUpFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} aria-label="Remove file" title="Remove file" style={{ fontSize: 13, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>✕</button>
                   </div>
                 ) : (
-                  <div onClick={() => fileInputRef.current?.click()} style={{ border: '2px dashed #E8E5F0', borderRadius: 12, padding: '28px 20px', textAlign: 'center', cursor: 'pointer', background: '#FAFAF8' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.borderColor = color} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.borderColor = '#E8E5F0'}>
+                  <div onClick={() => fileInputRef.current?.click()} style={{ border: '2px dashed #E8E5F0', borderRadius: 12, padding: '28px 20px', textAlign: 'center', cursor: 'pointer', background: '#FAFAF8' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.borderColor = '#E8956D'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.borderColor = '#E8E5F0'}>
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
                       <IconCloudUpload c="#C4C1D4" size={40} />
                     </div>
@@ -744,10 +787,10 @@ export default function BrynneBinder() {
               <div style={{ marginBottom: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: '#9E9BB0' }}>Uploading...</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color }}>{uploadProgress}%</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#E8956D' }}>{uploadProgress}%</span>
                 </div>
                 <div style={{ height: 6, background: '#F3F1EC', borderRadius: 99, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', background: color, borderRadius: 99, width: `${uploadProgress}%`, transition: 'width 0.2s' }} />
+                  <div style={{ height: '100%', background: '#E8956D', borderRadius: 99, width: `${uploadProgress}%`, transition: 'width 0.2s' }} />
                 </div>
               </div>
             )}
@@ -760,7 +803,7 @@ export default function BrynneBinder() {
 
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => { setShowUpload(false); resetUpload(); }} disabled={uploading} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={handleAddResource} disabled={!upName.trim() || !upType || uploading || upSaved || (upType === 'link' ? !upLink.trim() : false)} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: upSaved ? '#5FAD8E' : !upName.trim() || !upType ? '#F3F1EC' : color, color: !upName.trim() || !upType ? '#C4C1D4' : 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: uploading ? 0.7 : 1 }}>
+              <button onClick={handleAddResource} disabled={!upName.trim() || !upType || uploading || upSaved || (upType === 'link' ? !upLink.trim() : false)} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: upSaved ? '#5FAD8E' : !upName.trim() || !upType ? '#F3F1EC' : '#E8956D', color: !upName.trim() || !upType ? '#C4C1D4' : 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: uploading ? 0.7 : 1 }}>
                 {upSaved ? 'Saved!' : uploading ? 'Uploading...' : upFile ? 'Upload & Save' : 'Save Resource'}
               </button>
             </div>

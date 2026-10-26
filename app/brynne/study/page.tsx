@@ -8,7 +8,8 @@ import { localDateStr } from '../../../lib/dates';
 import TabBar from '../../components/TabBar';
 import FolderPicker from '../../components/FolderPicker';
 import GuideHtml from '../../components/GuideHtml';
-import { MATH_FORMAT_RULES } from '../../../lib/prompts';
+import { MATH_FORMAT_RULES, CLASS_RULES } from '../../../lib/prompts';
+import { gradeShort } from '../../../lib/students';
 
 function Mountain() {
   return (
@@ -91,10 +92,10 @@ function IconStack({ c, size = 16 }: { c: string; size?: number }) {
 }
 
 const LEVELS = [
-  { id: 'outline',  label: 'Outline',  desc: 'Headers and bullets only. Quick overview!' },
+  { id: 'outline',  label: 'Outline',  desc: 'Headers and bullets only. Quick overview.' },
   { id: 'basic',    label: 'Basic',    desc: 'Short explanations. Good for review.' },
   { id: 'detailed', label: 'Detailed', desc: 'Full explanations with examples.' },
-  { id: 'mastery',  label: 'Mastery',  desc: 'Deep dive into everything. For real learning!' },
+  { id: 'mastery',  label: 'Mastery',  desc: 'Deep dive. For thorough understanding.' },
 ];
 const QUESTION_FORMATS = ['Multiple Choice', 'Short Answer', 'Both'];
 
@@ -263,11 +264,11 @@ function BrynneStudyInner() {
   const weakSpotsList: string[] = weakSpotsRaw ? (() => { try { return JSON.parse(decodeURIComponent(weakSpotsRaw)); } catch { return []; } })() : [];
 
   const [screen, setScreen] = useState<'history' | 'setup' | 'view'>('history');
-  const [savedGuides, setSavedGuides] = useState<SavedGuide[]>([]);
-  const [histLoading, setHistLoading] = useState(true);
-  const [renamingId,  setRenamingId]  = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState('');
-  const [movingId,    setMovingId]    = useState<string | null>(null);
+  const [savedGuides,  setSavedGuides]  = useState<SavedGuide[]>([]);
+  const [histLoading,  setHistLoading]  = useState(true);
+  const [renamingId,   setRenamingId]   = useState<string | null>(null);
+  const [renameValue,  setRenameValue]  = useState('');
+  const [movingId,     setMovingId]     = useState<string | null>(null);
   const [pickingFolder, setPickingFolder] = useState(false);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedFolderName, setSelectedFolderName] = useState<string>('');
@@ -308,19 +309,22 @@ function BrynneStudyInner() {
   const fetchClassMeta = async (fId: string) => {
     const [{ data: folder }, { data: student }] = await Promise.all([
       supabase.from('exam_folders').select('name, exam_date, class_id').eq('id', fId).single(),
-      supabase.from('students').select('name, grade, track, target_school, target_program, grad_year, generation_profile').eq('id', 'brynne').single(),
+      supabase.from('students').select('name, track, target_school, target_program, grad_year, generation_profile').eq('id', 'brynne').single(),
     ]);
     if (!folder) return;
     const { data: cls } = await supabase.from('classes').select('name, professor, notes').eq('id', folder.class_id).single();
     if (cls) setClassMeta({
-      className: cls.name, professor: cls.professor || '', notes: cls.notes || '',
-      folderName: folder.name, examDate: folder.exam_date,
-      studentName: student?.name || 'Brynne',
-      studentGrade: student?.grade || '5th grade',
-      studentTrack: student?.track || 'Pre-Med',
-      studentSchool: student?.target_school || 'WVU',
-      studentProgram: student?.target_program || 'WVU School of Medicine',
-      studentGradYear: student?.grad_year ? String(student.grad_year) : '2033',
+      className:         cls.name,
+      professor:         cls.professor || '',
+      notes:             cls.notes || '',
+      folderName:        folder.name,
+      examDate:          folder.exam_date,
+      studentName:       student?.name || 'Brynne',
+      studentGrade:      student?.grad_year ? gradeShort(student.grad_year) : '',
+      studentTrack:      student?.track || 'Pre-Med',
+      studentSchool:     student?.target_school || 'WVU',
+      studentProgram:    student?.target_program || 'WVU School of Medicine',
+      studentGradYear:   student?.grad_year ? String(student.grad_year) : '',
       generationProfile: student?.generation_profile || '',
     });
   };
@@ -451,28 +455,28 @@ function BrynneStudyInner() {
   const buildPrompt = (fileCount: number) => {
     const levelInstructions: Record<string, string> = {
       outline:  'Generate a clean outline — headers and bullet points only, no prose paragraphs.',
-      basic:    'Generate a basic study guide with short, friendly explanations under each heading.',
+      basic:    'Generate a basic study guide with short, direct explanations under each heading.',
       detailed: 'Generate a detailed study guide with full explanations, examples, and context.',
       mastery:  'Generate a comprehensive mastery-level guide with deep explanations, mechanisms, and connections across all materials.',
     };
     const studentCtx = classMeta
       ? `You are building a study guide for ${classMeta.studentName}. Calibrate depth and vocabulary to match the level of the uploaded materials.${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
-      : `You are building a study guide for Brynne. Calibrate depth and vocabulary to match the level of the uploaded materials.`;
+      : `You are building a study guide. Calibrate depth and vocabulary to match the level of the uploaded materials.`;
     const classCtx = classMeta
-      ? `Class: ${classMeta.className}. Exam: ${classMeta.folderName}${classMeta.examDate ? ` (${new Date(classMeta.examDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})` : ''}. Teacher: ${classMeta.professor || 'unknown'}.${classMeta.notes ? ` Teacher notes: "${classMeta.notes}"` : ''}`
+      ? `Class: ${classMeta.className}. Exam: ${classMeta.folderName}${classMeta.examDate ? ` (${new Date(classMeta.examDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})` : ''}. Professor: ${classMeta.professor || 'unknown'}.${classMeta.notes ? ` Professor notes: "${classMeta.notes}"` : ''}`
       : '';
     const goalCtx = classMeta
-      ? `Your ONLY goal is to help ${classMeta.studentName} earn an A on ${classMeta.folderName}${classMeta.professor ? ` with ${classMeta.professor}` : ''} in ${classMeta.className}. Think exactly like this teacher: what concepts do they emphasize, what is in scope, what will they put on this exam. STRICT RULES: (1) Every fact, concept, and example must come directly from the uploaded materials — no outside knowledge, no motivational framing, no career context. (2) If a concept appears across multiple uploaded sources, it is high-yield — flag it with a LIKELY TESTED callout because the teacher clearly thinks it matters. (3) Your job is exam preparation, nothing else.`
-      : `Your ONLY goal is to help the student earn an A on their exam. Think like the teacher who wrote these materials. STRICT RULES: (1) Every fact, concept, and example must come directly from the uploaded materials — no outside knowledge, no motivational framing. (2) If a concept appears across multiple uploaded sources, flag it as LIKELY TESTED. (3) Your job is exam preparation, nothing else.`;
+      ? `Your ONLY goal is to help ${classMeta.studentName} earn an A on ${classMeta.folderName}${classMeta.professor ? ` with ${classMeta.professor}` : ''} in ${classMeta.className}. Think exactly like this professor: what concepts do they emphasize, what is in scope, what will they put on this exam. STRICT RULES: (1) Every fact, concept, and example must come directly from the uploaded materials — no outside knowledge, no motivational framing, no career context. (2) If a concept appears across multiple uploaded sources, it is high-yield — flag it with a LIKELY TESTED callout because the professor clearly thinks it matters. (3) Your job is exam preparation, nothing else.`
+      : `Your ONLY goal is to help the student earn an A on their exam. Think like the professor who wrote these materials. STRICT RULES: (1) Every fact, concept, and example must come directly from the uploaded materials — no outside knowledge, no motivational framing. (2) If a concept appears across multiple uploaded sources, flag it as LIKELY TESTED. (3) Your job is exam preparation, nothing else.`;
     const crossDoc = fileCount > 1
-      ? `Analyze all ${fileCount} documents and identify the highest-yield topics — concepts that appear repeatedly, are emphasized, or are most likely to appear on this teacher's exam. Do NOT go deeper than what the teacher's materials cover.`
+      ? `Analyze all ${fileCount} documents and identify the highest-yield topics — concepts that appear repeatedly, are emphasized, or are most likely to appear on this professor's exam. Do NOT go deeper than what the professor's materials cover.`
       : `Focus only on what is in these materials. Do not expand beyond the scope of what was taught.`;
     const c = customInstructions.trim() ? `\n\nAdditional instructions: ${customInstructions.trim()}` : '';
-    const w = weakSpotsList.length > 0 ? `\n\nPRIORITY FOCUS — These are Brynne's confirmed weak spots: ${weakSpotsList.map((ws, i) => `${i + 1}. ${ws}`).join('; ')}. Dedicate a clearly labeled section to these topics with friendly explanations. 🌟` : '';
+    const w = weakSpotsList.length > 0 ? `\n\nPRIORITY FOCUS — These are Brynne's confirmed weak spots: ${weakSpotsList.map((ws, i) => `${i + 1}. ${ws}`).join('; ')}. Dedicate a clearly labeled section to these topics.` : '';
     const chem = chemMode ? '\n\nCHEMISTRY MODE — For common stable molecules only, include SMILES formatted as [SMILES: xxx | Molecule Name] after the sentence that references them.' : '';
     const q = addQuestions ? `\n\nAdd a Practice Questions section with ${questionFormat === 'Both' ? 'mixed multiple choice and short answer' : questionFormat.toLowerCase()} questions.${showAnswers ? ' Include answers and explanations.' : ' Do not include answers.'}` : '';
 
-    const figuresInject = smartFigures ? `\n\nSMART FIGURES — For concepts that meet ANY of these criteria: (1) appears across multiple source documents, (2) is clearly testable and visual in nature, (3) cannot be adequately explained in text alone — include an inline SVG diagram. Wrap it in <div class="sg-figure"><svg viewBox="0 0 W H" width="100%" xmlns="http://www.w3.org/2000/svg">...</svg><span class="sg-figure-caption">Caption here</span></div>. IMPORTANT: never use height="auto" on SVG elements — use only viewBox and width="100%", no height attribute at all. Keep SVGs simple, clean, monochrome using stroke="#1D1B26" and fill="none" or fill="#EDE9F7". Good candidates: cycles, pathways, structures, comparisons, timelines, flowcharts. Bad candidates: anything that text explains just as well.` : '';
+    const figuresInject = smartFigures ? `\n\nSMART FIGURES — For concepts that meet ANY of these criteria: (1) appears across multiple source documents, (2) is clearly testable and visual in nature, (3) cannot be adequately explained in text alone — include an inline SVG diagram. Wrap it in <div class="sg-figure"><svg viewBox="0 0 W H" width="100%" xmlns="http://www.w3.org/2000/svg">...</svg><span class="sg-figure-caption">Caption here</span></div>. IMPORTANT: never use height="auto" on SVG elements — use only viewBox and width="100%", no height attribute at all. Keep SVGs simple, clean, monochrome using stroke="#1D1B26" and fill="none" or fill="#FFF3E8". Good candidates: cycles, pathways, structures, comparisons, timelines, flowcharts. Bad candidates: anything that text explains just as well.` : '';
 
     const imageInstructions = `\n\nPROFESSOR IMAGES — If professor slide images were extracted and provided to you as ready-made HTML img tags, embed each one exactly as given near the section it illustrates. Do not skip any image. Do not alter the src URL. These are the professor's actual figures and may appear on exams.`;
 
@@ -531,7 +535,7 @@ RULES:
 
     const htmlInstructions = guideMode === 'adaptive' ? adaptiveInstructions : standardInstructions;
 
-    return `You are Ascend, an expert study assistant. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\n${crossDoc}\n\n${level ? levelInstructions[level] : ''}${c}${w}${chem}${figuresInject}${q}${imageInstructions}${MATH_FORMAT_RULES}${htmlInstructions}`;
+    return `You are Ascend, an expert study assistant. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\n${crossDoc}\n\n${level ? levelInstructions[level] : ''}${c}${w}${chem}${figuresInject}${q}${imageInstructions}${CLASS_RULES}${MATH_FORMAT_RULES}${htmlInstructions}`;
   };
 
   const handleGenerate = async () => {
@@ -580,10 +584,11 @@ RULES:
       formData.append('prompt', buildPrompt(allFiles.length + transcripts.length));
       if (transcripts.length > 0) formData.append('transcripts', JSON.stringify(transcripts));
       setLoadingMessage('Building your study guide...');
-      const res = await fetch('/api/generate-study-guide', { method: 'POST', body: formData });
+      const res = await fetch('/api/generate-study-guide', { method: 'POST', body: formData, signal: ac.signal });
       if (!res.ok) throw new Error('Generation failed');
       const contentType = res.headers.get('content-type') || '';
       if (contentType.includes('text/event-stream')) {
+        // Streaming response
         const reader = res.body!.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
@@ -634,6 +639,7 @@ RULES:
           finalize();
         }
       } else {
+        // Fallback non-streaming
         const data = await res.json();
         if (data.error) throw new Error(data.error);
         setStudyGuide(data.studyGuide);
@@ -648,7 +654,7 @@ RULES:
       if (!guideName) setGuideName(allFiles.length > 0 ? allFiles[0].name.replace('.pdf', '') : transcripts.length > 0 ? transcripts[0].name : 'Study Guide');
     } catch (e: unknown) {
       if ((e as { name?: string })?.name !== 'AbortError') {
-        setError('Something went wrong. Please try again!');
+        setError('Could not generate study guide. Please try again.');
         // The view screen opens as soon as the stream starts; on failure go back to setup so the error is visible.
         setScreen('setup'); setStudyGuide(''); setShowNamePrompt(false);
       }
@@ -665,7 +671,7 @@ RULES:
       await supabase.from('tasks').insert([1, 3, 7].map(days => ({ student_id: 'brynne', title: `Review: ${guideName.trim()}`, due_date: addDays(today, days), task_type: 'review', completed: false, resource_id: insertedGuide?.id || null, resource_type: 'study_guide' })));
       setSaved(true); setShowNamePrompt(false);
       loadHistory();
-    } catch { setError('Could not save. Please try again!'); }
+    } catch { setError('Could not save. Please try again.'); }
     finally { setSaving(false); }
   };
 
@@ -683,7 +689,11 @@ RULES:
 
   const handlePrint = () => { window.print(); };
   const handlePDF   = () => { window.print(); };
-  const getPlainText = () => { const div = document.createElement('div'); div.innerHTML = studyGuide; return div.textContent || div.innerText || studyGuide; };
+  const getPlainText = () => {
+    const div = document.createElement('div');
+    div.innerHTML = studyGuide;
+    return div.textContent || div.innerText || studyGuide;
+  };
   const handleCopy  = async () => { await navigator.clipboard.writeText(getPlainText()); setCopied(true); setTimeout(() => setCopied(false), 2000); };
   const handleShare = async () => { if (navigator.share) { await navigator.share({ title: guideName || 'Ascend Study Guide', text: getPlainText() }); } else handleCopy(); };
 
@@ -703,7 +713,7 @@ RULES:
         </Link>
       </nav>
 
-      {/* HISTORY */}
+      {/* HISTORY SCREEN */}
       {screen === 'history' && (
         <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
@@ -711,16 +721,16 @@ RULES:
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Brynne</div>
               <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px' }}>Study Guides</div>
             </div>
-            <button onClick={() => setScreen('setup')} style={{ padding: '10px 18px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ New Guide</button>
+            <button onClick={() => setScreen('setup')} style={{ padding: '10px 18px', borderRadius: 999, background: '#E8956D', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ New Guide</button>
           </div>
           {histLoading ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: '#9E9BB0', fontSize: 13 }}>Loading...</div>
           ) : savedGuides.length === 0 ? (
             <div style={{ background: '#FFFFFF', border: '1.5px dashed #C4C1D4', borderRadius: 18, padding: '48px 20px', textAlign: 'center' }}>
               <div style={{ width: 72, height: 72, borderRadius: 20, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}><IconBrain c={color} size={36} /></div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26', marginBottom: 8 }}>No study guides yet!</div>
-              <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 24 }}>Ascend can make you an awesome study guide from your notes! 🌟</div>
-              <button onClick={() => setScreen('setup')} style={{ padding: '12px 24px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Make My First Guide! 🌟</button>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26', marginBottom: 8 }}>No study guides yet</div>
+              <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 24 }}>Generate a study guide from your uploaded materials.</div>
+              <button onClick={() => setScreen('setup')} style={{ padding: '12px 24px', borderRadius: 999, background: '#E8956D', border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate First Guide</button>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -756,7 +766,7 @@ RULES:
                       <button onClick={() => { if (confirm('Delete this study guide?')) deleteGuide(guide.id); }} aria-label="Delete" title="Delete" style={{ fontSize: 10, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                     </div>
                   </div>
-                  <button onClick={() => openGuide(guide.id)} style={{ width: '100%', padding: '8px', borderRadius: 10, border: 'none', background: color, color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>View Guide</button>
+                  <button onClick={() => openGuide(guide.id)} style={{ width: '100%', padding: '8px', borderRadius: 10, border: 'none', background: '#E8956D', color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>View Guide</button>
                 </div>
               ))}
             </div>
@@ -778,21 +788,22 @@ RULES:
         />
       )}
 
-      {/* SETUP */}
+      {/* SETUP SCREEN */}
       {screen === 'setup' && (
         <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
-          <button onClick={() => { setScreen('history'); setNewFileNames({}); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Study Guides</button>
+          <button onClick={() => setScreen('history')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Study Guides</button>
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Brynne</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>New Study Guide</div>
-            <div style={{ fontSize: 13, color: '#9E9BB0' }}>Pick your materials and Ascend will make you an awesome study guide!</div>
+            <div style={{ fontSize: 13, color: '#9E9BB0' }}>Select materials and Ascend will generate a structured study guide.</div>
           </div>
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Pick Your Materials</div>
-                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>{totalSelected > 0 ? `${totalSelected} file${totalSelected !== 1 ? 's' : ''} selected! 🎉` : 'Choose from your uploaded files or add new ones'}</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Select Resources</div>
+                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>{totalSelected > 0 ? `${totalSelected} file${totalSelected !== 1 ? 's' : ''} selected` : 'Choose from your uploaded library or add new files'}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {totalSelected > 0 && <button onClick={() => { setSelectedIds(new Set()); setNewFiles([]); setNewFileNames({}); }} style={{ padding: '6px 12px', borderRadius: 999, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#9E9BB0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear</button>}
@@ -818,7 +829,7 @@ RULES:
                               value={newFileNames[i] ?? ''}
                               onChange={e => setNewFileNames(prev => ({ ...prev, [i]: e.target.value }))}
                               placeholder='Name this photo, e.g. "Cell Diagram Ch. 4"'
-                              style={{ width: '100%', padding: '7px 10px', border: `1.5px solid ${color}60`, borderRadius: 8, fontFamily: 'var(--font-jakarta)', fontSize: 11, color: '#1D1B26', background: '#FFFFFF', outline: 'none', boxSizing: 'border-box' as const }}
+                              style={{ width: '100%', padding: '7px 10px', border: `1.5px solid ${color}60`, borderRadius: 8, fontFamily: 'var(--font-jakarta)', fontSize: 12, color: '#1D1B26', background: '#FFFFFF', outline: 'none', boxSizing: 'border-box' as const }}
                             />
                           </div>
                         )}
@@ -828,11 +839,11 @@ RULES:
                 </div>
               )}
               {libLoading ? (
-                <div style={{ textAlign: 'center', padding: '20px 0', color: '#9E9BB0', fontSize: 13 }}>Loading your files...</div>
+                <div style={{ textAlign: 'center', padding: '20px 0', color: '#9E9BB0', fontSize: 13 }}>Loading library...</div>
               ) : library.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '24px 0', border: '2px dashed #E8E5F0', borderRadius: 12 }}>
                   <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}><IconEmptyFolder size={40} /></div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>No files uploaded yet!</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>No uploaded files yet</div>
                   <div style={{ fontSize: 12, color: '#9E9BB0' }}>Upload files to your class folders, or use the button above.</div>
                 </div>
               ) : (
@@ -890,9 +901,9 @@ RULES:
                 </div>
               )}
               {totalSelected > 0 && (
-                <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 10, background: color, color: 'white', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 10, background: '#E8956D', color: 'white', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <IconStack c="rgba(255,255,255,0.8)" size={15} />
-                  <span style={{ fontSize: 12, fontWeight: 700 }}>{totalSelected} file{totalSelected !== 1 ? 's' : ''} selected{totalSelected > 1 ? ' — Ascend will find what shows up most! 🌟' : ''}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700 }}>{totalSelected} file{totalSelected !== 1 ? 's' : ''} selected{totalSelected > 1 ? ' — Ascend will identify cross-document patterns' : ''}</span>
                 </div>
               )}
             </div>
@@ -930,7 +941,7 @@ RULES:
             )}
 
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 12 }}>How Much Detail?</div>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 12 }}>Detail Level</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 {LEVELS.map(l => (
                   <div key={l.id} onClick={() => setLevel(level === l.id ? '' : l.id)} style={{ padding: '12px 14px', borderRadius: 12, border: `2px solid ${level === l.id ? color : '#E8E5F0'}`, background: level === l.id ? light : '#FAFAF8', cursor: 'pointer' }}>
@@ -942,16 +953,16 @@ RULES:
             </div>
 
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 4 }}>Special Instructions</div>
-              <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 10 }}>Tell Ascend anything special you want it to focus on!</div>
-              <textarea value={customInstructions} onChange={e => setCustomInstructions(e.target.value)} placeholder='e.g. "Focus on chapter 3" or "Make it easy to understand"' rows={3} style={{ width: '100%', padding: '11px 13px', border: `1.5px solid ${color}20`, borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.6 }} />
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 4 }}>Custom Instructions</div>
+              <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 10 }}>Narrow the focus or give Ascend specific direction.</div>
+              <textarea value={customInstructions} onChange={e => setCustomInstructions(e.target.value)} placeholder='e.g. "Focus on Chapter 3" or "Emphasize reaction mechanisms"' rows={3} style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.6 }} />
             </div>
 
             <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: addQuestions ? 16 : 0 }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Add Practice Questions?</div>
-                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>Add some questions to test yourself!</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Add Practice Questions</div>
+                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>Append active recall questions to the guide.</div>
                 </div>
                 <button onClick={() => setAddQuestions(q => !q)} style={{ width: 40, height: 22, borderRadius: 999, border: 'none', background: addQuestions ? color : '#E8E5F0', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
                   <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'white', position: 'absolute', top: 3, left: addQuestions ? 20 : 3, transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />
@@ -970,7 +981,7 @@ RULES:
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 2 }}>Show Answers</div>
-                      <div style={{ fontSize: 11, color: '#9E9BB0' }}>See the answers right away</div>
+                      <div style={{ fontSize: 11, color: '#9E9BB0' }}>Include answers and explanations</div>
                     </div>
                     <button onClick={() => setShowAnswers(a => !a)} style={{ width: 40, height: 22, borderRadius: 999, border: 'none', background: showAnswers ? color : '#E8E5F0', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
                       <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'white', position: 'absolute', top: 3, left: showAnswers ? 20 : 3, transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />
@@ -1017,38 +1028,39 @@ RULES:
             </div>
 
             {error && <p style={{ fontSize: 13, color: '#C47878' }}>{error}</p>}
+
             {loading ? (
               <div style={{ textAlign: 'center', padding: '24px 0' }}>
                 <div style={{ width: 32, height: 32, border: '2.5px solid #E8E5F0', borderTopColor: color, borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.75s linear infinite' }} />
-                <div style={{ fontSize: 13, color: '#9E9BB0' }}>{loadingMessage || (totalSelected > 1 ? `Looking through ${totalSelected} files for the best stuff... 🌟` : 'Making your study guide...')}</div>
+                <div style={{ fontSize: 13, color: '#9E9BB0' }}>{loadingMessage || (totalSelected > 1 ? `Analyzing ${totalSelected} documents...` : 'Generating study guide...')}</div>
                 <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
               </div>
             ) : (
-              <button onClick={handleGenerate} disabled={!canGenerate} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: canGenerate ? color : '#F3F1EC', color: canGenerate ? 'white' : '#C4C1D4', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                {canGenerate ? (totalSelected > 1 ? `Make Study Guide from ${totalSelected} Files 🌟` : 'Make My Study Guide! 🌟') : 'Pick some files or add instructions to start'}
+              <button onClick={handleGenerate} disabled={!canGenerate} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: canGenerate ? '#E8956D' : '#F3F1EC', color: canGenerate ? 'white' : '#C4C1D4', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                {canGenerate ? (totalSelected > 1 ? `Generate Study Guide from ${totalSelected} Files` : 'Generate Study Guide') : 'Select resources or add instructions to start'}
               </button>
             )}
           </div>
         </main>
       )}
 
-      {/* VIEW */}
+      {/* VIEW SCREEN */}
       {screen === 'view' && (
         <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
           <button onClick={() => { if (!saved && studyGuide && !confirm('Leave without saving your study guide?')) return; cleanupTempImages(); setScreen('history'); setStudyGuide(''); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); setNewFileNames({}); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Study Guides</button>
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '24px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
             {showNamePrompt && (
               <div style={{ background: light, borderRadius: 14, padding: '18px', marginBottom: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color, marginBottom: 10 }}>What should we call this study guide?</div>
-                <input type="text" value={guideName} onChange={e => setGuideName(e.target.value)} placeholder='e.g. "Chapter 4 Math Study Guide"' style={{ width: '100%', padding: '10px 13px', border: `1.5px solid ${color}`, borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FFFFFF', outline: 'none', marginBottom: 10 }} />
-                <button onClick={handleSave} disabled={!guideName.trim() || saving} style={{ width: '100%', padding: '11px', borderRadius: 11, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !guideName.trim() || saving ? 0.4 : 1 }}>
-                  {saving ? 'Saving...' : 'Save to Ascend 🌟'}
+                <div style={{ fontSize: 13, fontWeight: 700, color, marginBottom: 10 }}>Name this study guide</div>
+                <input type="text" value={guideName} onChange={e => setGuideName(e.target.value)} placeholder='e.g. "AP Bio — Cell Respiration"' style={{ width: '100%', padding: '10px 13px', border: `1.5px solid ${color}`, borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FFFFFF', outline: 'none', marginBottom: 10 }} />
+                <button onClick={handleSave} disabled={!guideName.trim() || saving} style={{ width: '100%', padding: '11px', borderRadius: 11, border: 'none', background: '#E8956D', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !guideName.trim() || saving ? 0.4 : 1 }}>
+                  {saving ? 'Saving...' : 'Save to Ascend'}
                 </button>
               </div>
             )}
             {saved && !showNamePrompt && (
               <div style={{ background: '#EDF7F2', borderRadius: 12, padding: '12px 16px', marginBottom: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#5FAD8E' }}>✅ Saved! Review reminders set for Day 1, Day 3, and Day 7!</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#5FAD8E' }}>Saved — review tasks created for Day 1, 3, and 7.</div>
               </div>
             )}
             {sourceFiles.length > 0 && (
@@ -1063,16 +1075,17 @@ RULES:
               </div>
             )}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26' }}>{guideName || 'Your Study Guide'}</div>
-              <button onClick={() => { if (!saved && studyGuide && !confirm('Leave without saving your study guide?')) return; cleanupTempImages(); setStudyGuide(''); setSelectedIds(new Set()); setNewFiles([]); setNewFileNames({}); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); setScreen('setup'); }} style={{ fontSize: 12, fontWeight: 700, color, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Make Another</button>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26' }}>{guideName || 'Study Guide'}</div>
+              <button onClick={() => { if (!saved && studyGuide && !confirm('Leave without saving your study guide?')) return; cleanupTempImages(); setStudyGuide(''); setSelectedIds(new Set()); setNewFiles([]); setNewFileNames({}); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); setScreen('setup'); }} style={{ fontSize: 12, fontWeight: 700, color, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate Another</button>
             </div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
               <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}><IconPrint size={14} /> Print</button>
               <button onClick={handleShare} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}><IconShare size={14} /> Share</button>
-              <button onClick={handleCopy} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: `1.5px solid ${copied ? '#5FAD8E' : '#E8E5F0'}`, background: copied ? '#EDF7F2' : '#FAFAF8', color: copied ? '#5FAD8E' : '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}><IconCopy c={copied ? '#5FAD8E' : '#6B6880'} size={14} /> {copied ? 'Copied!' : 'Copy'}</button>
+              <button onClick={handleCopy} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: `1.5px solid ${copied ? '#5FAD8E' : '#E8E5F0'}`, background: copied ? '#EDF7F2' : '#FAFAF8', color: copied ? '#5FAD8E' : '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}><IconCopy c={copied ? '#5FAD8E' : '#6B6880'} size={14} /> {copied ? 'Copied' : 'Copy'}</button>
               <button onClick={handlePDF} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}><IconDownload size={14} /> PDF</button>
             </div>
 
+            {/* Print zone — visible on screen, beautifully isolated during print */}
             <div id="ascend-print-zone">
               <div ref={printRef} className="sg-wrap">
                 {classMeta && (
@@ -1088,9 +1101,9 @@ RULES:
                     </div>
                     <div className="sg-header-right">
                       <svg className="sg-header-logo" width="22" height="20" viewBox="0 0 60 56" fill="none">
-                        <path d="M4 52L22 10L40 52" stroke="#7B6FA0" strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round"/>
-                        <path d="M31 52L42 28L53 52" stroke="#7B6FA0" strokeWidth="2.8" strokeLinejoin="round" strokeLinecap="round"/>
-                        <line x1="2" y1="52" x2="56" y2="52" stroke="#7B6FA0" strokeWidth="2.5" strokeLinecap="round"/>
+                        <path d="M4 52L22 10L40 52" stroke="#E8956D" strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round"/>
+                        <path d="M31 52L42 28L53 52" stroke="#E8956D" strokeWidth="2.8" strokeLinejoin="round" strokeLinecap="round"/>
+                        <line x1="2" y1="52" x2="56" y2="52" stroke="#E8956D" strokeWidth="2.5" strokeLinecap="round"/>
                       </svg>
                       <div className="sg-header-date">
                         {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -1111,7 +1124,7 @@ RULES:
                     ol: ({children}) => <ol style={{ paddingLeft: '1.25rem', marginBottom: '0.75rem', listStyleType: 'decimal' }}>{children}</ol>,
                     li: ({children}) => <li style={{ fontSize: '0.9rem', lineHeight: 1.75, color: '#1D1B26', marginBottom: '0.2rem' }}>{children}</li>,
                     hr: () => <hr style={{ border: 'none', borderTop: '1px solid #E8E5F0', margin: '1.5rem 0' }} />,
-                    blockquote: ({children}) => <blockquote style={{ borderLeft: '3px solid #E8956D', margin: '1rem 0', padding: '8px 0 8px 14px', background: '#FFF3E8', borderRadius: '0 8px 8px 0' }}>{children}</blockquote>,
+                    blockquote: ({children}) => <blockquote style={{ borderLeft: '3px solid #E8956D', margin: '1rem 0', padding: '8px 0 8px 14px', background: '#F5F3FC', borderRadius: '0 8px 8px 0' }}>{children}</blockquote>,
                   }}>{studyGuide}</ReactMarkdown>
                 )}
               </div>

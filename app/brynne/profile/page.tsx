@@ -4,6 +4,8 @@ import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import TabBar from '../../components/TabBar';
 import { supabase } from '../../../lib/supabase';
+import { gradeLabel } from '../../../lib/students';
+import { useMounted } from '../../../lib/useMounted';
 
 function Mountain() {
   return (
@@ -28,15 +30,17 @@ const color = '#E8956D';
 const light = '#FFF3E8';
 
 export default function BrynneProfile() {
+  const mounted = useMounted();
   const [name,              setName]              = useState('Brynne');
-  const [grade,             setGrade]             = useState('5th Grade');
-  const [focus,             setFocus]             = useState('Future WVU Physician');
+  const [focus,             setFocus]             = useState('WVU School of Medicine');
   const [track,             setTrack]             = useState('Pre-Med');
-  const [bio,               setBio]               = useState('Already crushing high school Algebra in 5th grade. The Dragon is just getting started! 🐉');
+  const [bio,               setBio]               = useState('');
   const [targetSchool,      setTargetSchool]      = useState('WVU');
   const [targetProgram,     setTargetProgram]     = useState('WVU School of Medicine');
   const [gradYear,          setGradYear]          = useState('2033');
   const [generationProfile, setGenerationProfile] = useState('');
+  // The grade is never typed in: it's worked out from the graduation year, so it advances by itself each August.
+  const gradeText = mounted && /^\d{4}$/.test(gradYear) ? gradeLabel(parseInt(gradYear, 10)) : '';
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [draft,        setDraft]        = useState('');
@@ -49,10 +53,9 @@ export default function BrynneProfile() {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from('students').select('name, grade, focus, track, bio, target_school, target_program, grad_year, generation_profile').eq('id', 'brynne').single();
+      const { data } = await supabase.from('students').select('name, focus, track, bio, target_school, target_program, grad_year, generation_profile').eq('id', 'brynne').single();
       if (data) {
         if (data.name)               setName(data.name);
-        if (data.grade)              setGrade(data.grade);
         if (data.focus)              setFocus(data.focus);
         if (data.track)              setTrack(data.track);
         if (data.bio)                setBio(data.bio);
@@ -88,7 +91,6 @@ export default function BrynneProfile() {
       return;
     }
     if (field === 'name')               setName(draft.trim());
-    if (field === 'grade')              setGrade(draft.trim());
     if (field === 'focus')              setFocus(draft.trim());
     if (field === 'track')              setTrack(draft.trim());
     if (field === 'bio')                setBio(draft.trim());
@@ -165,24 +167,13 @@ export default function BrynneProfile() {
           )}
           {savedField === 'name' && <div style={{ fontSize: 11, color: '#5FAD8E', fontWeight: 700, marginBottom: 4 }}>✅ Saved!</div>}
 
-          {/* Grade */}
-          {editingField === 'grade' ? (
-            <div style={{ width: '100%', maxWidth: 320, textAlign: 'left', marginBottom: 8 }}>
-              <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('grade'); if (e.key === 'Escape') cancelEdit(); }} style={inputStyle} />
-              {renderSaveButtons('grade')}
-            </div>
-          ) : (
-            <div onClick={() => startEdit('grade', grade)} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 10 }}>
-              <div style={{ fontSize: 13, color: '#9E9BB0' }}>{grade}</div>
-              <EditIcon />
-            </div>
-          )}
-          {savedField === 'grade' && <div style={{ fontSize: 11, color: '#5FAD8E', fontWeight: 700, marginBottom: 4 }}>✅ Saved!</div>}
+          {/* Grade — read-only: computed from the graduation year below */}
+          <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 10, minHeight: 18 }}>{gradeText || '\u00A0'}</div>
 
           {/* Focus — the tagline shown under the name on the home screen */}
           {editingField === 'focus' ? (
             <div style={{ width: '100%', maxWidth: 320, textAlign: 'left', marginBottom: 8 }}>
-              <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('focus'); if (e.key === 'Escape') cancelEdit(); }} placeholder="e.g. WVU Biology · Pre-Dental" style={inputStyle} />
+              <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('focus'); if (e.key === 'Escape') cancelEdit(); }} placeholder="e.g. WVU Exercise Physiology · Pre-Med Track" style={inputStyle} />
               {renderSaveButtons('focus')}
             </div>
           ) : (
@@ -237,7 +228,7 @@ export default function BrynneProfile() {
             {/* Grad Year */}
             {editingField === 'grad_year' ? (
               <div style={{ width: '100%', maxWidth: 320 }}>
-                <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('grad_year'); if (e.key === 'Escape') cancelEdit(); }} placeholder="e.g. 2033" style={inputStyle} />
+                <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('grad_year'); if (e.key === 'Escape') cancelEdit(); }} placeholder="e.g. 2027" style={inputStyle} />
                 {renderSaveButtons('grad_year')}
               </div>
             ) : (
@@ -252,7 +243,7 @@ export default function BrynneProfile() {
           )}
         </div>
 
-        {/* Stats */}
+        {/* Stats grid */}
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 12 }}>Activity</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 24 }}>
           {stats.map((s, i) => (
@@ -268,7 +259,7 @@ export default function BrynneProfile() {
         {/* Generation Profile */}
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 6 }}>Generation Profile</div>
         <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 12, lineHeight: 1.5 }}>
-          This helps Ascend make study guides, flashcards, and practice exams just for you! Tell it how you learn best. 🌟
+          This context is injected into every study guide, flashcard deck, and practice exam Ascend generates for you. Be specific — the more detail, the better the output.
         </div>
         <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 16, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
           {editingField === 'generation_profile' ? (
@@ -278,7 +269,7 @@ export default function BrynneProfile() {
                 value={draft}
                 onChange={e => setDraft(e.target.value)}
                 rows={5}
-                placeholder='e.g. "I learn best with examples and pictures. I like when things are explained step by step. Math is my favorite subject!"'
+                placeholder='e.g. "I am strongest in conceptual understanding but weak on calculations and application questions. My professors tend to test heavily on lecture material over the textbook. Flag anything that overlaps with MCAT content."'
                 style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6 }}
               />
               {renderSaveButtons('generation_profile')}
@@ -286,7 +277,7 @@ export default function BrynneProfile() {
           ) : (
             <div onClick={() => startEdit('generation_profile', generationProfile)} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', cursor: 'pointer' }}>
               <div style={{ fontSize: 13, color: generationProfile ? '#9E9BB0' : '#C4C1D4', lineHeight: 1.6, flex: 1, fontStyle: generationProfile ? 'normal' : 'italic' }}>
-                {generationProfile || 'Tap to tell Ascend how you learn best! 🌟'}
+                {generationProfile || 'Tap to add your generation profile — helps Ascend generate more targeted materials.'}
               </div>
               <div style={{ marginLeft: 12, flexShrink: 0, marginTop: 2 }}><EditIcon /></div>
             </div>
@@ -294,7 +285,7 @@ export default function BrynneProfile() {
           {savedField === 'generation_profile' && <div style={{ fontSize: 11, color: '#5FAD8E', fontWeight: 700, marginTop: 8 }}>✅ Saved!</div>}
         </div>
 
-        {/* About */}
+        {/* About / Bio */}
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 12 }}>About</div>
         <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 16, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
           {editingField === 'bio' ? (
@@ -329,6 +320,7 @@ export default function BrynneProfile() {
             <div style={{ fontSize: 11, fontWeight: 700, color: '#C4C1D4', background: '#F3F1EC', padding: '4px 10px', borderRadius: 999 }}>Soon</div>
           </div>
         </div>
+
       </main>
       <TabBar student="brynne" />
     </div>

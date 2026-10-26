@@ -28,6 +28,19 @@ function IconCalendarEvent({ c, size = 20 }: { c: string; size?: number }) {
   );
 }
 
+function IconEmptyDay({ size = 48 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+      <rect x="6" y="10" width="36" height="32" rx="4" stroke="#C4C1D4" strokeWidth="1.8" fill="none"/>
+      <line x1="6" y1="18" x2="42" y2="18" stroke="#C4C1D4" strokeWidth="1.4"/>
+      <line x1="15" y1="6" x2="15" y2="14" stroke="#C4C1D4" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="33" y1="6" x2="33" y2="14" stroke="#C4C1D4" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="14" y1="27" x2="34" y2="27" stroke="#E8E5F0" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="14" y1="33" x2="26" y2="33" stroke="#E8E5F0" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
 type Task = { id: string; title: string; due_date: string; due_time: string | null; completed: boolean; class_name: string | null; task_type: string; };
 type ExamEvent = { id: string; name: string; exam_date: string; class_name: string; };
 
@@ -45,6 +58,7 @@ function taskColor(type: string) {
   if (type === 'assignment') return '#5FAD8E';
   if (type === 'review')     return '#E8956D';
   if (type === 'nudge')      return '#E8956D';
+  if (type === 'reading')    return '#6B7FA0';
   return '#9E9BB0';
 }
 
@@ -54,6 +68,7 @@ function taskBg(type: string) {
   if (type === 'assignment') return '#EDF7F2';
   if (type === 'review')     return '#FFF3E8';
   if (type === 'nudge')      return '#FFF3E8';
+  if (type === 'reading')    return '#EEF1F7';
   return '#F3F1EC';
 }
 
@@ -272,7 +287,7 @@ export default function BrynneCalendar() {
               <button onClick={prevDay} style={{ width: 36, height: 36, borderRadius: '50%', border: '1.5px solid #E8E5F0', background: '#FFFFFF', cursor: 'pointer', fontSize: 18, color: '#9E9BB0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 18, fontWeight: 800, color: '#1D1B26' }}>{selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
-                {selStr === todayStr && <div style={{ fontSize: 11, fontWeight: 700, color, marginTop: 2 }}>Today! 🌟</div>}
+                {selStr === todayStr && <div style={{ fontSize: 11, fontWeight: 700, color, marginTop: 2 }}>Today</div>}
               </div>
               <button onClick={nextDay} style={{ width: 36, height: 36, borderRadius: '50%', border: '1.5px solid #E8E5F0', background: '#FFFFFF', cursor: 'pointer', fontSize: 18, color: '#9E9BB0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
             </div>
@@ -283,15 +298,19 @@ export default function BrynneCalendar() {
                 </div>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#C47878', marginBottom: 2 }}>{e.name}</div>
-                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>{e.class_name} · Test Day!</div>
+                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>{e.class_name} · Exam Day</div>
                 </div>
               </div>
             ))}
             {tasksForDate(selStr).length === 0 && examsForDate(selStr).length === 0 ? (
               <div style={{ background: '#FFFFFF', border: '1.5px dashed #E8E5F0', borderRadius: 18, padding: '40px 20px', textAlign: 'center' }}>
-                <div style={{ fontSize: 32, marginBottom: 12 }}>🌟</div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>Nothing today!</div>
-                <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>Free day! You can add something if you want.</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                  <div style={{ width: 72, height: 72, borderRadius: 20, background: '#F3F1EC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <IconEmptyDay size={40} />
+                  </div>
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>Nothing scheduled</div>
+                <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>A clear day — add a task or enjoy the break.</div>
                 <button onClick={() => { setNewDate(selStr); setShowAdd(true); }} style={{ padding: '10px 22px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Add Task</button>
               </div>
             ) : (
@@ -304,7 +323,7 @@ export default function BrynneCalendar() {
           <div style={{ marginTop: 24 }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 12 }}>Upcoming</div>
             {tasks.filter(t => !t.completed && t.due_date >= todayStr).slice(0, 5).length === 0
-              ? <div style={{ fontSize: 13, color: '#9E9BB0', textAlign: 'center', padding: '20px 0' }}>No upcoming tasks 🌟</div>
+              ? <div style={{ fontSize: 13, color: '#9E9BB0', textAlign: 'center', padding: '20px 0' }}>No upcoming tasks</div>
               : tasks.filter(t => !t.completed && t.due_date >= todayStr).slice(0, 5).map(task => <TaskRow key={task.id} task={task} />)
             }
           </div>
@@ -317,12 +336,12 @@ export default function BrynneCalendar() {
             <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 20px' }} />
             <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 20 }}>Add Task</div>
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>What is it?</label>
-              <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newTitle.trim()) handleAddTask(); }} placeholder='e.g. "Math worksheet"' style={{ width: '100%', padding: '11px 14px', border: `1.5px solid ${color}`, borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
+              <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Title</label>
+              <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newTitle.trim()) handleAddTask(); }} placeholder='e.g. "Chapter 4 Reading"' style={{ width: '100%', padding: '11px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
               <div>
-                <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>When?</label>
+                <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Date</label>
                 <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} style={{ width: '100%', padding: '11px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
               </div>
               <div>
@@ -331,16 +350,16 @@ export default function BrynneCalendar() {
               </div>
             </div>
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 8, display: 'block' }}>What kind?</label>
+              <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 8, display: 'block' }}>Type</label>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const }}>
-                {['assignment', 'quiz', 'reading', 'project', 'other'].map(t => (
+                {['assignment', 'exam', 'quiz', 'reading', 'paper', 'project', 'other'].map(t => (
                   <button key={t} onClick={() => setNewType(t)} style={{ padding: '6px 12px', borderRadius: 999, border: `1.5px solid ${newType === t ? color : '#E8E5F0'}`, background: newType === t ? color : '#FAFAF8', color: newType === t ? 'white' : '#9E9BB0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', textTransform: 'capitalize' as const }}>{t}</button>
                 ))}
               </div>
             </div>
             {classes.length > 0 && (
               <div style={{ marginBottom: 20 }}>
-                <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Which class? (optional)</label>
+                <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Class (optional)</label>
                 <select value={newClass} onChange={e => setNewClass(e.target.value)} style={{ width: '100%', padding: '11px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }}>
                   <option value="">No class</option>
                   {classes.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
@@ -349,7 +368,7 @@ export default function BrynneCalendar() {
             )}
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setShowAdd(false)} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={handleAddTask} disabled={!newTitle.trim() || !newDate || saving} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: !newTitle.trim() ? '#F3F1EC' : color, color: !newTitle.trim() ? '#C4C1D4' : 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{saving ? 'Saving...' : 'Add Task 🌟'}</button>
+              <button onClick={handleAddTask} disabled={!newTitle.trim() || !newDate || saving} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: !newTitle.trim() ? '#F3F1EC' : '#E8956D', color: !newTitle.trim() ? '#C4C1D4' : 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{saving ? 'Saving...' : 'Add Task'}</button>
             </div>
           </div>
         </div>

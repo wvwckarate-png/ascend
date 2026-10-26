@@ -4,6 +4,8 @@ import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { APP_VERSION_LABEL } from '../lib/version';
+import { STUDENTS, type StudentInfo } from '../lib/students';
+import { useGradeLabels } from '../lib/useGradeLabels';
 function Mountain() {
   return (
     <svg width="44" height="42" viewBox="0 0 60 56" fill="none">
@@ -14,20 +16,17 @@ function Mountain() {
   );
 }
 
-const students = [
-  { id: 'matthew', name: 'Matthew', grade: 'Senior · 12th Grade', goal: 'Future Dentist', avatar: '/eagle.png', flip: false },
-  { id: 'michael', name: 'Michael', grade: 'Freshman · 9th Grade', goal: 'Future Physician', avatar: '/lion.png', flip: true },
-  { id: 'brynne',  name: 'Brynne',  grade: 'Dragon · 6th Grade',          goal: 'Future Physician',  avatar: '/dragon.png', flip: false },
-];
+const students = STUDENTS;
 
 export default function Home() {
+  const labels = useGradeLabels();
   const router = useRouter();
-  const [selected, setSelected] = useState<typeof students[0] | null>(null);
+  const [selected, setSelected] = useState<StudentInfo | null>(null);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(false);
 
-  const handleStudentTap = async (s: typeof students[0]) => {
+  const handleStudentTap = async (s: StudentInfo) => {
     setError('');
     try {
       const res = await fetch('/api/pin-status', { cache: 'no-store' });
@@ -175,7 +174,7 @@ export default function Home() {
               <Image src={s.avatar} alt={s.name} width={100} height={100} style={{ objectFit: 'contain', transform: s.flip ? 'scaleX(-1)' : 'none' }} />
             </div>
             <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--charcoal)', marginBottom: 4 }}>{s.name}</div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>{s.grade}</div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>{labels[s.id] || '\u00A0'}</div>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--purple)' }}>{s.goal}</div>
           </div>
         ))}

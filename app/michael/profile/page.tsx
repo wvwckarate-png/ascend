@@ -4,6 +4,8 @@ import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import TabBar from '../../components/TabBar';
 import { supabase } from '../../../lib/supabase';
+import { gradeLabel } from '../../../lib/students';
+import { useMounted } from '../../../lib/useMounted';
 
 function Mountain() {
   return (
@@ -28,15 +30,17 @@ const color = '#7B6FA0';
 const light = '#EDE9F7';
 
 export default function MichaelProfile() {
+  const mounted = useMounted();
   const [name,              setName]              = useState('Michael');
-  const [grade,             setGrade]             = useState('Incoming 9th Grade');
   const [focus,             setFocus]             = useState('WVU School of Medicine');
   const [track,             setTrack]             = useState('Pre-Med');
   const [bio,               setBio]               = useState('Pre-Med track. MCAT groundwork starting early.');
   const [targetSchool,      setTargetSchool]      = useState('WVU');
   const [targetProgram,     setTargetProgram]     = useState('WVU School of Medicine');
-  const [gradYear,          setGradYear]          = useState('2028');
+  const [gradYear,          setGradYear]          = useState('2030');
   const [generationProfile, setGenerationProfile] = useState('');
+  // The grade is never typed in: it's worked out from the graduation year, so it advances by itself each August.
+  const gradeText = mounted && /^\d{4}$/.test(gradYear) ? gradeLabel(parseInt(gradYear, 10)) : '';
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [draft,        setDraft]        = useState('');
@@ -49,10 +53,9 @@ export default function MichaelProfile() {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from('students').select('name, grade, focus, track, bio, target_school, target_program, grad_year, generation_profile').eq('id', 'michael').single();
+      const { data } = await supabase.from('students').select('name, focus, track, bio, target_school, target_program, grad_year, generation_profile').eq('id', 'michael').single();
       if (data) {
         if (data.name)               setName(data.name);
-        if (data.grade)              setGrade(data.grade);
         if (data.focus)              setFocus(data.focus);
         if (data.track)              setTrack(data.track);
         if (data.bio)                setBio(data.bio);
@@ -88,7 +91,6 @@ export default function MichaelProfile() {
       return;
     }
     if (field === 'name')               setName(draft.trim());
-    if (field === 'grade')              setGrade(draft.trim());
     if (field === 'focus')              setFocus(draft.trim());
     if (field === 'track')              setTrack(draft.trim());
     if (field === 'bio')                setBio(draft.trim());
@@ -165,24 +167,13 @@ export default function MichaelProfile() {
           )}
           {savedField === 'name' && <div style={{ fontSize: 11, color: '#5FAD8E', fontWeight: 700, marginBottom: 4 }}>✅ Saved!</div>}
 
-          {/* Grade */}
-          {editingField === 'grade' ? (
-            <div style={{ width: '100%', maxWidth: 320, textAlign: 'left', marginBottom: 8 }}>
-              <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('grade'); if (e.key === 'Escape') cancelEdit(); }} style={inputStyle} />
-              {renderSaveButtons('grade')}
-            </div>
-          ) : (
-            <div onClick={() => startEdit('grade', grade)} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 10 }}>
-              <div style={{ fontSize: 13, color: '#9E9BB0' }}>{grade}</div>
-              <EditIcon />
-            </div>
-          )}
-          {savedField === 'grade' && <div style={{ fontSize: 11, color: '#5FAD8E', fontWeight: 700, marginBottom: 4 }}>✅ Saved!</div>}
+          {/* Grade — read-only: computed from the graduation year below */}
+          <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 10, minHeight: 18 }}>{gradeText || '\u00A0'}</div>
 
           {/* Focus — the tagline shown under the name on the home screen */}
           {editingField === 'focus' ? (
             <div style={{ width: '100%', maxWidth: 320, textAlign: 'left', marginBottom: 8 }}>
-              <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('focus'); if (e.key === 'Escape') cancelEdit(); }} placeholder="e.g. WVU Biology · Pre-Dental" style={inputStyle} />
+              <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('focus'); if (e.key === 'Escape') cancelEdit(); }} placeholder="e.g. Exercise Physiology · Pre-Med Track" style={inputStyle} />
               {renderSaveButtons('focus')}
             </div>
           ) : (
@@ -237,7 +228,7 @@ export default function MichaelProfile() {
             {/* Grad Year */}
             {editingField === 'grad_year' ? (
               <div style={{ width: '100%', maxWidth: 320 }}>
-                <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('grad_year'); if (e.key === 'Escape') cancelEdit(); }} placeholder="e.g. 2028" style={inputStyle} />
+                <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveField('grad_year'); if (e.key === 'Escape') cancelEdit(); }} placeholder="e.g. 2030" style={inputStyle} />
                 {renderSaveButtons('grad_year')}
               </div>
             ) : (

@@ -9,7 +9,8 @@ import { localDateStr } from '../../../lib/dates';
 import TabBar from '../../components/TabBar';
 import FolderPicker from '../../components/FolderPicker';
 import GuideHtml from '../../components/GuideHtml';
-import { MATH_FORMAT_RULES } from '../../../lib/prompts';
+import { MATH_FORMAT_RULES, CLASS_RULES } from '../../../lib/prompts';
+import { gradeShort } from '../../../lib/students';
 
 function Mountain() {
   return (
@@ -309,7 +310,7 @@ function MichaelStudyInner() {
   const fetchClassMeta = async (fId: string) => {
     const [{ data: folder }, { data: student }] = await Promise.all([
       supabase.from('exam_folders').select('name, exam_date, class_id').eq('id', fId).single(),
-      supabase.from('students').select('name, grade, track, target_school, target_program, grad_year, generation_profile').eq('id', 'michael').single(),
+      supabase.from('students').select('name, track, target_school, target_program, grad_year, generation_profile').eq('id', 'michael').single(),
     ]);
     if (!folder) return;
     const { data: cls } = await supabase.from('classes').select('name, professor, notes').eq('id', folder.class_id).single();
@@ -317,11 +318,11 @@ function MichaelStudyInner() {
       className: cls.name, professor: cls.professor || '', notes: cls.notes || '',
       folderName: folder.name, examDate: folder.exam_date,
       studentName: student?.name || 'Michael',
-      studentGrade: student?.grade || '9th grade',
+      studentGrade:      student?.grad_year ? gradeShort(student.grad_year) : '',
       studentTrack: student?.track || 'Pre-Med',
       studentSchool: student?.target_school || 'WVU',
       studentProgram: student?.target_program || 'WVU School of Medicine',
-      studentGradYear: student?.grad_year ? String(student.grad_year) : '2028',
+      studentGradYear:   student?.grad_year ? String(student.grad_year) : '',
       generationProfile: student?.generation_profile || '',
     });
   };
@@ -532,7 +533,7 @@ RULES:
 
     const htmlInstructions = guideMode === 'adaptive' ? adaptiveInstructions : standardInstructions;
 
-    return `You are Ascend, an expert study assistant. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\n${crossDoc}\n\n${level ? levelInstructions[level] : ''}${c}${w}${chem}${figuresInject}${q}${imageInstructions}${MATH_FORMAT_RULES}${htmlInstructions}`;
+    return `You are Ascend, an expert study assistant. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\n${crossDoc}\n\n${level ? levelInstructions[level] : ''}${c}${w}${chem}${figuresInject}${q}${imageInstructions}${CLASS_RULES}${MATH_FORMAT_RULES}${htmlInstructions}`;
   };
 
   const handleGenerate = async () => {

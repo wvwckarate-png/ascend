@@ -145,7 +145,11 @@ export default function BrynneClassBinder() {
   };
 
   const sortedInsert = (prev: Folder[], newItems: Folder[]) =>
-    [...prev, ...newItems].sort((a, b) => { if (!a.exam_date) return 1; if (!b.exam_date) return -1; return a.exam_date.localeCompare(b.exam_date); });
+    [...prev, ...newItems].sort((a, b) => {
+      if (!a.exam_date) return 1;
+      if (!b.exam_date) return -1;
+      return a.exam_date.localeCompare(b.exam_date);
+    });
 
   const handleAddFolder = async () => {
     if (!newName.trim()) return;
@@ -167,15 +171,21 @@ export default function BrynneClassBinder() {
       const res  = await fetch('/api/parse-syllabus', { method: 'POST', body: formData });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      if (!data.exams || data.exams.length === 0) { setParseError('No exams found. Try adding folders manually.'); }
-      else { setParsedExams(data.exams); }
+      if (!data.exams || data.exams.length === 0) {
+        setParseError('No exams found in this syllabus. Try adding folders manually.');
+      } else {
+        setParsedExams(data.exams);
+      }
     } catch (err: any) {
-      setParseError(err.message || 'Could not parse syllabus.');
-    } finally { setParsing(false); }
+      setParseError(err.message || 'Could not parse syllabus. Try again.');
+    } finally {
+      setParsing(false);
+    }
   };
 
   const updateParsedExam = (i: number, field: 'name' | 'date', value: string) =>
     setParsedExams(prev => prev.map((e, idx) => idx === i ? { ...e, [field]: value } : e));
+
   const removeParsedExam = (i: number) =>
     setParsedExams(prev => prev.filter((_, idx) => idx !== i));
 
@@ -186,12 +196,17 @@ export default function BrynneClassBinder() {
       const { data } = await supabase.from('exam_folders').insert(parsedExams.map(e => ({ class_id: classId, name: e.name, exam_date: e.date || null }))).select();
       if (data) {
         setFolders(prev => sortedInsert(prev, data));
-        for (const exam of parsedExams) { if (exam.date) await createNudges(exam.name, exam.date, 'brynne'); }
+        for (const exam of parsedExams) {
+          if (exam.date) await createNudges(exam.name, exam.date, 'brynne');
+        }
       }
       setCreateDone(true);
       setTimeout(() => { setShowSyllabus(false); setSyllabusFile(null); setParsedExams([]); setCreateDone(false); setParseError(''); }, 1200);
-    } catch { setParseError('Could not create folders. Please try again.'); }
-    finally { setCreating(false); }
+    } catch {
+      setParseError('Could not create folders. Please try again.');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const saveGrade = async () => {
@@ -239,9 +254,24 @@ export default function BrynneClassBinder() {
 
   const gradeColor = (g: number) => g >= 90 ? '#5FAD8E' : g >= 80 ? '#E8956D' : g >= 70 ? '#C8965A' : '#C47878';
 
-  const resetSyllabus = () => { setSyllabusFile(null); setParsedExams([]); setParseError(''); setCreateDone(false); if (syllabusRef.current) syllabusRef.current.value = ''; };
-  const formatDate = (d: string | null) => { if (!d) return null; return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
-  const daysUntil  = (d: string | null) => { if (!d) return null; const diff = Math.ceil((new Date(d + 'T00:00:00').getTime() - Date.now()) / 86400000); if (diff < 0) return null; if (diff === 0) return 'Today!'; if (diff === 1) return '1 day away'; return `${diff} days away`; };
+  const resetSyllabus = () => {
+    setSyllabusFile(null); setParsedExams([]); setParseError(''); setCreateDone(false);
+    if (syllabusRef.current) syllabusRef.current.value = '';
+  };
+
+  const formatDate = (d: string | null) => {
+    if (!d) return null;
+    return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const daysUntil = (d: string | null) => {
+    if (!d) return null;
+    const diff = Math.ceil((new Date(d + 'T00:00:00').getTime() - Date.now()) / 86400000);
+    if (diff < 0)   return null;
+    if (diff === 0) return 'Today';
+    if (diff === 1) return '1 day away';
+    return `${diff} days away`;
+  };
 
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '11px 14px', border: '1.5px solid #E8E5F0',
@@ -260,11 +290,15 @@ export default function BrynneClassBinder() {
       </nav>
 
       <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
-        <button onClick={() => router.push('/brynne/classes')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Classes</button>
+        <button onClick={() => router.push('/brynne/classes')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>
+          ← Classes
+        </button>
 
         {cls && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
-            <div style={{ width: 52, height: 52, borderRadius: 14, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color, flexShrink: 0 }}>{classLabel(cls.name)}</div>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: color + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color, flexShrink: 0 }}>
+              {classLabel(cls.name)}
+            </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 24, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.6px', marginBottom: 2 }}>{cls.name}</div>
               <div style={{ fontSize: 12, color: '#9E9BB0' }}>{[cls.semester, cls.professor].filter(Boolean).join(' · ')}</div>
@@ -278,14 +312,14 @@ export default function BrynneClassBinder() {
 
         {cls && (
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '14px 16px', marginBottom: 20, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' as const, color: '#C4C1D4', marginBottom: 8 }}>Teacher Notes</div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' as const, color: '#C4C1D4', marginBottom: 8 }}>Professor Notes</div>
             <textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
               onBlur={async () => { setNotesSaving(true); await supabase.from('classes').update({ notes: notes.trim() || null }).eq('id', classId); setNotesSaving(false); }}
-              placeholder='e.g. "Extra credit on quizzes. Bring colored pencils. Test every Friday."'
+              placeholder='e.g. "Curves lowest exam. Attendance counts 10%. Office hours Tue 2–4pm."'
               rows={3}
-              style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${color}40`, borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.6, boxSizing: 'border-box' as const }}
+              style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.6, boxSizing: 'border-box' as const }}
             />
             {notesSaving && <div style={{ fontSize: 10, color: '#9E9BB0', marginTop: 4 }}>Saving...</div>}
           </div>
@@ -303,7 +337,7 @@ export default function BrynneClassBinder() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14, padding: '12px 14px', borderRadius: 12, background: light }}>
                   <div>
                     <div style={{ fontSize: 32, fontWeight: 900, color: gradeColor(weighted), lineHeight: 1 }}>{weighted.toFixed(1)}%</div>
-                    <div style={{ fontSize: 10, color: '#9E9BB0', fontWeight: 600, marginTop: 2 }}>Current Grade 🌟</div>
+                    <div style={{ fontSize: 10, color: '#9E9BB0', fontWeight: 600, marginTop: 2 }}>Current Weighted Grade</div>
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ height: 8, borderRadius: 99, background: '#E8E5F0', overflow: 'hidden' }}>
@@ -348,26 +382,30 @@ export default function BrynneClassBinder() {
               </div>
             ) : (
               <div style={{ fontSize: 12, color: '#9E9BB0', textAlign: 'center', padding: '8px 0' }}>
-                No grading schema yet — you can still{' '}
-                <button onClick={() => setShowAddGrade(true)} style={{ color, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', fontSize: 12, fontWeight: 700, padding: 0 }}>log a grade!</button>
+                No grading schema — add grades manually or{' '}
+                <button onClick={() => setShowAddGrade(true)} style={{ color, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', fontSize: 12, fontWeight: 700, padding: 0 }}>log a grade</button>
               </div>
             )}
           </div>
         )}
 
         {!loading && folders.length === 0 && (
-          <div style={{ background: `linear-gradient(135deg, ${color}, #C4A882)`, borderRadius: 18, padding: '20px 22px', marginBottom: 20, color: 'white' }}>
-            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', opacity: 0.7, marginBottom: 6 }}>Quick Setup</div>
-            <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Upload your syllabus!</div>
-            <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 16, lineHeight: 1.5 }}>Ascend reads your syllabus and creates all your folders and reminders automatically — so cool!</div>
-            <button onClick={() => setShowSyllabus(true)} style={{ padding: '10px 20px', borderRadius: 999, background: 'rgba(255,255,255,0.25)', border: '1px solid rgba(255,255,255,0.35)', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Upload Syllabus →</button>
+          <div style={{ background: '#E8956D', borderRadius: 18, padding: '20px 22px', marginBottom: 20, color: 'white' }}>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', opacity: 0.6, marginBottom: 6 }}>Quick Setup</div>
+            <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Upload your syllabus</div>
+            <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 16, lineHeight: 1.5 }}>Ascend reads your syllabus and creates all your exam folders — and countdown reminders — automatically.</div>
+            <button onClick={() => setShowSyllabus(true)} style={{ padding: '10px 20px', borderRadius: 999, background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+              Upload Syllabus →
+            </button>
           </div>
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4' }}>Exam Folders</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            {folders.length > 0 && <button onClick={() => setShowSyllabus(true)} style={{ padding: '6px 14px', borderRadius: 999, background: '#F3F1EC', border: 'none', color: '#9E9BB0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Syllabus</button>}
+            {folders.length > 0 && (
+              <button onClick={() => setShowSyllabus(true)} style={{ padding: '6px 14px', borderRadius: 999, background: '#F3F1EC', border: 'none', color: '#9E9BB0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Syllabus</button>
+            )}
             <button onClick={() => setShowAdd(true)} style={{ padding: '6px 14px', borderRadius: 999, background: light, border: 'none', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Add Folder</button>
           </div>
         </div>
@@ -379,7 +417,7 @@ export default function BrynneClassBinder() {
             <div style={{ width: 56, height: 56, borderRadius: 16, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
               <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M3 9a2 2 0 012-2h5l2 2h11a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke={color} strokeWidth="1.6" strokeLinejoin="round" fill="none"/></svg>
             </div>
-            <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No folders yet!</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No exam folders yet</div>
             <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>Upload your syllabus above or add folders manually.</div>
             <button onClick={() => setShowAdd(true)} style={{ padding: '10px 22px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Add First Folder</button>
           </div>
@@ -387,7 +425,7 @@ export default function BrynneClassBinder() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {folders.map((folder) => {
               const countdown = daysUntil(folder.exam_date);
-              const isUrgent  = countdown && countdown !== 'Today!' && parseInt(countdown) <= 7;
+              const isUrgent  = countdown && countdown !== 'Today' && parseInt(countdown) <= 7;
               return (
                 <div key={folder.id} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '18px 20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0 }}>
@@ -414,7 +452,7 @@ export default function BrynneClassBinder() {
                           <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>{folder.name}</div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             {folder.exam_date && <span style={{ fontSize: 11, color: '#9E9BB0' }}>{formatDate(folder.exam_date)}</span>}
-                            {countdown && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: countdown === 'Today!' ? '#FDF2F2' : light, color: countdown === 'Today!' ? '#C47878' : isUrgent ? '#C8965A' : color }}>{countdown}</span>}
+                            {countdown && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: countdown === 'Today' ? '#FDF2F2' : isUrgent ? '#FFF3E8' : light, color: countdown === 'Today' ? '#C47878' : isUrgent ? '#C8965A' : color }}>{countdown}</span>}
                           </div>
                         </div>
                       )}
@@ -422,8 +460,8 @@ export default function BrynneClassBinder() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 10 }}>
                     {renamingId !== folder.id && (
-                      <button onClick={() => { setRenamingId(folder.id); setRenameValue(folder.name); }} style={{ background: '#FFF3E8', border: 'none', borderRadius: 7, padding: '6px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <svg width="12" height="12" viewBox="0 0 28 28" fill="none"><path d="M4 24l4-1 13-13-3-3L5 20l-1 4z" stroke={color} strokeWidth="1.6" strokeLinejoin="round" fill="none"/><path d="M18 8l3 3" stroke={color} strokeWidth="1.6" strokeLinecap="round"/></svg>
+                      <button onClick={() => { setRenamingId(folder.id); setRenameValue(folder.name); }} style={{ background: '#F3F1EC', border: 'none', borderRadius: 7, padding: '6px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="12" height="12" viewBox="0 0 28 28" fill="none"><path d="M4 24l4-1 13-13-3-3L5 20l-1 4z" stroke="#9E9BB0" strokeWidth="1.6" strokeLinejoin="round" fill="none"/><path d="M18 8l3 3" stroke="#9E9BB0" strokeWidth="1.6" strokeLinecap="round"/></svg>
                       </button>
                     )}
                     {renamingId !== folder.id && (
@@ -444,19 +482,19 @@ export default function BrynneClassBinder() {
             <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 20 }}>Edit Class</div>
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Class Name</label>
-              <input autoFocus value={editName} onChange={e => setEditName(e.target.value)} placeholder="e.g. Algebra" style={inputStyle} />
+              <input autoFocus value={editName} onChange={e => setEditName(e.target.value)} placeholder="e.g. AP Biology" style={inputStyle} />
             </div>
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Semester (optional)</label>
               <input value={editSemester} onChange={e => setEditSemester(e.target.value)} placeholder="e.g. Fall 2026" style={inputStyle} />
             </div>
             <div style={{ marginBottom: 24 }}>
-              <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Teacher (optional)</label>
-              <input value={editProfessor} onChange={e => setEditProfessor(e.target.value)} placeholder="e.g. Mrs. Johnson" style={inputStyle} />
+              <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Instructor (optional)</label>
+              <input value={editProfessor} onChange={e => setEditProfessor(e.target.value)} placeholder="e.g. Dr. Smith" style={inputStyle} />
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setShowEdit(false)} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={handleEditSave} disabled={!editName.trim() || editSaving} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !editName.trim() ? 0.4 : 1 }}>
+              <button onClick={handleEditSave} disabled={!editName.trim() || editSaving} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: '#E8956D', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !editName.trim() ? 0.4 : 1 }}>
                 {editSaving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
@@ -470,7 +508,7 @@ export default function BrynneClassBinder() {
           <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '28px 24px', width: '100%', maxWidth: 400, boxShadow: '0 8px 40px rgba(29,27,38,0.18)' }}>
             <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 8 }}>Archive Class?</div>
             <div style={{ fontSize: 14, color: '#9E9BB0', marginBottom: 24, lineHeight: 1.6 }}>
-              <strong style={{ color: '#1D1B26' }}>{cls?.name}</strong> will be moved to your archived classes. All folders, resources, and materials are preserved — you can restore it anytime from the Classes page!
+              <strong style={{ color: '#1D1B26' }}>{cls?.name}</strong> will be moved to your archived classes. All folders, resources, and materials are preserved — you can restore it anytime from the Classes page.
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setShowDelete(false)} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
@@ -487,20 +525,22 @@ export default function BrynneClassBinder() {
         <div onClick={e => { if (e.target === e.currentTarget) { setShowAdd(false); setNewName(''); setNewDate(''); }}} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.45)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '24px 20px 28px', width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(29,27,38,0.18)' }}>
             <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 20px' }} />
-            <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>New Folder</div>
-            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 22 }}>Ascend will add countdown reminders automatically when you pick a date!</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>New Exam Folder</div>
+            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 22 }}>Ascend will create countdown reminders automatically when you add a date.</div>
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Folder Name</label>
-              <input autoFocus value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newName.trim()) handleAddFolder(); }} placeholder="e.g. Chapter 4 Test, Midterm..." style={{ ...inputStyle, border: `1.5px solid ${color}` }} />
+              <input autoFocus value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newName.trim()) handleAddFolder(); }} placeholder="e.g. Exam 2, Midterm, Final..." style={inputStyle} />
             </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Test Date (optional)</label>
+            <div style={{ marginBottom: 22 }}>
+              <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Exam Date (optional)</label>
               <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} style={inputStyle} />
             </div>
-            {newDate && <div style={{ background: light, borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color, fontWeight: 600 }}>Reminders at 14 days, 7 days, 3 days, and 1 day before — you got this! 🌟</div>}
+            {newDate && <div style={{ background: light, borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color, fontWeight: 600 }}>Countdown reminders will be added at 14 days, 7 days, 3 days, and 1 day before</div>}
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => { setShowAdd(false); setNewName(''); setNewDate(''); }} style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={handleAddFolder} disabled={!newName.trim() || saving} style={{ flex: 2, padding: '12px', borderRadius: 12, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !newName.trim() || saving ? 0.4 : 1 }}>{saving ? 'Saving...' : 'Create Folder 🌟'}</button>
+              <button onClick={handleAddFolder} disabled={!newName.trim() || saving} style={{ flex: 2, padding: '12px', borderRadius: 12, border: 'none', background: '#E8956D', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !newName.trim() || saving ? 0.4 : 1 }}>
+                {saving ? 'Saving...' : 'Create Folder'}
+              </button>
             </div>
           </div>
         </div>
@@ -512,7 +552,7 @@ export default function BrynneClassBinder() {
           <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '24px 20px 32px', width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(29,27,38,0.18)', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 20px' }} />
             <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>Upload Syllabus</div>
-            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>Ascend will create all your folders and reminders automatically — so easy!</div>
+            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>Ascend will create exam folders and countdown reminders automatically.</div>
             {!parsedExams.length && !parsing && (
               <>
                 <input ref={syllabusRef} type="file" accept=".pdf" onChange={e => { setSyllabusFile(e.target.files?.[0] || null); setParseError(''); }} style={{ display: 'none' }} />
@@ -528,46 +568,46 @@ export default function BrynneClassBinder() {
                 ) : (
                   <div onClick={() => syllabusRef.current?.click()} style={{ border: '2px dashed #E8E5F0', borderRadius: 12, padding: '28px 20px', textAlign: 'center', cursor: 'pointer', background: '#FAFAF8', marginBottom: 14 }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.borderColor = color} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.borderColor = '#E8E5F0'}>
                     <svg width="40" height="40" viewBox="0 0 28 28" fill="none" style={{ margin: '0 auto 10px', display: 'block' }}><path d="M20 19a5 5 0 10-1-9.9A7 7 0 104 17" stroke="#C4C1D4" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none"/><path d="M14 15v8" stroke="#C4C1D4" strokeWidth="1.6" strokeLinecap="round"/><path d="M11 18l3-3 3 3" stroke="#C4C1D4" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>Tap to choose your syllabus!</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>Tap to choose syllabus PDF</div>
                     <div style={{ fontSize: 11, color: '#9E9BB0' }}>PDF files only</div>
                   </div>
                 )}
                 {parseError && <div style={{ background: '#FDF2F2', border: '1.5px solid rgba(196,120,120,0.25)', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#C47878', fontWeight: 600, marginBottom: 14 }}>{parseError}</div>}
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button onClick={() => { setShowSyllabus(false); resetSyllabus(); }} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
-                  <button onClick={handleSyllabusParse} disabled={!syllabusFile} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: syllabusFile ? color : '#F3F1EC', color: syllabusFile ? 'white' : '#C4C1D4', fontSize: 13, fontWeight: 800, cursor: syllabusFile ? 'pointer' : 'not-allowed', fontFamily: 'var(--font-jakarta)' }}>Read My Syllabus ✨</button>
+                  <button onClick={handleSyllabusParse} disabled={!syllabusFile} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: syllabusFile ? '#E8956D' : '#F3F1EC', color: syllabusFile ? 'white' : '#C4C1D4', fontSize: 13, fontWeight: 800, cursor: syllabusFile ? 'pointer' : 'not-allowed', fontFamily: 'var(--font-jakarta)' }}>Parse Syllabus</button>
                 </div>
               </>
             )}
             {parsing && (
               <div style={{ textAlign: 'center', padding: '32px 0' }}>
                 <div style={{ width: 36, height: 36, border: '3px solid #E8E5F0', borderTopColor: color, borderRadius: '50%', margin: '0 auto 16px', animation: 'spin 0.75s linear infinite' }} />
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#1D1B26', marginBottom: 6 }}>Reading your syllabus... 🌟</div>
-                <div style={{ fontSize: 12, color: '#9E9BB0' }}>Finding all your tests and making reminders!</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#1D1B26', marginBottom: 6 }}>Reading your syllabus...</div>
+                <div style={{ fontSize: 12, color: '#9E9BB0' }}>Finding exams and creating reminders</div>
                 <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
               </div>
             )}
             {parsedExams.length > 0 && !parsing && (
               <>
-                <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>{parsedExams.length} test{parsedExams.length !== 1 ? 's' : ''} found! 🎉</div>
-                <div style={{ fontSize: 12, color: '#9E9BB0', marginBottom: 16 }}>Check them and make any changes!</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>{parsedExams.length} exam{parsedExams.length !== 1 ? 's' : ''} found</div>
+                <div style={{ fontSize: 12, color: '#9E9BB0', marginBottom: 16 }}>Review and edit before creating folders.</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
                   {parsedExams.map((exam, i) => (
                     <div key={i} style={{ background: '#FAFAF8', border: '1.5px solid #E8E5F0', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <input value={exam.name} onChange={e => updateParsedExam(i, 'name', e.target.value)} style={{ padding: '7px 10px', border: `1.5px solid ${color}`, borderRadius: 8, fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, color: '#1D1B26', background: '#FFFFFF', outline: 'none', width: '100%', boxSizing: 'border-box' as const }} />
+                        <input value={exam.name} onChange={e => updateParsedExam(i, 'name', e.target.value)} style={{ padding: '7px 10px', border: '1.5px solid #E8E5F0', borderRadius: 8, fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, color: '#1D1B26', background: '#FFFFFF', outline: 'none', width: '100%', boxSizing: 'border-box' as const }} />
                         <input type="date" value={exam.date || ''} onChange={e => updateParsedExam(i, 'date', e.target.value)} style={{ padding: '7px 10px', border: '1.5px solid #E8E5F0', borderRadius: 8, fontFamily: 'var(--font-jakarta)', fontSize: 12, color: '#9E9BB0', background: '#FFFFFF', outline: 'none', width: '100%', boxSizing: 'border-box' as const }} />
                       </div>
                       <button onClick={() => removeParsedExam(i)} aria-label="Remove" title="Remove" style={{ fontSize: 14, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', flexShrink: 0 }}>✕</button>
                     </div>
                   ))}
                 </div>
-                <div style={{ background: light, borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color, fontWeight: 600 }}>Reminders at 14, 7, 3, and 1 day before each test — you got this! 🌟</div>
+                <div style={{ background: light, borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color, fontWeight: 600 }}>Countdown reminders will be created at 14, 7, 3, and 1 day before each exam</div>
                 {parseError && <div style={{ background: '#FDF2F2', border: '1.5px solid rgba(196,120,120,0.25)', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#C47878', fontWeight: 600, marginBottom: 14 }}>{parseError}</div>}
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button onClick={resetSyllabus} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Start Over</button>
-                  <button onClick={handleCreateFolders} disabled={parsedExams.length === 0 || creating || createDone} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: createDone ? '#5FAD8E' : color, color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: creating ? 0.7 : 1 }}>
-                    {createDone ? 'Folders Created!' : creating ? 'Creating...' : `Create ${parsedExams.length} Folder${parsedExams.length !== 1 ? 's' : ''} 🌟`}
+                  <button onClick={handleCreateFolders} disabled={parsedExams.length === 0 || creating || createDone} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: createDone ? '#5FAD8E' : '#E8956D', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: creating ? 0.7 : 1 }}>
+                    {createDone ? 'Folders Created!' : creating ? 'Creating...' : `Create ${parsedExams.length} Folder${parsedExams.length !== 1 ? 's' : ''}`}
                   </button>
                 </div>
               </>
@@ -579,7 +619,7 @@ export default function BrynneClassBinder() {
       {showAddGrade && (
         <div onClick={e => { if (e.target === e.currentTarget) setShowAddGrade(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '28px 24px', width: '100%', maxWidth: 420, boxShadow: '0 8px 40px rgba(29,27,38,0.18)' }}>
-            <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 20 }}>Log a Grade 🌟</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 20 }}>Log a Grade</div>
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Category</label>
               {cls?.grading_schema && Object.keys(cls.grading_schema).length > 0 ? (
@@ -589,16 +629,16 @@ export default function BrynneClassBinder() {
                   ))}
                 </div>
               ) : (
-                <input value={gradeCategory} onChange={e => setGradeCategory(e.target.value)} placeholder="e.g. Tests, Homework" style={inputStyle} />
+                <input value={gradeCategory} onChange={e => setGradeCategory(e.target.value)} placeholder="e.g. Exams, Homework" style={inputStyle} />
               )}
             </div>
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>What assignment?</label>
-              <input autoFocus value={gradeItem} onChange={e => setGradeItem(e.target.value)} placeholder="e.g. Chapter 4 Test, Quiz 2" style={inputStyle} />
+              <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Item Name</label>
+              <input autoFocus value={gradeItem} onChange={e => setGradeItem(e.target.value)} placeholder="e.g. Exam 1, Homework 3" style={inputStyle} />
             </div>
             <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
               <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>My Score</label>
+                <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Score</label>
                 <input type="number" value={gradeScore} onChange={e => setGradeScore(e.target.value)} placeholder="e.g. 88" style={inputStyle} />
               </div>
               <div style={{ flex: 1 }}>
@@ -608,9 +648,9 @@ export default function BrynneClassBinder() {
             </div>
             {gradeScore && parseFloat(gradeMax) > 0 && (
               <div style={{ background: light, borderRadius: 10, padding: '10px 14px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 12, color: '#6B6880' }}>That&apos;s a...</span>
+                <span style={{ fontSize: 12, color: '#6B6880' }}>Grade preview</span>
                 <span style={{ fontSize: 18, fontWeight: 900, color: gradeColor((parseFloat(gradeScore) / parseFloat(gradeMax)) * 100) }}>
-                  {((parseFloat(gradeScore) / parseFloat(gradeMax)) * 100).toFixed(1)}% 🌟
+                  {((parseFloat(gradeScore) / parseFloat(gradeMax)) * 100).toFixed(1)}%
                 </span>
               </div>
             )}
@@ -618,7 +658,7 @@ export default function BrynneClassBinder() {
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => { setShowAddGrade(false); setGradeError(''); }} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
               <button onClick={saveGrade} disabled={!gradeCategory || !gradeItem || gradeScore === '' || gradeSaving} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: (!gradeCategory || !gradeItem || gradeScore === '') ? 0.4 : 1 }}>
-                {gradeSaving ? 'Saving...' : 'Save Grade ✨'}
+                {gradeSaving ? 'Saving...' : 'Save Grade'}
               </button>
             </div>
           </div>

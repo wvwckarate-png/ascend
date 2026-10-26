@@ -8,7 +8,8 @@ import { localDateStr } from '../../../lib/dates';
 import TabBar from '../../components/TabBar';
 import FolderPicker from '../../components/FolderPicker';
 import GuideHtml from '../../components/GuideHtml';
-import { MATH_FORMAT_RULES } from '../../../lib/prompts';
+import { MATH_FORMAT_RULES, CLASS_RULES } from '../../../lib/prompts';
+import { gradeShort } from '../../../lib/students';
 
 function Mountain() {
   return (
@@ -308,7 +309,7 @@ function MatthewStudyInner() {
   const fetchClassMeta = async (fId: string) => {
     const [{ data: folder }, { data: student }] = await Promise.all([
       supabase.from('exam_folders').select('name, exam_date, class_id').eq('id', fId).single(),
-      supabase.from('students').select('name, grade, track, target_school, target_program, grad_year, generation_profile').eq('id', 'matthew').single(),
+      supabase.from('students').select('name, track, target_school, target_program, grad_year, generation_profile').eq('id', 'matthew').single(),
     ]);
     if (!folder) return;
     const { data: cls } = await supabase.from('classes').select('name, professor, notes').eq('id', folder.class_id).single();
@@ -319,11 +320,11 @@ function MatthewStudyInner() {
       folderName:        folder.name,
       examDate:          folder.exam_date,
       studentName:       student?.name || 'Matthew',
-      studentGrade:      student?.grade || '11th grade',
+      studentGrade:      student?.grad_year ? gradeShort(student.grad_year) : '',
       studentTrack:      student?.track || 'Pre-Dental',
       studentSchool:     student?.target_school || 'WVU',
       studentProgram:    student?.target_program || 'WVU School of Dentistry',
-      studentGradYear:   student?.grad_year ? String(student.grad_year) : '2026',
+      studentGradYear:   student?.grad_year ? String(student.grad_year) : '',
       generationProfile: student?.generation_profile || '',
     });
   };
@@ -459,8 +460,8 @@ function MatthewStudyInner() {
       mastery:  'Generate a comprehensive mastery-level guide with deep explanations, mechanisms, and connections across all materials.',
     };
     const studentCtx = classMeta
-      ? `You are building a study guide for ${classMeta.studentName}, a ${classMeta.studentGrade} student. Calibrate depth and vocabulary to a rigorous college level.${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
-      : `You are building a study guide for Matthew, a college student. Calibrate depth and vocabulary to a rigorous college level.`;
+      ? `You are building a study guide for ${classMeta.studentName}. Calibrate depth and vocabulary to match the level of the uploaded materials.${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
+      : `You are building a study guide. Calibrate depth and vocabulary to match the level of the uploaded materials.`;
     const classCtx = classMeta
       ? `Class: ${classMeta.className}. Exam: ${classMeta.folderName}${classMeta.examDate ? ` (${new Date(classMeta.examDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})` : ''}. Professor: ${classMeta.professor || 'unknown'}.${classMeta.notes ? ` Professor notes: "${classMeta.notes}"` : ''}`
       : '';
@@ -534,7 +535,7 @@ RULES:
 
     const htmlInstructions = guideMode === 'adaptive' ? adaptiveInstructions : standardInstructions;
 
-    return `You are Ascend, an expert study assistant. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\n${crossDoc}\n\n${level ? levelInstructions[level] : ''}${c}${w}${chem}${figuresInject}${q}${imageInstructions}${MATH_FORMAT_RULES}${htmlInstructions}`;
+    return `You are Ascend, an expert study assistant. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\n${crossDoc}\n\n${level ? levelInstructions[level] : ''}${c}${w}${chem}${figuresInject}${q}${imageInstructions}${CLASS_RULES}${MATH_FORMAT_RULES}${htmlInstructions}`;
   };
 
   const handleGenerate = async () => {

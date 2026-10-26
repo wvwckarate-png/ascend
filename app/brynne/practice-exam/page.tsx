@@ -8,7 +8,8 @@ import { localDateStr } from '../../../lib/dates';
 import { parseJSONArray } from '../../../lib/parseAI';
 import FolderPicker from '../../components/FolderPicker';
 import RichText from '../../components/RichText';
-import { MATH_FORMAT_RULES_JSON } from '../../../lib/prompts';
+import { MATH_FORMAT_RULES_JSON, CLASS_RULES } from '../../../lib/prompts';
+import { gradeShort } from '../../../lib/students';
 
 function Mountain() {
   return (
@@ -85,18 +86,18 @@ function IconSave({ c, size = 16 }: { c: string; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 28 28" fill="none"><path d="M5 4h13l5 5v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke={c} strokeWidth="1.6" strokeLinejoin="round" fill="none"/><path d="M9 4v6h10V4" stroke={c} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/><rect x="8" y="16" width="12" height="8" rx="1" stroke={c} strokeWidth="1.4" fill="none"/></svg>;
 }
 
-type MCQuestion    = { type: 'mc'; question: string; options: { A: string; B: string; C: string; D: string }; answer: string; explanation: string; };
-type TFQuestion    = { type: 'tf'; question: string; answer: string; explanation: string; };
-type SAQuestion    = { type: 'sa'; question: string; model_answer: string; };
+type MCQuestion   = { type: 'mc'; question: string; options: { A: string; B: string; C: string; D: string }; answer: string; explanation: string; };
+type TFQuestion   = { type: 'tf'; question: string; answer: string; explanation: string; };
+type SAQuestion   = { type: 'sa'; question: string; model_answer: string; };
 type EssayQuestion = { type: 'essay'; question: string; key_points: string; };
-type Question      = MCQuestion | TFQuestion | SAQuestion | EssayQuestion;
-type PastExam      = { id: string; title: string; questions: Question[]; responses: Record<string, string>; score: number | null; status: string; created_at: string; completed_at: string | null; timer_seconds: number | null; folder_id?: string | null; folder_name?: string; class_name?: string; };
-type LibResource   = { id: string; file_name: string; file_type: string; storage_url: string; folder_id: string; };
-type LibFolder     = { id: string; name: string; class_id: string; resources: LibResource[]; };
-type LibClass      = { id: string; name: string; folders: LibFolder[]; };
+type Question     = MCQuestion | TFQuestion | SAQuestion | EssayQuestion;
+type PastExam     = { id: string; title: string; questions: Question[]; responses: Record<string, string>; score: number | null; status: string; created_at: string; completed_at: string | null; timer_seconds: number | null; folder_id?: string | null; folder_name?: string; class_name?: string; };
+type LibResource  = { id: string; file_name: string; file_type: string; storage_url: string; folder_id: string; };
+type LibFolder    = { id: string; name: string; class_id: string; resources: LibResource[]; };
+type LibClass     = { id: string; name: string; folders: LibFolder[]; };
 
-const color = '#E8956D';
-const light = '#FFF3E8';
+const color  = '#E8956D';
+const light  = '#FFF3E8';
 
 function BrynnePracticeExamInner() {
   const searchParams = useSearchParams();
@@ -106,13 +107,13 @@ function BrynnePracticeExamInner() {
   const weakSpotsRaw  = searchParams.get('weakSpots');
   const weakSpotsList: string[] = weakSpotsRaw ? (() => { try { return JSON.parse(decodeURIComponent(weakSpotsRaw)); } catch { return []; } })() : [];
 
-  const [screen,          setScreen]          = useState<'history' | 'setup' | 'exam' | 'results'>('history');
-  const [pastExams,       setPastExams]       = useState<PastExam[]>([]);
-  const [histLoading,     setHistLoading]     = useState(true);
-  const [activeExam,      setActiveExam]      = useState<PastExam | null>(null);
+  const [screen,        setScreen]        = useState<'history' | 'setup' | 'exam' | 'results'>('history');
+  const [pastExams,     setPastExams]     = useState<PastExam[]>([]);
+  const [histLoading,   setHistLoading]   = useState(true);
+  const [activeExam,    setActiveExam]    = useState<PastExam | null>(null);
 
+  // Setup
   const [topic,              setTopic]              = useState('');
-  const [examNameInput,      setExamNameInput]      = useState('');
   const [questionTypes,      setQuestionTypes]      = useState<Set<string>>(new Set(['mc']));
   const [countMode,          setCountMode]          = useState<'preset' | 'auto' | 'custom'>('preset');
   const [count,              setCount]              = useState(20);
@@ -121,6 +122,7 @@ function BrynnePracticeExamInner() {
   const [chemMode,           setChemMode]           = useState(false);
   const [timerEnabled,       setTimerEnabled]       = useState(false);
   const [timerMinutes,       setTimerMinutes]       = useState(30);
+  const [examNameInput,      setExamNameInput]      = useState('');
   const [renamingId,         setRenamingId]         = useState<string | null>(null);
   const [renameValue,        setRenameValue]        = useState('');
   const [movingId,           setMovingId]           = useState<string | null>(null);
@@ -132,6 +134,7 @@ function BrynnePracticeExamInner() {
   const [reviewScheduled,    setReviewScheduled]    = useState(false);
   const [classMeta, setClassMeta] = useState<{ className: string; professor: string; notes: string; folderName: string; examDate: string | null; studentName: string; studentGrade: string; studentTrack: string; studentSchool: string; studentProgram: string; studentGradYear: string; generationProfile: string; } | null>(null);
 
+  // Library
   const [library,         setLibrary]         = useState<LibClass[]>([]);
   const [libLoading,      setLibLoading]       = useState(true);
   const [selectedIds,     setSelectedIds]      = useState<Set<string>>(new Set());
@@ -141,6 +144,7 @@ function BrynnePracticeExamInner() {
   const [newFileNames,    setNewFileNames]      = useState<Record<number, string>>({});
   const [fileInputRef,    setFileInputRef]     = useState<HTMLInputElement | null>(null);
 
+  // Exam
   const [questions,       setQuestions]       = useState<Question[]>([]);
   const [responses,       setResponses]       = useState<Record<number, string>>({});
   const [reviewed,        setReviewed]        = useState<Set<number>>(new Set());
@@ -150,19 +154,21 @@ function BrynnePracticeExamInner() {
   const [generating,      setGenerating]      = useState(false);
   const [saving,          setSaving]          = useState(false);
   const [saveFlash,       setSaveFlash]       = useState(false);
-  const [submitting,          setSubmitting]          = useState(false);
-  const [error,               setError]               = useState('');
+  const [submitting,        setSubmitting]        = useState(false);
+  const [error,             setError]             = useState('');
   const [retryMissedLoading,  setRetryMissedLoading]  = useState(false);
   const [weakAreas,           setWeakAreas]           = useState<{ question: string; missCount: number }[]>([]);
   const [selectedWeakAreas,   setSelectedWeakAreas]   = useState<Set<number>>(new Set());
   const [weakAreasExpanded,   setWeakAreasExpanded]   = useState(true);
   const [weakAreasLoading,    setWeakAreasLoading]    = useState(false);
 
+  // Timer
   const [timeLeft,     setTimeLeft]     = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
 
   useEffect(() => {
-    loadHistory(); loadLibrary();
+    loadHistory();
+    loadLibrary();
     if (examIdParam) {
       const loadExam = async () => {
         const { data } = await supabase.from('practice_exams').select('*').eq('id', examIdParam).single();
@@ -203,19 +209,22 @@ function BrynnePracticeExamInner() {
   const fetchClassMeta = async (fId: string) => {
     const [{ data: folder }, { data: student }] = await Promise.all([
       supabase.from('exam_folders').select('name, exam_date, class_id').eq('id', fId).single(),
-      supabase.from('students').select('name, grade, track, target_school, target_program, grad_year, generation_profile').eq('id', 'brynne').single(),
+      supabase.from('students').select('name, track, target_school, target_program, grad_year, generation_profile').eq('id', 'brynne').single(),
     ]);
     if (!folder) return;
     const { data: cls } = await supabase.from('classes').select('name, professor, notes').eq('id', folder.class_id).single();
     if (cls) setClassMeta({
-      className: cls.name, professor: cls.professor || '', notes: cls.notes || '',
-      folderName: folder.name, examDate: folder.exam_date,
-      studentName: student?.name || 'Brynne',
-      studentGrade: student?.grade || '5th grade',
-      studentTrack: student?.track || 'Pre-Med',
-      studentSchool: student?.target_school || 'WVU',
-      studentProgram: student?.target_program || 'WVU School of Medicine',
-      studentGradYear: student?.grad_year ? String(student.grad_year) : '2033',
+      className:         cls.name,
+      professor:         cls.professor || '',
+      notes:             cls.notes || '',
+      folderName:        folder.name,
+      examDate:          folder.exam_date,
+      studentName:       student?.name || 'Brynne',
+      studentGrade:      student?.grad_year ? gradeShort(student.grad_year) : '',
+      studentTrack:      student?.track || 'Pre-Med',
+      studentSchool:     student?.target_school || 'WVU',
+      studentProgram:    student?.target_program || 'WVU School of Medicine',
+      studentGradYear:   student?.grad_year ? String(student.grad_year) : '',
       generationProfile: student?.generation_profile || '',
     });
   };
@@ -286,6 +295,15 @@ function BrynnePracticeExamInner() {
     const countStr = countMode === 'auto' ? 'an appropriate number of' : `exactly ${actualCount}`;
     const crossDoc = fileCount > 1 ? `Analyze all ${fileCount} documents and identify the highest-yield topics — concepts that appear repeatedly or are most likely to be tested. Weight your questions heavily toward these topics. ` : '';
     const custom   = customInstructions.trim() ? ` Additional instructions: ${customInstructions.trim()}.` : '';
+    const studentCtx = classMeta
+      ? `You are generating a practice exam for ${classMeta.studentName}. Calibrate difficulty and vocabulary to match the level of the uploaded materials.${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
+      : `You are generating a practice exam. Calibrate difficulty and vocabulary to match the level of the uploaded materials.`;
+    const classCtx   = classMeta
+      ? `Class: ${classMeta.className}. Exam: ${classMeta.folderName}${classMeta.examDate ? ` (${new Date(classMeta.examDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})` : ''}. Professor: ${classMeta.professor || 'unknown'}.${classMeta.notes ? ` Professor notes: "${classMeta.notes}"` : ''}`
+      : '';
+    const goalCtx = classMeta
+      ? `Your ONLY goal is to generate a realistic practice exam that mirrors how ${classMeta.professor || 'this professor'} actually tests in ${classMeta.className}. Think exactly like this professor — their emphasis, their style, their scope. STRICT RULES: (1) Every question must come strictly from the uploaded materials — no outside knowledge, no career framing. (2) If a concept appears across multiple sources, weight questions toward it — it is high-yield and almost certainly tested.`
+      : `Your ONLY goal is to generate a realistic practice exam. STRICT RULES: (1) Every question must come strictly from the uploaded materials — no outside knowledge. (2) If a concept appears across multiple sources, weight questions toward it as high-yield.`;
     const formats  = typeList.map(t => {
       if (t === 'mc')    return `MC: {"type":"mc","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A","explanation":"Why this is correct and why others are wrong..."}`;
       if (t === 'tf')    return `TF: {"type":"tf","question":"...","answer":"True","explanation":"Why this statement is true/false..."}`;
@@ -293,24 +311,15 @@ function BrynnePracticeExamInner() {
       if (t === 'essay') return `Essay: {"type":"essay","question":"...","key_points":"Key points a strong essay response should address: 1)... 2)... 3)..."}`;
       return '';
     }).join('\n');
-    const studentCtx = classMeta
-      ? `You are generating a practice exam for ${classMeta.studentName}. Calibrate difficulty and vocabulary to match the level of the uploaded materials.${classMeta.generationProfile ? ` Additional context: ${classMeta.generationProfile}` : ''}`
-      : `You are generating a practice exam. Calibrate difficulty and vocabulary to match the level of the uploaded materials. Use friendly, encouraging language.`;
-    const classCtx = classMeta
-      ? `Class: ${classMeta.className}. Exam: ${classMeta.folderName}${classMeta.examDate ? ` (${new Date(classMeta.examDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})` : ''}. Teacher: ${classMeta.professor || 'unknown'}.${classMeta.notes ? ` Teacher notes: "${classMeta.notes}"` : ''}`
-      : '';
-    const goalCtx = classMeta
-      ? `Your ONLY goal is to generate a realistic practice exam that mirrors how ${classMeta.professor || 'this teacher'} actually tests in ${classMeta.className}. Think exactly like this teacher — their emphasis, their style, their scope. STRICT RULES: (1) Every question must come strictly from the uploaded materials — no outside knowledge, no career framing. (2) If a concept appears across multiple sources, weight questions toward it — it is high-yield and almost certainly tested. Use friendly, encouraging language.`
-      : `Your ONLY goal is to generate a realistic practice exam. STRICT RULES: (1) Every question must come strictly from the uploaded materials — no outside knowledge. (2) If a concept appears across multiple sources, weight questions toward it as high-yield. Use friendly, encouraging language.`;
     const selectedWeakList = weakAreas.filter((_, i) => selectedWeakAreas.has(i));
     const weakAreasInject = selectedWeakList.length > 0
-      ? ` PRIORITY FOCUS — Brynne has previously missed questions on these specific concepts (miss count in parentheses): ${selectedWeakList.map((w, i) => `${i + 1}. ${w.question.slice(0, 120)}${w.missCount > 1 ? ` (missed ${w.missCount}x)` : ''}`).join('; ')}. Weight at least half of the questions toward these areas, using simple encouraging language.`
+      ? ` PRIORITY FOCUS — Brynne has previously missed questions on these specific concepts (miss count in parentheses): ${selectedWeakList.map((w, i) => `${i + 1}. ${w.question.slice(0, 120)}${w.missCount > 1 ? ` (missed ${w.missCount}x)` : ''}`).join('; ')}. Weight at least half of the questions toward these areas, approaching them from fresh angles to test genuine understanding.`
       : '';
     const weakSpotsInject = weakSpotsList.length > 0
-      ? ` PRIORITY FOCUS — These are Brynne's confirmed weak spots from prior study sessions: ${weakSpotsList.map((w, i) => `${i + 1}. ${w}`).join('; ')}. Weight at least half of the questions toward these specific concepts, approaching them from fresh angles using simple, encouraging language to help them click! 🌟`
+      ? ` PRIORITY FOCUS — These are Brynne's confirmed weak spots from prior study sessions: ${weakSpotsList.map((w, i) => `${i + 1}. ${w}`).join('; ')}. Weight at least half of the questions toward these specific concepts, approaching them from fresh angles to test genuine understanding.`
       : '';
     const chemInject = chemMode ? ' CHEMISTRY MODE — When referencing molecules, compounds, or chemical structures, include their SMILES string formatted exactly as [SMILES: xxx] inline so they can be rendered as structural diagrams. Use standard SMILES notation.' : '';
-    return `You are Ascend generating a practice exam. ${studentCtx} ${classCtx}\n\n${goalCtx}${topic.trim() ? ` Topic focus: ${topic.trim()}.` : ''} ${crossDoc}Generate ${countStr} questions of these types: ${typeDescriptions}. ${typeList.length > 1 ? 'Distribute evenly across all types.' : ''}${weakAreasInject}${weakSpotsInject}${chemInject}${custom}\n\nReturn ONLY a JSON array, no markdown, no backticks.${MATH_FORMAT_RULES_JSON} Use these exact formats:\n${formats}`;
+    return `You are Ascend generating a practice exam. ${studentCtx} ${classCtx}\n\n${goalCtx}${topic.trim() ? ` Topic focus: ${topic.trim()}.` : ''} ${crossDoc}Generate ${countStr} questions of these types: ${typeDescriptions}. ${typeList.length > 1 ? 'Distribute evenly across all types.' : ''} Make questions realistic to what this professor would actually test.${weakAreasInject}${weakSpotsInject}${chemInject}${custom}${CLASS_RULES}\n\nReturn ONLY a JSON array, no markdown, no backticks.${MATH_FORMAT_RULES_JSON} Use these exact formats:\n${formats}`;
   };
 
   const generate = async () => {
@@ -319,6 +328,7 @@ function BrynnePracticeExamInner() {
     try {
       const allResources = library.flatMap(c => c.folders.flatMap(f => f.resources));
       const selResources = allResources.filter(r => selectedIds.has(r.id));
+
       // Fetch transcripts from selected folders
       const selectedResourceIds = selResources.map(r => r.id);
       let transcripts: { name: string; text: string }[] = [];
@@ -359,13 +369,13 @@ function BrynnePracticeExamInner() {
       const res = await fetch('/api/generate-study-guide', { method: 'POST', body: fd });
       const d = await res.json(); raw = (d.studyGuide || d.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
       const parsed = parseJSONArray<Question>(raw);
-      const title = examNameInput.trim() || topic.trim() || folderName || `Practice Test — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+      const title = examNameInput.trim() || topic.trim() || folderName || `Practice Exam — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
       const { data: examData } = await supabase.from('practice_exams').insert({ student_id: 'brynne', title, questions: parsed, responses: {}, status: 'in_progress', timer_seconds: timerEnabled ? timerMinutes * 60 : null, folder_id: selectedFolderId || folderId || null }).select().single();
       if (examData) { setExamId(examData.id); setActiveExam(examData); }
       setExamTitle(title); setQuestions(parsed); setResponses({}); setReviewed(new Set()); setShowExplanation(new Set());
       if (timerEnabled) { setTimeLeft(timerMinutes * 60); setTimerRunning(true); }
       setScreen('exam');
-    } catch { setError('Could not generate the test. Please try again!'); }
+    } catch { setError('Could not generate exam. Please try again.'); }
     finally { setGenerating(false); }
   };
 
@@ -386,16 +396,18 @@ function BrynnePracticeExamInner() {
     const items = questions.map((q, i) => {
       let isCorrect: boolean | null = null;
       if (q.type === 'mc' || q.type === 'tf') isCorrect = (responses[i] || '') === q.answer;
-      return { exam_id: examId, student_id: 'brynne', folder_id: activeExam?.folder_id || folderId || null, question_index: i, question_type: q.type, question_text: q.question, is_correct: isCorrect };
+      return { exam_id: examId, student_id: 'brynne', folder_id: activeExam?.folder_id || null, question_index: i, question_type: q.type, question_text: q.question, is_correct: isCorrect };
     });
-    await supabase.from('practice_exam_items').insert(items);
+    const { error: itemsError } = await supabase.from('practice_exam_items').insert(items);
+    if (itemsError) console.error('practice_exam_items insert error:', itemsError);
     // Keep activeExam in sync with what was just submitted — Retry Missed reads its responses.
     setActiveExam(prev => prev ? { ...prev, responses: Object.fromEntries(Object.entries(responses)), score: scoreVal, status: 'completed' } : prev);
     setSubmitting(false); setScreen('results'); loadHistory();
   };
 
   const openExam = (exam: PastExam) => {
-    setActiveExam(exam); setExamId(exam.id); setExamTitle(exam.title); setQuestions(exam.questions);
+    setActiveExam(exam); setExamId(exam.id); setExamTitle(exam.title);
+    setQuestions(exam.questions);
     const resp: Record<number, string> = {};
     Object.entries(exam.responses || {}).forEach(([k, v]) => { resp[parseInt(k)] = v; });
     setResponses(resp); setReviewed(new Set()); setShowExplanation(new Set()); setScheduleReview(false); setReviewScheduled(false);
@@ -428,18 +440,23 @@ function BrynnePracticeExamInner() {
         .eq('is_correct', false)
         .in('question_type', ['mc', 'tf']);
       if (data && data.length > 0) {
+        // Deduplicate by question similarity, weight by miss count
         const missMap: Record<string, number> = {};
         data.forEach(item => {
+          // Normalize: lowercase, trim, first 120 chars as key
           const key = item.question_text.toLowerCase().trim().slice(0, 120);
           missMap[key] = (missMap[key] || 0) + 1;
         });
+        // Build deduped list sorted by miss count descending
         const deduped = Object.entries(missMap)
           .sort((a, b) => b[1] - a[1])
           .map(([key, count]) => {
+            // Find original casing from data
             const original = data.find(d => d.question_text.toLowerCase().trim().slice(0, 120) === key);
             return { question: original?.question_text || key, missCount: count };
           });
         setWeakAreas(deduped);
+        // Select all by default
         setSelectedWeakAreas(new Set(deduped.map((_, i) => i)));
       } else {
         setWeakAreas([]);
@@ -449,11 +466,21 @@ function BrynnePracticeExamInner() {
     finally { setWeakAreasLoading(false); }
   };
 
+  const deleteExam = async (id: string) => {
+    // Items feed the Weak Areas banner — remove them with the exam so deleted exams stop counting against the student.
+    await supabase.from('practice_exam_items').delete().eq('exam_id', id);
+    await supabase.from('tasks').delete().eq('resource_id', id).eq('resource_type', 'practice_exam');
+    const { error: examError } = await supabase.from('practice_exams').delete().eq('id', id);
+    if (examError) { console.error('Exam delete failed:', examError.message); return; }
+    setPastExams(prev => prev.filter(e => e.id !== id));
+  };
+
   const retryMissed = async (sourceExam?: PastExam) => {
     const exam = sourceExam || activeExam;
     if (!exam) return;
     setRetryMissedLoading(true);
     try {
+      // Get missed MC/TF questions from this exam
       const missedQuestions = exam.questions.filter((q, i) => {
         if (q.type !== 'mc' && q.type !== 'tf') return false;
         const resp = Object.entries(exam.responses || {}).find(([k]) => parseInt(k) === i);
@@ -461,6 +488,7 @@ function BrynnePracticeExamInner() {
         return userAnswer !== q.answer;
       });
       if (missedQuestions.length === 0) return;
+      // Shuffle
       const shuffled = [...missedQuestions].sort(() => Math.random() - 0.5);
       const title = `Retry: ${exam.title}`;
       const { data: newExam } = await supabase.from('practice_exams').insert({
@@ -488,22 +516,15 @@ function BrynnePracticeExamInner() {
     finally { setRetryMissedLoading(false); }
   };
 
-  const deleteExam = async (id: string) => {
-    // Items feed the Weak Areas banner — remove them with the exam so deleted exams stop counting against the student.
-    await supabase.from('practice_exam_items').delete().eq('exam_id', id);
-    await supabase.from('tasks').delete().eq('resource_id', id).eq('resource_type', 'practice_exam');
-    const { error: examError } = await supabase.from('practice_exams').delete().eq('id', id);
-    if (examError) { console.error('Exam delete failed:', examError.message); return; }
-    setPastExams(prev => prev.filter(e => e.id !== id));
-  };
-
   useEffect(() => { submitRef.current = submitExam; });
 
-  const objQuestions = questions.filter(q => q.type === 'mc' || q.type === 'tf');
-  const correctCount = objQuestions.filter(q => { const i = questions.indexOf(q); return (responses[i] || '') === q.answer; }).length;
-  const displayScore = objQuestions.length > 0 ? Math.round((correctCount / objQuestions.length) * 100) : null;
-  const formatTime   = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-  const formatDate   = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const objQuestions  = questions.filter(q => q.type === 'mc' || q.type === 'tf');
+  const correctCount  = objQuestions.filter(q => { const i = questions.indexOf(q); return (responses[i] || '') === q.answer; }).length;
+  const displayScore  = objQuestions.length > 0 ? Math.round((correctCount / objQuestions.length) * 100) : null;
+
+  const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
   const inputStyle: React.CSSProperties = { width: '100%', padding: '11px 13px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' };
 
   return (
@@ -516,23 +537,26 @@ function BrynnePracticeExamInner() {
         </Link>
       </nav>
 
+      {/* ── HISTORY SCREEN ── */}
       {screen === 'history' && (
         <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
             <div>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Brynne</div>
-              <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px' }}>Practice Tests</div>
+              <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px' }}>Practice Exams</div>
             </div>
-            <button onClick={() => setScreen('setup')} style={{ padding: '10px 18px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ New Test</button>
+            <button onClick={() => setScreen('setup')} style={{ padding: '10px 18px', borderRadius: 999, background: '#E8956D', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ New Exam</button>
           </div>
           {histLoading ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: '#9E9BB0', fontSize: 13 }}>Loading...</div>
           ) : pastExams.length === 0 ? (
             <div style={{ background: '#FFFFFF', border: '1.5px dashed #C4C1D4', borderRadius: 18, padding: '48px 20px', textAlign: 'center' }}>
-              <div style={{ width: 72, height: 72, borderRadius: 20, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}><IconExam c={color} size={36} /></div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26', marginBottom: 8 }}>No practice tests yet!</div>
-              <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 24 }}>Ascend can make a practice test from your notes! 🌟</div>
-              <button onClick={() => setScreen('setup')} style={{ padding: '12px 24px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Make My First Test! 🌟</button>
+              <div style={{ width: 72, height: 72, borderRadius: 20, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                <IconExam c={color} size={36} />
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26', marginBottom: 8 }}>No practice exams yet</div>
+              <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 24 }}>Generate a practice exam from your uploaded materials.</div>
+              <button onClick={() => setScreen('setup')} style={{ padding: '12px 24px', borderRadius: 999, background: '#E8956D', border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Generate First Exam</button>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -557,7 +581,7 @@ function BrynnePracticeExamInner() {
                         </div>
                       )}
                       <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap', marginBottom: 2 }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: exam.status === 'completed' ? '#5FAD8E' : color, background: exam.status === 'completed' ? '#EDF7F2' : light, padding: '2px 6px', borderRadius: 999 }}>{exam.status === 'completed' ? 'Done! 🌟' : 'In Progress'}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: exam.status === 'completed' ? '#5FAD8E' : color, background: exam.status === 'completed' ? '#EDF7F2' : light, padding: '2px 6px', borderRadius: 999 }}>{exam.status === 'completed' ? 'Done' : 'In Progress'}</span>
                         {exam.score !== null && <span style={{ fontSize: 10, fontWeight: 700, color: exam.score >= 80 ? '#5FAD8E' : exam.score >= 60 ? '#C8965A' : '#C47878' }}>{exam.score}%</span>}
                       </div>
                       <div style={{ fontSize: 10, color: '#9E9BB0' }}>{formatDate(exam.created_at)} · {exam.questions?.length || 0}q</div>
@@ -569,12 +593,12 @@ function BrynnePracticeExamInner() {
                       <button onClick={() => setMovingId(exam.id)} style={{ color: '#9E9BB0', background: '#F3F1EC', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <svg width="11" height="11" viewBox="0 0 28 28" fill="none"><path d="M5 14h18M14 5l9 9-9 9" stroke="#9E9BB0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
                       </button>
-                      <button onClick={() => { if (confirm('Delete this test?')) deleteExam(exam.id); }} style={{ color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <button onClick={() => { if (confirm('Delete this exam?')) deleteExam(exam.id); }} style={{ color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 6, padding: '5px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <svg width="11" height="11" viewBox="0 0 28 28" fill="none"><path d="M6 6l16 16M22 6L6 22" stroke="#C47878" strokeWidth="2" strokeLinecap="round"/></svg>
                       </button>
                     </div>
                   </div>
-                  <button onClick={() => openExam(exam)} style={{ width: '100%', padding: '8px', borderRadius: 10, border: 'none', background: color, color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{exam.status === 'completed' ? 'View Results' : 'Continue'}</button>
+                  <button onClick={() => openExam(exam)} style={{ width: '100%', padding: '8px', borderRadius: 10, border: 'none', background: '#E8956D', color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{exam.status === 'completed' ? 'View Results' : 'Continue'}</button>
                   {exam.status === 'completed' && (
                     <button onClick={() => retakeExam(exam)} style={{ width: '100%', padding: '8px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#F3F1EC', color: '#6B6880', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear & Retake</button>
                   )}
@@ -586,7 +610,7 @@ function BrynnePracticeExamInner() {
                     }).length;
                     return missedCount > 0 ? (
                       <button onClick={() => retryMissed(exam)} disabled={retryMissedLoading} style={{ width: '100%', padding: '8px', borderRadius: 10, border: '1.5px solid #C4787840', background: '#FDF2F2', color: '#C47878', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: retryMissedLoading ? 0.6 : 1 }}>
-                        Retry Missed ({missedCount}) 💪
+                        Retry Missed ({missedCount})
                       </button>
                     ) : null;
                   })()}
@@ -611,22 +635,29 @@ function BrynnePracticeExamInner() {
         />
       )}
 
+      {/* ── SETUP SCREEN ── */}
       {screen === 'setup' && (
         <main style={{ maxWidth: 600, margin: '0 auto', padding: '28px 20px 80px' }}>
-          <button onClick={() => { setScreen('history'); setNewFileNames({}); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Tests</button>
+          <button onClick={() => { setScreen('history'); setNewFileNames({}); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Exams</button>
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 4 }}>Brynne</div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>New Practice Test</div>
-            <div style={{ fontSize: 13, color: '#9E9BB0' }}>Pick your files and Ascend will make a practice test for you! 🌟</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.8px', marginBottom: 4 }}>New Practice Exam</div>
+            <div style={{ fontSize: 13, color: '#9E9BB0' }}>Select materials, choose question types, and generate a realistic exam.</div>
           </div>
 
-          {/* Weak Areas Banner */}
+          {/* Weak Areas Banner — only shown when opened from a folder */}
           {folderId && (weakAreasLoading || weakAreas.length > 0) && (
             <div style={{ background: '#FDF2F2', border: '1.5px solid #C4787840', borderRadius: 18, padding: '16px 20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: weakAreasExpanded ? 12 : 0 }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: '#C47878' }}>Your Weak Areas {weakAreas.length > 0 && `— ${folderName || 'This Folder'}`} 💪</div>
-                  {weakAreas.length > 0 && <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 2 }}>{selectedWeakAreas.size} of {weakAreas.length} selected · Ascend will focus on these!</div>}
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#C47878' }}>
+                    Your Weak Areas {weakAreas.length > 0 && `— ${folderName || 'This Folder'}`}
+                  </div>
+                  {weakAreas.length > 0 && (
+                    <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 2 }}>
+                      {selectedWeakAreas.size} of {weakAreas.length} selected · AI will target these in your exam
+                    </div>
+                  )}
                 </div>
                 <button onClick={() => setWeakAreasExpanded(e => !e)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#C47878', fontFamily: 'var(--font-jakarta)', padding: '4px 8px' }}>
                   {weakAreasExpanded ? 'Collapse' : 'Expand'}
@@ -634,7 +665,7 @@ function BrynnePracticeExamInner() {
               </div>
               {weakAreasExpanded && (
                 weakAreasLoading ? (
-                  <div style={{ fontSize: 12, color: '#9E9BB0' }}>Finding your weak areas... 🌟</div>
+                  <div style={{ fontSize: 12, color: '#9E9BB0' }}>Loading your weak areas...</div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
@@ -650,8 +681,12 @@ function BrynnePracticeExamInner() {
                             {selected && <span style={{ color: 'white', fontSize: 9 }}>✓</span>}
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 12, fontWeight: selected ? 700 : 400, color: selected ? '#1D1B26' : '#6B6880', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{w.question}</div>
-                            {w.missCount > 1 && <div style={{ fontSize: 10, fontWeight: 700, color: '#C47878', marginTop: 3 }}>Missed {w.missCount}x — let&apos;s fix that! 💪</div>}
+                            <div style={{ fontSize: 12, fontWeight: selected ? 700 : 400, color: selected ? '#1D1B26' : '#6B6880', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                              {w.question}
+                            </div>
+                            {w.missCount > 1 && (
+                              <div style={{ fontSize: 10, fontWeight: 700, color: '#C47878', marginTop: 3 }}>Missed {w.missCount}x</div>
+                            )}
                           </div>
                         </div>
                       );
@@ -662,11 +697,13 @@ function BrynnePracticeExamInner() {
             </div>
           )}
 
+          {/* Exam Name */}
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Test Name (optional)</label>
-            <input value={examNameInput} onChange={e => setExamNameInput(e.target.value)} placeholder='e.g. "Chapter 5 Practice Test"' style={{ ...inputStyle }} />
+            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Exam Name (optional)</label>
+            <input value={examNameInput} onChange={e => setExamNameInput(e.target.value)} placeholder='e.g. "Chem 115 Exam 1 Practice"' style={{ ...inputStyle }} />
           </div>
 
+          {/* Question Types */}
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 12 }}>Question Types</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -675,14 +712,15 @@ function BrynnePracticeExamInner() {
                 return <button key={key} onClick={() => toggleType(key)} style={{ padding: '8px 16px', borderRadius: 999, border: `1.5px solid ${active ? color : '#E8E5F0'}`, background: active ? color : '#FAFAF8', color: active ? 'white' : '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{label}</button>;
               })}
             </div>
-            <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 10 }}>Pick one or more types — Ascend will mix them up evenly!</div>
+            <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 10 }}>Select one or more. Questions will be distributed evenly across types.</div>
           </div>
 
+          {/* Resource Library */}
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Pick Your Files</div>
-                <div style={{ fontSize: 11, color: '#9E9BB0' }}>{totalSelected > 0 ? `${totalSelected} file${totalSelected !== 1 ? 's' : ''} selected! 🎉` : 'Choose from your uploaded files'}</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Select Resources</div>
+                <div style={{ fontSize: 11, color: '#9E9BB0' }}>{totalSelected > 0 ? `${totalSelected} file${totalSelected !== 1 ? 's' : ''} selected` : 'Pick from your uploaded library'}</div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 {totalSelected > 0 && <button onClick={() => { setSelectedIds(new Set()); setNewFiles([]); setNewFileNames({}); }} style={{ padding: '6px 10px', borderRadius: 999, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#9E9BB0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear</button>}
@@ -717,11 +755,11 @@ function BrynnePracticeExamInner() {
               </div>
             )}
             {libLoading ? (
-              <div style={{ textAlign: 'center', padding: '16px 0', color: '#9E9BB0', fontSize: 12 }}>Loading your files...</div>
+              <div style={{ textAlign: 'center', padding: '16px 0', color: '#9E9BB0', fontSize: 12 }}>Loading library...</div>
             ) : library.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '20px', border: '2px dashed #E8E5F0', borderRadius: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><IconEmptyFolder size={32} /></div>
-                <div style={{ fontSize: 12, color: '#9E9BB0' }}>No uploaded files yet — upload your notes to your class folders first!</div>
+                <div style={{ fontSize: 12, color: '#9E9BB0' }}>No uploaded files yet — upload files to your class folders first.</div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -778,19 +816,20 @@ function BrynnePracticeExamInner() {
               </div>
             )}
             {totalSelected > 0 && (
-              <div style={{ marginTop: 10, padding: '9px 12px', borderRadius: 9, background: color, color: 'white', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ marginTop: 10, padding: '9px 12px', borderRadius: 9, background: '#E8956D', color: 'white', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <IconStack c="rgba(255,255,255,0.8)" size={14} />
-                🌟 {totalSelected} file{totalSelected !== 1 ? 's' : ''} selected{totalSelected > 1 ? ' — Ascend will find the most important stuff!' : ''}
+                {totalSelected} file{totalSelected !== 1 ? 's' : ''} selected{totalSelected > 1 ? ' — Ascend will cross-reference all materials' : ''}
               </div>
             )}
           </div>
 
+          {/* Topic + Instructions */}
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>{totalSelected > 0 ? 'What to Focus On? (optional)' : 'What Subject?'}</label>
-            <input value={topic} onChange={e => setTopic(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && canGenerate && !generating) generate(); }} placeholder={totalSelected > 0 ? 'e.g. "Focus on fractions"' : 'e.g. Algebra Chapter 4'} style={{ ...inputStyle, marginBottom: 14 }} />
-            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Special Instructions (optional)</label>
-            <textarea value={customInstructions} onChange={e => setCustomInstructions(e.target.value)} placeholder='e.g. "Use simple words" or "More examples"' rows={2} style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5, marginBottom: 14 }} />
-            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 8, display: 'block' }}>How Many Questions?</label>
+            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>{totalSelected > 0 ? 'Refine Focus (optional)' : 'Subject / Topic'}</label>
+            <input value={topic} onChange={e => setTopic(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && canGenerate && !generating) generate(); }} placeholder={totalSelected > 0 ? 'e.g. "Focus on enzyme kinetics"' : 'e.g. AP Biology - Cellular Respiration'} style={{ ...inputStyle, marginBottom: 14 }} />
+            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Custom Instructions (optional)</label>
+            <textarea value={customInstructions} onChange={e => setCustomInstructions(e.target.value)} placeholder='e.g. "Weight toward mechanisms" or "Include calculation questions"' rows={2} style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5, marginBottom: 14 }} />
+            <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 8, display: 'block' }}>Number of Questions</label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
               {[10, 25, 50].map(n => (
                 <button key={n} onClick={() => { setCountMode('preset'); setCount(n); }} style={{ padding: '6px 16px', borderRadius: 999, border: `1.5px solid ${countMode === 'preset' && count === n ? color : '#E8E5F0'}`, background: countMode === 'preset' && count === n ? color : '#FAFAF8', color: countMode === 'preset' && count === n ? 'white' : '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{n}</button>
@@ -798,12 +837,15 @@ function BrynnePracticeExamInner() {
               <button onClick={() => setCountMode('auto')} style={{ padding: '6px 16px', borderRadius: 999, border: `1.5px solid ${countMode === 'auto' ? color : '#E8E5F0'}`, background: countMode === 'auto' ? color : '#FAFAF8', color: countMode === 'auto' ? 'white' : '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Auto</button>
               <button onClick={() => setCountMode('custom')} style={{ padding: '6px 16px', borderRadius: 999, border: `1.5px solid ${countMode === 'custom' ? color : '#E8E5F0'}`, background: countMode === 'custom' ? color : '#FAFAF8', color: countMode === 'custom' ? 'white' : '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Custom</button>
             </div>
-            {countMode === 'auto' && <div style={{ fontSize: 11, color: '#9E9BB0' }}>Ascend will pick the perfect number for you! 🌟</div>}
-            {countMode === 'custom' && <input type="number" value={customCount} onChange={e => setCustomCount(e.target.value)} placeholder="e.g. 30" style={{ ...inputStyle, width: 120, marginTop: 6 }} />}
+            {countMode === 'auto' && <div style={{ fontSize: 11, color: '#9E9BB0' }}>Ascend will determine the ideal number based on your material.</div>}
+            {countMode === 'custom' && <input type="number" value={customCount} onChange={e => setCustomCount(e.target.value)} placeholder="e.g. 100" style={{ ...inputStyle, width: 120, marginTop: 6 }} />}
           </div>
 
+          {/* Timer */}
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '16px 20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)', display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconTimer c={color} size={18} /></div>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <IconTimer c={color} size={18} />
+            </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Timer (optional)</div>
               {timerEnabled && (
@@ -864,28 +906,33 @@ function BrynnePracticeExamInner() {
           )}
 
           {error && <p style={{ fontSize: 13, color: '#C47878', marginBottom: 12 }}>{error}</p>}
+
           {generating ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
               <div style={{ width: 32, height: 32, border: '2.5px solid #E8E5F0', borderTopColor: color, borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.75s linear infinite' }} />
-              <div style={{ fontSize: 13, color: '#9E9BB0' }}>{totalSelected > 1 ? `Looking through ${totalSelected} files... 🌟` : 'Making your practice test...'}</div>
+              <div style={{ fontSize: 13, color: '#9E9BB0' }}>{totalSelected > 1 ? `Analyzing ${totalSelected} documents...` : 'Generating your exam...'}</div>
               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
           ) : (
-            <button onClick={generate} disabled={!canGenerate} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: canGenerate ? color : '#F3F1EC', color: canGenerate ? 'white' : '#C4C1D4', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-              {canGenerate ? `Make My ${countMode === 'auto' ? 'Auto' : actualCount}-Question Test! 🌟` : 'Pick some files or enter a subject first'}
+            <button onClick={generate} disabled={!canGenerate} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: '#E8956D', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: canGenerate ? 1 : 0.4 }}>
+              {canGenerate ? `Generate ${countMode === 'auto' ? 'Auto' : actualCount}-Question Exam` : 'Select resources or enter a topic'}
             </button>
           )}
         </main>
       )}
 
+      {/* ── EXAM SCREEN ── */}
       {screen === 'exam' && questions.length > 0 && (
         <main style={{ maxWidth: 680, margin: '0 auto', padding: '20px 20px 120px' }}>
+          {/* Resume banner */}
           {Object.keys(responses).length > 0 && (
             <div style={{ background: '#FFF3E8', border: '1.5px solid #E8956D40', borderRadius: 12, padding: '10px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#E8956D' }}>Picking up where you left off! — {Object.keys(responses).length} of {questions.length} answered 🌟</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#E8956D' }}>Resuming — {Object.keys(responses).length} of {questions.length} answered</div>
               <div style={{ fontSize: 11, color: '#9E9BB0' }}>Progress saved</div>
             </div>
           )}
+
+          {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
             <div>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 2 }}>{questions.length} Questions</div>
@@ -898,6 +945,8 @@ function BrynnePracticeExamInner() {
               </div>
             )}
           </div>
+
+          {/* All questions scrollable */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {questions.map((q, i) => (
               <div key={i} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '22px 24px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
@@ -910,6 +959,8 @@ function BrynnePracticeExamInner() {
                   </span>
                 </div>
                 <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.6, color: '#1D1B26', marginBottom: 16 }}><RichText text={q.question} /></div>
+
+                {/* MC options */}
                 {q.type === 'mc' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {Object.entries((q as MCQuestion).options).map(([letter, text]) => {
@@ -917,7 +968,8 @@ function BrynnePracticeExamInner() {
                       return (
                         <div key={letter} onClick={() => setResponses(r => ({ ...r, [i]: letter }))} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 14px', borderRadius: 12, border: `1.5px solid ${selected ? color : '#E8E5F0'}`, background: selected ? light : '#FAFAF8', cursor: 'pointer' }}>
                           <div style={{ width: 22, height: 22, borderRadius: '50%', border: `2px solid ${selected ? color : '#C4C1D4'}`, background: selected ? color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
-                            {selected ? <span style={{ color: 'white', fontSize: 10, fontWeight: 800 }}>{letter}</span> : <span style={{ color: '#9E9BB0', fontSize: 10, fontWeight: 700 }}>{letter}</span>}
+                            {selected && <span style={{ color: 'white', fontSize: 10, fontWeight: 800 }}>{letter}</span>}
+                            {!selected && <span style={{ color: '#9E9BB0', fontSize: 10, fontWeight: 700 }}>{letter}</span>}
                           </div>
                           <span style={{ fontSize: 13, fontWeight: selected ? 700 : 400, color: selected ? color : '#1D1B26', lineHeight: 1.5 }}><RichText text={text} /></span>
                         </div>
@@ -925,52 +977,75 @@ function BrynnePracticeExamInner() {
                     })}
                   </div>
                 )}
+
+                {/* T/F */}
                 {q.type === 'tf' && (
                   <div style={{ display: 'flex', gap: 10 }}>
                     {['True', 'False'].map(opt => {
                       const selected = responses[i] === opt;
-                      return <button key={opt} onClick={() => setResponses(r => ({ ...r, [i]: opt }))} style={{ flex: 1, padding: '12px', borderRadius: 12, border: `1.5px solid ${selected ? color : '#E8E5F0'}`, background: selected ? color : '#FAFAF8', color: selected ? 'white' : '#6B6880', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{opt}</button>;
+                      return (
+                        <button key={opt} onClick={() => setResponses(r => ({ ...r, [i]: opt }))} style={{ flex: 1, padding: '12px', borderRadius: 12, border: `1.5px solid ${selected ? color : '#E8E5F0'}`, background: selected ? color : '#FAFAF8', color: selected ? 'white' : '#6B6880', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{opt}</button>
+                      );
                     })}
                   </div>
                 )}
-                {q.type === 'sa' && <textarea value={responses[i] || ''} onChange={e => setResponses(r => ({ ...r, [i]: e.target.value }))} placeholder="Write your answer here..." rows={4} style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${color}40`, borderRadius: 12, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.6, boxSizing: 'border-box' }} />}
-                {q.type === 'essay' && <textarea value={responses[i] || ''} onChange={e => setResponses(r => ({ ...r, [i]: e.target.value }))} placeholder="Write your answer here! Take your time. 🌟" rows={8} style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${color}40`, borderRadius: 12, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.6, boxSizing: 'border-box' }} />}
+
+                {/* Short Answer */}
+                {q.type === 'sa' && (
+                  <textarea value={responses[i] || ''} onChange={e => setResponses(r => ({ ...r, [i]: e.target.value }))} placeholder="Write your answer here..." rows={4} style={{ width: '100%', padding: '12px 14px', border: '1.5px solid #E8E5F0', borderRadius: 12, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.6, boxSizing: 'border-box' }} />
+                )}
+
+                {/* Essay */}
+                {q.type === 'essay' && (
+                  <textarea value={responses[i] || ''} onChange={e => setResponses(r => ({ ...r, [i]: e.target.value }))} placeholder="Write your essay response here..." rows={8} style={{ width: '100%', padding: '12px 14px', border: '1.5px solid #E8E5F0', borderRadius: 12, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.6, boxSizing: 'border-box' }} />
+                )}
               </div>
             ))}
           </div>
+
+          {/* Submit */}
           <div style={{ marginTop: 24, background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 14, textAlign: 'center' }}>{Object.keys(responses).length} of {questions.length} questions answered</div>
-            <button onClick={submitExam} disabled={submitting} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: color, color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: submitting ? 0.7 : 1 }}>
-              {submitting ? 'Submitting...' : 'Submit My Test! 🌟'}
+            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 14, textAlign: 'center' }}>
+              {Object.keys(responses).length} of {questions.length} questions answered
+            </div>
+            <button onClick={submitExam} disabled={submitting} style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: '#E8956D', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: submitting ? 0.7 : 1 }}>
+              {submitting ? 'Submitting...' : 'Submit Exam'}
             </button>
           </div>
+
+          {/* Floating save button */}
           <div style={{ position: 'fixed', bottom: 80, right: 20, zIndex: 150 }}>
-            <button onClick={saveProgress} disabled={saving} style={{ padding: '10px 16px', borderRadius: 999, background: saveFlash ? '#5FAD8E' : color, border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', boxShadow: '0 4px 16px rgba(29,27,38,0.2)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button onClick={saveProgress} disabled={saving} style={{ padding: '10px 16px', borderRadius: 999, background: saveFlash ? '#5FAD8E' : '#E8956D', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', boxShadow: '0 4px 16px rgba(29,27,38,0.2)', display: 'flex', alignItems: 'center', gap: 6 }}>
               <IconSave c="white" size={14} />
-              {saveFlash ? 'Saved!' : saving ? 'Saving...' : 'Save Progress'}
+              {saveFlash ? 'Saved' : saving ? 'Saving...' : 'Save Progress'}
             </button>
           </div>
         </main>
       )}
 
+      {/* ── RESULTS SCREEN ── */}
       {screen === 'results' && questions.length > 0 && (
         <main style={{ maxWidth: 680, margin: '0 auto', padding: '28px 20px 100px' }}>
-          <div style={{ background: color, borderRadius: 20, padding: '28px 24px', marginBottom: 24, color: 'white', textAlign: 'center' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', opacity: 0.8, marginBottom: 8 }}>{examTitle}</div>
+          {/* Score summary */}
+          <div style={{ background: '#E8956D', borderRadius: 20, padding: '28px 24px', marginBottom: 24, color: 'white', textAlign: 'center' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', opacity: 0.7, marginBottom: 8 }}>{examTitle}</div>
             {displayScore !== null ? (
               <>
                 <div style={{ fontSize: 56, fontWeight: 900, marginBottom: 4 }}>{displayScore}%</div>
-                <div style={{ fontSize: 13, opacity: 0.9 }}>{correctCount} correct · {objQuestions.length - correctCount} incorrect · {objQuestions.length} questions 🌟</div>
-                {questions.filter(q => q.type === 'sa' || q.type === 'essay').length > 0 && <div style={{ fontSize: 12, opacity: 0.8, marginTop: 6 }}>{questions.filter(q => q.type === 'sa' || q.type === 'essay').length} written questions — review below!</div>}
+                <div style={{ fontSize: 13, opacity: 0.8 }}>{correctCount} correct · {objQuestions.length - correctCount} incorrect · {objQuestions.length} objective questions</div>
+                {questions.filter(q => q.type === 'sa' || q.type === 'essay').length > 0 && (
+                  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>{questions.filter(q => q.type === 'sa' || q.type === 'essay').length} open-ended questions — review below</div>
+                )}
               </>
             ) : (
               <>
-                <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>Test Complete! 🌟</div>
-                <div style={{ fontSize: 13, opacity: 0.9 }}>Great job! Review your answers below.</div>
+                <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>Exam Complete</div>
+                <div style={{ fontSize: 13, opacity: 0.8 }}>Review your responses below</div>
               </>
             )}
           </div>
 
+          {/* Retake options */}
           {(() => {
             const missedCount = questions.filter((q, i) => {
               if (q.type !== 'mc' && q.type !== 'tf') return false;
@@ -979,22 +1054,23 @@ function BrynnePracticeExamInner() {
             return missedCount > 0 ? (
               <div style={{ background: '#FDF2F2', border: '1.5px solid #C4787840', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: '#C47878', marginBottom: 2 }}>{missedCount} question{missedCount !== 1 ? 's' : ''} to practice 💪</div>
-                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>Drill just the tricky ones — you&apos;ve got this!</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#C47878', marginBottom: 2 }}>{missedCount} question{missedCount !== 1 ? 's' : ''} missed</div>
+                  <div style={{ fontSize: 11, color: '#9E9BB0' }}>Drill just the ones you got wrong — shuffled.</div>
                 </div>
                 <button onClick={() => retryMissed()} disabled={retryMissedLoading} style={{ padding: '10px 18px', borderRadius: 999, border: 'none', background: '#C47878', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0, opacity: retryMissedLoading ? 0.6 : 1 }}>
-                  {retryMissedLoading ? 'Loading...' : 'Retry Missed 💪'}
+                  {retryMissedLoading ? 'Loading...' : 'Retry Missed'}
                 </button>
               </div>
             ) : null;
           })()}
           <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
             <button onClick={() => retakeExam()} style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: '#F3F1EC', color: '#6B6880', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear & Retake</button>
-            <button onClick={() => setScreen('history')} style={{ flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>My Tests</button>
+            <button onClick={() => setScreen('history')} style={{ flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: '#E8956D', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>My Exams</button>
           </div>
 
+          {/* Answer key */}
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 14 }}>Answer Key</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {questions.map((q, i) => {
               const userResp = responses[i] || '';
               const isReviewed = reviewed.has(i);
@@ -1002,46 +1078,74 @@ function BrynnePracticeExamInner() {
               let isCorrect: boolean | null = null;
               if (q.type === 'mc' || q.type === 'tf') isCorrect = userResp === q.answer;
               return (
-                <div key={i} style={{ background: '#FFFFFF', border: `1.5px solid ${isCorrect === true ? '#5FAD8E40' : isCorrect === false ? '#C4787840' : '#E8E5F0'}`, borderRadius: 18, padding: '20px 22px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+                <div key={i} style={{ background: '#FFFFFF', border: `1.5px solid ${isCorrect === true ? '#5FAD8E40' : isCorrect === false ? '#C47878' + '40' : '#E8E5F0'}`, borderRadius: 18, padding: '20px 22px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                     <div style={{ width: 28, height: 28, borderRadius: 8, background: isCorrect === true ? '#EDF7F2' : isCorrect === false ? '#FDF2F2' : '#F3F1EC', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <span style={{ fontSize: 11, fontWeight: 800, color: isCorrect === true ? '#5FAD8E' : isCorrect === false ? '#C47878' : '#9E9BB0' }}>{isCorrect === true ? '✓' : isCorrect === false ? '✗' : i + 1}</span>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: isCorrect === true ? '#5FAD8E' : isCorrect === false ? '#C47878' : '#9E9BB0' }}>
+                        {isCorrect === true ? '✓' : isCorrect === false ? '✗' : i + 1}
+                      </span>
                     </div>
-                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#C4C1D4' }}>{q.type === 'mc' ? 'Multiple Choice' : q.type === 'tf' ? 'True / False' : q.type === 'sa' ? 'Short Answer' : 'Essay'}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#C4C1D4' }}>
+                      {q.type === 'mc' ? 'Multiple Choice' : q.type === 'tf' ? 'True / False' : q.type === 'sa' ? 'Short Answer' : 'Essay'}
+                    </span>
                     <div style={{ marginLeft: 'auto' }}>
                       <div onClick={() => setReviewed(r => { const n = new Set(r); n.has(i) ? n.delete(i) : n.add(i); return n; })} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                        <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${isReviewed ? color : '#C4C1D4'}`, background: isReviewed ? color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{isReviewed && <span style={{ color: 'white', fontSize: 9 }}>✓</span>}</div>
+                        <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${isReviewed ? color : '#C4C1D4'}`, background: isReviewed ? color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          {isReviewed && <span style={{ color: 'white', fontSize: 9 }}>✓</span>}
+                        </div>
                         <span style={{ fontSize: 11, fontWeight: 700, color: isReviewed ? color : '#9E9BB0' }}>Reviewed</span>
                       </div>
                     </div>
                   </div>
+
                   <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.6, color: '#1D1B26', marginBottom: 14 }}><RichText text={q.question} /></div>
-                  {userResp ? (
+
+                  {/* User response */}
+                  {userResp && (
                     <div style={{ background: '#F3F1EC', borderRadius: 10, padding: '10px 14px', marginBottom: 10 }}>
                       <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 4 }}>Your Answer</div>
                       <div style={{ fontSize: 13, color: '#1D1B26', lineHeight: 1.5 }}>{userResp}</div>
                     </div>
-                  ) : (
+                  )}
+                  {!userResp && (
                     <div style={{ background: '#F3F1EC', borderRadius: 10, padding: '10px 14px', marginBottom: 10 }}>
                       <div style={{ fontSize: 12, color: '#C4C1D4', fontStyle: 'italic' }}>No answer provided</div>
                     </div>
                   )}
+
+                  {/* Correct answer for MC/TF */}
                   {(q.type === 'mc' || q.type === 'tf') && (
                     <div style={{ background: '#EDF7F2', border: '1.5px solid #5FAD8E40', borderRadius: 10, padding: '10px 14px', marginBottom: 10 }}>
                       <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#5FAD8E', marginBottom: 4 }}>Correct Answer</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26' }}><RichText text={q.type === 'mc' ? `${q.answer} — ${(q as MCQuestion).options[q.answer as keyof MCQuestion['options']]}` : q.answer} /></div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26' }}>
+                        <RichText text={q.type === 'mc' ? `${q.answer} — ${(q as MCQuestion).options[q.answer as keyof MCQuestion['options']]}` : q.answer} />
+                      </div>
                     </div>
                   )}
+
+                  {/* Show explanation toggle for MC/TF */}
                   {(q.type === 'mc' || q.type === 'tf') && (
                     <div>
-                      <button onClick={() => setShowExplanation(s => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; })} style={{ fontSize: 12, fontWeight: 700, color, background: light, border: 'none', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', marginBottom: showExp ? 10 : 0 }}>{showExp ? 'Hide Explanation' : 'Show Explanation'}</button>
-                      {showExp && <div style={{ background: light, border: `1.5px solid ${color}30`, borderRadius: 10, padding: '12px 14px' }}><div style={{ fontSize: 13, color: '#C4845A', lineHeight: 1.6 }}><RichText text={(q as MCQuestion | TFQuestion).explanation} /></div></div>}
+                      <button onClick={() => setShowExplanation(s => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; })} style={{ fontSize: 12, fontWeight: 700, color: color, background: light, border: 'none', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', marginBottom: showExp ? 10 : 0 }}>
+                        {showExp ? 'Hide Explanation' : 'Show Explanation'}
+                      </button>
+                      {showExp && (
+                        <div style={{ background: light, border: `1.5px solid ${color}30`, borderRadius: 10, padding: '12px 14px' }}>
+                          <div style={{ fontSize: 13, color: '#9C5A3C', lineHeight: 1.6 }}><RichText text={(q as MCQuestion | TFQuestion).explanation} /></div>
+                        </div>
+                      )}
                     </div>
                   )}
+
+                  {/* Model answer for SA/Essay */}
                   {(q.type === 'sa' || q.type === 'essay') && (
                     <div style={{ background: light, border: `1.5px solid ${color}30`, borderRadius: 10, padding: '12px 14px' }}>
-                      <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color, marginBottom: 6 }}>{q.type === 'sa' ? 'Model Answer' : 'Key Points'}</div>
-                      <div style={{ fontSize: 13, color: '#C4845A', lineHeight: 1.6 }}><RichText text={q.type === 'sa' ? (q as SAQuestion).model_answer : (q as EssayQuestion).key_points} /></div>
+                      <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color, marginBottom: 6 }}>
+                        {q.type === 'sa' ? 'Model Answer' : 'Key Points'}
+                      </div>
+                      <div style={{ fontSize: 13, color: '#9C5A3C', lineHeight: 1.6 }}>
+                        <RichText text={q.type === 'sa' ? (q as SAQuestion).model_answer : (q as EssayQuestion).key_points} />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1049,6 +1153,7 @@ function BrynnePracticeExamInner() {
             })}
           </div>
 
+          {/* Review schedule */}
           {!reviewScheduled && (
             <div style={{ background: light, borderRadius: 14, padding: '16px', marginTop: 24 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 10 }}>Add to review schedule?</div>
@@ -1056,7 +1161,7 @@ function BrynnePracticeExamInner() {
                 <div style={{ width: 36, height: 20, borderRadius: 999, background: scheduleReview ? color : '#E8E5F0', transition: 'background 0.2s', position: 'relative', flexShrink: 0 }}>
                   <div style={{ position: 'absolute', top: 2, left: scheduleReview ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }} />
                 </div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: scheduleReview ? color : '#9E9BB0' }}>Review this test (Day +1, +3, +7)</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: scheduleReview ? color : '#9E9BB0' }}>Review this exam (Day +1, +3, +7)</span>
               </div>
               {scheduleReview && (
                 <button onClick={async () => {
@@ -1064,19 +1169,20 @@ function BrynnePracticeExamInner() {
                   const tasks = [1, 3, 7].map(d => { const due = new Date(today); due.setDate(today.getDate() + d); return { student_id: 'brynne', title: `Review: ${examTitle}`, due_date: localDateStr(due), task_type: 'review', completed: false, resource_id: examId, resource_type: 'practice_exam' }; });
                   await supabase.from('tasks').insert(tasks);
                   setReviewScheduled(true);
-                }} style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', marginTop: 12 }}>Confirm Schedule 🌟</button>
+                }} style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Confirm Schedule</button>
               )}
             </div>
           )}
           {reviewScheduled && (
             <div style={{ background: '#EDF7F2', borderRadius: 12, padding: '10px 16px', marginTop: 24 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#5FAD8E' }}>✅ Review sessions added to your calendar!</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#5FAD8E' }}>✅ Review sessions added to your calendar</div>
             </div>
           )}
 
+          {/* Bottom retake */}
           <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
             <button onClick={() => retakeExam()} style={{ flex: 1, padding: '13px', borderRadius: 14, border: '1.5px solid #E8E5F0', background: '#F3F1EC', color: '#6B6880', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Clear & Retake</button>
-            <button onClick={() => setScreen('history')} style={{ flex: 1, padding: '13px', borderRadius: 14, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>My Tests</button>
+            <button onClick={() => setScreen('history')} style={{ flex: 1, padding: '13px', borderRadius: 14, border: 'none', background: '#E8956D', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>My Exams</button>
           </div>
         </main>
       )}

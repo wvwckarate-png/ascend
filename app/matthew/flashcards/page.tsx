@@ -10,7 +10,8 @@ import { MoleculeStructure } from '../../components/MoleculeStructure';
 import { KaTeXRenderer } from '../../components/KaTeXRenderer';
 import { parseContent } from '../../../lib/parseContent';
 import FolderPicker from '../../components/FolderPicker';
-import { MATH_FORMAT_RULES_JSON } from '../../../lib/prompts';
+import { MATH_FORMAT_RULES_JSON, CLASS_RULES } from '../../../lib/prompts';
+import { gradeShort } from '../../../lib/students';
 
 function Mountain() {
   return (
@@ -247,7 +248,7 @@ function MatthewFlashcardsInner() {
   const fetchClassMeta = async (fId: string) => {
     const [{ data: folder }, { data: student }] = await Promise.all([
       supabase.from('exam_folders').select('name, exam_date, class_id').eq('id', fId).single(),
-      supabase.from('students').select('name, grade, track, target_school, target_program, grad_year, generation_profile').eq('id', 'matthew').single(),
+      supabase.from('students').select('name, track, target_school, target_program, grad_year, generation_profile').eq('id', 'matthew').single(),
     ]);
     if (!folder) return;
     const { data: cls } = await supabase.from('classes').select('name, professor, notes').eq('id', folder.class_id).single();
@@ -258,11 +259,11 @@ function MatthewFlashcardsInner() {
       folderName:        folder.name,
       examDate:          folder.exam_date,
       studentName:       student?.name || 'Matthew',
-      studentGrade:      student?.grade || '11th grade',
+      studentGrade:      student?.grad_year ? gradeShort(student.grad_year) : '',
       studentTrack:      student?.track || 'Pre-Dental',
       studentSchool:     student?.target_school || 'WVU',
       studentProgram:    student?.target_program || 'WVU School of Dentistry',
-      studentGradYear:   student?.grad_year ? String(student.grad_year) : '2026',
+      studentGradYear:   student?.grad_year ? String(student.grad_year) : '',
       generationProfile: student?.generation_profile || '',
     });
   };
@@ -687,7 +688,7 @@ function MatthewFlashcardsInner() {
         ? `You are Ascend, an expert flashcard generator. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\nAnalyze these ${allFiles.length} documents and identify the highest-yield concepts — topics that appear repeatedly, are emphasized, or are most likely to be tested. Generate ${countPhrase} focused strictly on these high-yield concepts. Do not go deeper than what the professor's materials cover.${topic.trim() ? ` Additional focus: ${topic.trim()}.` : ''}${weakSpotsInject}`
         : `You are Ascend, an expert flashcard generator. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\nGenerate ${countPhrase}${topic.trim() ? ` focused on: ${topic.trim()}` : ' from the uploaded material'}. Focus only on the most testable concepts from what was actually taught. Do not expand beyond the scope of the provided material.${weakSpotsInject}`;
       const custom = customInstructions.trim() ? ` Additional instructions: ${customInstructions.trim()}` : '';
-      const prompt = baseInstruction + custom + chemInject + MATH_FORMAT_RULES_JSON + ' Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]';
+      const prompt = baseInstruction + custom + chemInject + CLASS_RULES + MATH_FORMAT_RULES_JSON + ' Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]';
       let raw = '';
       const formData = new FormData();
       renamedFiles.forEach(f => formData.append('files', f)); formData.append('resources', JSON.stringify(storedResources));

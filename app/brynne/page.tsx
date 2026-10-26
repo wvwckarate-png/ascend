@@ -90,7 +90,7 @@ const QUOTES = [
   { text: "Discipline is choosing your future self over your present comfort.", author: "Ascend" },
   { text: "Forged in focus. Finished in excellence.", author: "Ascend" },
 ];
-const CLASS_COLORS = ['#E8956D', '#C4A882', '#D4845A', '#C8965A', '#E0A882', '#D49E6D'];
+const CLASS_COLORS = ['#9B8EC4', '#E8956D', '#A89EC4', '#6B7FA0', '#8E9BC4', '#7B8FA0'];
 
 function classLabel(name: string) {
   const n = (name || '').toLowerCase();
@@ -101,6 +101,7 @@ function classLabel(name: string) {
   if (n.includes('english'))   return 'ENG';
   if (n.includes('science'))   return 'SCI';
   if (n.includes('history'))   return 'HIS';
+  if (n.includes('sat') || n.includes('act')) return 'SAT';
   return name.slice(0, 3).toUpperCase();
 }
 
@@ -128,7 +129,7 @@ function formatDue(dateStr: string): string {
   const today    = new Date(); today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
   const due      = new Date(dateStr + 'T00:00:00');
-  if (due.getTime() === today.getTime())    return 'Today!';
+  if (due.getTime() === today.getTime())    return 'Today';
   if (due.getTime() === tomorrow.getTime()) return 'Tomorrow';
   const diff = Math.ceil((due.getTime() - today.getTime()) / 86400000);
   if (diff < 0)  return 'Overdue';
@@ -158,17 +159,15 @@ export default function BrynneDashboard() {
   const [loading,    setLoading]    = useState(true);
   const [calView,    setCalView]    = useState<'week' | 'month'>('week');
   const [showDone,   setShowDone]   = useState(false);
-  const [showUpload,  setShowUpload]  = useState(false);
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [showUpload,   setShowUpload]   = useState(false);
+  const [selectedDay,  setSelectedDay]  = useState<string | null>(null);
   const [quoteIndex, setQuoteIndex] = useState(0);
   useEffect(() => {
     setQuoteIndex(Math.floor(Math.random() * QUOTES.length));
   }, []);
 
-
-  useEffect(() => {
-    const load = async () => {
-      const { data: studentData } = await supabase.from('students').select('name, grade, focus').eq('id', 'brynne').single();
+useEffect(() => {
+    const load = async () => {      const { data: studentData } = await supabase.from('students').select('name, grade, focus').eq('id', 'brynne').single();
       const { data: classData }   = await supabase.from('classes').select('id, name, semester, professor').eq('student_id', 'brynne').eq('is_active', true).eq('grade_only', false).order('created_at', { ascending: false });
       // Everything unfinished, plus anything dated in the last 3 weeks — years of old completed tasks don't need to load every time.
       const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 21);
@@ -301,7 +300,7 @@ setLoading(false);
               {today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </div>
             <div style={{ fontSize: 26, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.6px' }}>
-              {student ? `Hey, ${student.name.split(' ')[0]}! 🌟` : 'Dashboard'}
+              {student ? `Hey, ${student.name.split(' ')[0]}` : 'Dashboard'}
             </div>
             {student?.focus && <div style={{ fontSize: 12, color: '#9E9BB0', marginTop: 2 }}>{student.focus}</div>}
           </div>
@@ -314,7 +313,7 @@ setLoading(false);
 
         {/* Exam alert */}
         {todayExams.map(e => (
-          <div key={e.id} style={{ background: `linear-gradient(135deg, ${color}, #C4A882)`, borderRadius: 14, padding: '14px 18px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12, color: 'white' }}>
+          <div key={e.id} style={{ background: 'linear-gradient(135deg, #C47878, #A05050)', borderRadius: 14, padding: '14px 18px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12, color: 'white' }}>
 <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
   <svg width="20" height="20" viewBox="0 0 28 28" fill="none">
     <rect x="3" y="5" width="22" height="20" rx="3" stroke="white" strokeWidth="1.6" fill="none"/>
@@ -324,8 +323,8 @@ setLoading(false);
     <rect x="8" y="15" width="4" height="4" rx="1" fill="white" opacity="0.7"/>
   </svg>
 </div>            <div>
-              <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 2 }}>{e.name} — Today! 🌟</div>
-              <div style={{ fontSize: 11, opacity: 0.85 }}>{e.class_name} · You&apos;ve got this!</div>
+              <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 2 }}>{e.name} — Today</div>
+              <div style={{ fontSize: 11, opacity: 0.8 }}>{e.class_name}</div>
             </div>
           </div>
         ))}
@@ -333,7 +332,7 @@ setLoading(false);
         {/* ── 1. CALENDAR ── */}
         <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '18px 20px', marginBottom: 16, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4' }}>My Calendar</div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4' }}>Calendar</div>
             <div style={{ display: 'flex', gap: 4 }}>
               {(['week', 'month'] as const).map(v => (
                 <button key={v} onClick={() => setCalView(v)} style={{ padding: '4px 10px', borderRadius: 999, border: 'none', background: calView === v ? color : 'transparent', color: calView === v ? 'white' : '#9E9BB0', fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', textTransform: 'capitalize' }}>{v}</button>
@@ -378,8 +377,8 @@ setLoading(false);
                       <div style={{ fontSize: 11, fontWeight: isToday ? 800 : 400, color: isToday ? 'white' : '#1D1B26' }}>{day}</div>
                       {(active || hasExam) && (
                         <div style={{ display: 'flex', justifyContent: 'center', gap: 2, marginTop: 1 }}>
-                          {active  && <div style={{ width: 3, height: 3, borderRadius: '50%', background: isToday ? 'rgba(255,255,255,0.7)' : color }} />}
-                          {hasExam && <div style={{ width: 3, height: 3, borderRadius: '50%', background: isToday ? 'rgba(255,255,255,0.7)' : '#C47878' }} />}
+                          {active   && <div style={{ width: 3, height: 3, borderRadius: '50%', background: isToday ? 'rgba(255,255,255,0.7)' : color }} />}
+                          {hasExam  && <div style={{ width: 3, height: 3, borderRadius: '50%', background: isToday ? 'rgba(255,255,255,0.7)' : '#C47878' }} />}
                         </div>
                       )}
                     </div>
@@ -399,7 +398,7 @@ setLoading(false);
           if (upcoming.length === 0) return null;
           return (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 10 }}>Next Tests</div>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 10 }}>Upcoming Exams</div>
               <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
                 {upcoming.map(e => {
                   const diff = Math.ceil((new Date(e.exam_date + 'T00:00:00').getTime() - new Date(todayStr + 'T00:00:00').getTime()) / 86400000);
@@ -412,7 +411,7 @@ setLoading(false);
                       style={{ flexShrink: 0, width: 130, background: '#FFFFFF', border: `1.5px solid ${isUrgent ? '#C4787830' : '#E8E5F0'}`, borderRadius: 14, padding: '14px 12px', cursor: 'pointer', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}
                     >
                       <div style={{ fontSize: 22, fontWeight: 900, color: isToday ? '#C47878' : isUrgent ? '#C8965A' : color, marginBottom: 2, letterSpacing: '-0.5px' }}>
-                        {isToday ? 'Today!' : `${diff}d`}
+                        {isToday ? 'Today' : `${diff}d`}
                       </div>
                       <div style={{ fontSize: 12, fontWeight: 800, color: '#1D1B26', lineHeight: 1.3, marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.name}</div>
                       {e.class_name && <div style={{ fontSize: 10, fontWeight: 600, color, background: light, padding: '2px 7px', borderRadius: 999, display: 'inline-block' }}>{e.class_name}</div>}
@@ -439,7 +438,7 @@ setLoading(false);
         {/* ── 2. TASKS ── */}
         <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '18px 20px', marginBottom: 16, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4' }}>My Tasks</div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4' }}>Tasks</div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <button onClick={() => setShowDone(s => !s)} style={{ fontSize: 10, fontWeight: 700, color: showDone ? color : '#9E9BB0', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
                 {showDone ? 'Hide done' : 'Show done'}
@@ -454,21 +453,21 @@ setLoading(false);
             <>
               {overdueTasks.length > 0 && (
                 <div style={{ background: '#FDF2F2', borderRadius: 10, padding: '8px 12px', marginBottom: 8, marginTop: 8 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#C47878', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Needs attention!</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#C47878', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Overdue</div>
                   {overdueTasks.map(task => <TaskRow key={task.id} task={task} />)}
                 </div>
               )}
               {upcomingTasks.length === 0 && overdueTasks.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>All done! 🌟</div>
-                  <div style={{ fontSize: 12, color: '#9E9BB0' }}>Nothing left! You&apos;re amazing!</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>All clear</div>
+                  <div style={{ fontSize: 12, color: '#9E9BB0' }}>No upcoming tasks.</div>
                 </div>
               ) : (
                 upcomingTasks.map(task => <TaskRow key={task.id} task={task} />)
               )}
               {showDone && completedTasks.length > 0 && (
                 <div style={{ marginTop: 8 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#C4C1D4', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Finished 🌟</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#C4C1D4', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Completed</div>
                   {completedTasks.map(task => <TaskRow key={task.id} task={task} />)}
                 </div>
               )}
@@ -478,9 +477,9 @@ setLoading(false);
 
         {/* ── SPACED REPETITION BAND ── */}
         {(reviewTasks.length > 0 || nudgeTasks.length > 0) && (
-          <div style={{ background: `linear-gradient(135deg, ${color}, #C4A882)`, borderRadius: 18, padding: '18px 20px', marginBottom: 16 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', marginBottom: 10 }}>
-              {reviewTasks.length > 0 ? 'Review Time! 📚' : 'Coming Up!'}
+          <div style={{ background: '#E8956D', borderRadius: 18, padding: '18px 20px', marginBottom: 16 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', marginBottom: 10 }}>
+              {reviewTasks.length > 0 ? 'Spaced Repetition' : 'Upcoming Exams'}
             </div>
             {[...nudgeTasks, ...reviewTasks].map(task => (
               <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
@@ -489,7 +488,7 @@ setLoading(false);
                   style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.4)', background: task.completed ? '#5FAD8E' : 'transparent', cursor: 'pointer', flexShrink: 0 }}
                 />
                 <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: 'white', textDecoration: task.completed ? 'line-through' : 'none', opacity: task.completed ? 0.5 : 1 }}>{task.title}</div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>{formatDue(task.due_date)}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.6)' }}>{formatDue(task.due_date)}</div>
               </div>
             ))}
           </div>
@@ -513,7 +512,7 @@ setLoading(false);
                     onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'}
                     onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}
                   >
-                    <div style={{ width: 32, height: 32, borderRadius: 9, background: c + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: c, marginBottom: 8 }}>{classLabel(cls.name)}</div>
+                    <div style={{ width: 32, height: 32, borderRadius: 9, background: c + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: c, marginBottom: 8 }}>{classLabel(cls.name)}</div>
                     <div style={{ fontSize: 12, fontWeight: 800, color: '#1D1B26', lineHeight: 1.3, marginBottom: 2 }}>{cls.name}</div>
                     <div style={{ fontSize: 10, color: '#9E9BB0' }}>{cls.semester || ''}</div>
                   </div>
@@ -533,26 +532,26 @@ setLoading(false);
             </svg>
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: 'white', marginBottom: 2 }}>Add Ascend to your home screen!</div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>Tap Share → &quot;Add to Home Screen&quot; in Chrome 🌟</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: 'white', marginBottom: 2 }}>Add Ascend to your home screen</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>Tap Share → &quot;Add to Home Screen&quot; in Chrome</div>
           </div>
         </div>
 
         {/* ── 4. STUDY TOOLS ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-          <div onClick={() => router.push('/brynne/study')} style={{ background: '#FFFFFF', border: `1.5px solid ${color}20`, borderRadius: 14, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', boxShadow: '0 1px 4px rgba(29,27,38,0.06)', transition: 'transform 0.15s' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}>
+          <div onClick={() => router.push('/brynne/study')} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', boxShadow: '0 1px 4px rgba(29,27,38,0.06)', transition: 'transform 0.15s' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><IconBrain c={color} /></div>
             <div style={{ fontSize: 10, fontWeight: 700, color: '#1D1B26', lineHeight: 1.3 }}>Study Guide</div>
           </div>
-          <div onClick={() => router.push('/brynne/flashcards')} style={{ background: '#FFFFFF', border: `1.5px solid ${color}20`, borderRadius: 14, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', boxShadow: '0 1px 4px rgba(29,27,38,0.06)', transition: 'transform 0.15s' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}>
+          <div onClick={() => router.push('/brynne/flashcards')} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', boxShadow: '0 1px 4px rgba(29,27,38,0.06)', transition: 'transform 0.15s' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><IconCards c={color} /></div>
             <div style={{ fontSize: 10, fontWeight: 700, color: '#1D1B26', lineHeight: 1.3 }}>Flashcards</div>
           </div>
-          <div onClick={() => router.push('/brynne/practice-exam')} style={{ background: '#FFFFFF', border: `1.5px solid ${color}20`, borderRadius: 14, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', boxShadow: '0 1px 4px rgba(29,27,38,0.06)', transition: 'transform 0.15s' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}>
+          <div onClick={() => router.push('/brynne/practice-exam')} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', boxShadow: '0 1px 4px rgba(29,27,38,0.06)', transition: 'transform 0.15s' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><IconExam c={color} /></div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: '#1D1B26', lineHeight: 1.3 }}>Practice Test</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#1D1B26', lineHeight: 1.3 }}>Practice Exam</div>
           </div>
-          <div onClick={() => setShowUpload(true)} style={{ background: '#FFFFFF', border: `1.5px solid ${color}20`, borderRadius: 14, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', boxShadow: '0 1px 4px rgba(29,27,38,0.06)', transition: 'transform 0.15s' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}>
+          <div onClick={() => setShowUpload(true)} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', boxShadow: '0 1px 4px rgba(29,27,38,0.06)', transition: 'transform 0.15s' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><IconUpload c={color} /></div>
             <div style={{ fontSize: 10, fontWeight: 700, color: '#1D1B26', lineHeight: 1.3 }}>Upload Resources</div>
           </div>
@@ -560,7 +559,7 @@ setLoading(false);
 
       </main>
 
-{showUpload && <UploadResourceModal student="brynne" onClose={() => setShowUpload(false)} />}
+      {showUpload && <UploadResourceModal student="brynne" onClose={() => setShowUpload(false)} />}
 
       {selectedDay && (() => {
         const dayTasks  = tasks.filter(t => t.due_date === selectedDay);
@@ -584,7 +583,7 @@ setLoading(false);
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26' }}>{exam.name}</div>
                     {exam.class_name && <div style={{ fontSize: 11, color: '#C47878', fontWeight: 600 }}>{exam.class_name}</div>}
                   </div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#C47878', background: '#FDF2F2', padding: '2px 8px', borderRadius: 999, border: '1px solid rgba(196,120,120,0.3)' }}>Test</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#C47878', background: '#FDF2F2', padding: '2px 8px', borderRadius: 999, border: '1px solid rgba(196,120,120,0.3)' }}>Exam</div>
                 </div>
               ))}
 
@@ -609,8 +608,8 @@ setLoading(false);
               {isEmpty && (
                 <div style={{ textAlign: 'center', padding: '24px 0' }}>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>🎉</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>Free day!</div>
-                  <div style={{ fontSize: 12, color: '#9E9BB0' }}>Nothing scheduled — enjoy it! 🌟</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>Free day</div>
+                  <div style={{ fontSize: 12, color: '#9E9BB0' }}>Nothing scheduled — enjoy it!</div>
                 </div>
               )}
 

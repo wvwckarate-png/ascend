@@ -33,7 +33,7 @@ function classLabel(name: string) {
 
 type Class = GPAClass & { semester: string | null; professor: string | null; };
 
-const CLASS_COLORS = ['#E8956D', '#C4A882', '#D4845A', '#C8965A', '#E0A882', '#D49E6D'];
+const CLASS_COLORS = ['#9B8EC4', '#E8956D', '#A89EC4', '#6B7FA0', '#8E9BC4', '#7B8FA0'];
 
 export default function BrynneClasses() {
   const router = useRouter();
@@ -186,8 +186,8 @@ export default function BrynneClasses() {
         ) : classes.length === 0 ? (
           <div style={{ background: '#FFFFFF', border: '1.5px dashed #C4C1D4', borderRadius: 18, padding: '40px 20px', textAlign: 'center' }}>
             <div style={{ fontSize: 32, marginBottom: 12 }}>📚</div>
-            <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No classes yet!</div>
-            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>Add your first class to get started! 🌟</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No classes yet</div>
+            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>Add your first class to get started.</div>
             <Link href="/brynne/add-class" style={{ textDecoration: 'none' }}>
               <span style={{ padding: '10px 22px', borderRadius: 999, background: '#E8956D', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Add a Class</span>
             </Link>
@@ -222,7 +222,7 @@ export default function BrynneClasses() {
 
               return (
                 <div key={cls.id} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '16px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', cursor: 'pointer', transition: 'transform 0.15s, box-shadow 0.15s' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 20px rgba(232,149,109,0.15)'; }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 20px rgba(232,149,109,0.12)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 1px 6px rgba(29,27,38,0.06)'; }}
                 >
                   <div onClick={() => router.push(`/brynne/classes/${cls.id}`)}>

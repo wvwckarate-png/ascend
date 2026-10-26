@@ -8,7 +8,8 @@ import { localDateStr } from '../../../lib/dates';
 import { parseJSONArray } from '../../../lib/parseAI';
 import FolderPicker from '../../components/FolderPicker';
 import RichText from '../../components/RichText';
-import { MATH_FORMAT_RULES_JSON } from '../../../lib/prompts';
+import { MATH_FORMAT_RULES_JSON, CLASS_RULES } from '../../../lib/prompts';
+import { gradeShort } from '../../../lib/students';
 
 function Mountain() {
   return (
@@ -203,7 +204,7 @@ function MichaelPracticeExamInner() {
   const fetchClassMeta = async (fId: string) => {
     const [{ data: folder }, { data: student }] = await Promise.all([
       supabase.from('exam_folders').select('name, exam_date, class_id').eq('id', fId).single(),
-      supabase.from('students').select('name, grade, track, target_school, target_program, grad_year, generation_profile').eq('id', 'michael').single(),
+      supabase.from('students').select('name, track, target_school, target_program, grad_year, generation_profile').eq('id', 'michael').single(),
     ]);
     if (!folder) return;
     const { data: cls } = await supabase.from('classes').select('name, professor, notes').eq('id', folder.class_id).single();
@@ -211,11 +212,11 @@ function MichaelPracticeExamInner() {
       className: cls.name, professor: cls.professor || '', notes: cls.notes || '',
       folderName: folder.name, examDate: folder.exam_date,
       studentName: student?.name || 'Michael',
-      studentGrade: student?.grade || '9th grade',
+      studentGrade:      student?.grad_year ? gradeShort(student.grad_year) : '',
       studentTrack: student?.track || 'Pre-Med',
       studentSchool: student?.target_school || 'WVU',
       studentProgram: student?.target_program || 'WVU School of Medicine',
-      studentGradYear: student?.grad_year ? String(student.grad_year) : '2028',
+      studentGradYear:   student?.grad_year ? String(student.grad_year) : '',
       generationProfile: student?.generation_profile || '',
     });
   };
@@ -310,7 +311,7 @@ function MichaelPracticeExamInner() {
       ? ` PRIORITY FOCUS — These are Michael's confirmed weak spots from prior study sessions: ${weakSpotsList.map((w, i) => `${i + 1}. ${w}`).join('; ')}. Weight at least half of the questions toward these specific concepts, approaching them from fresh angles to test genuine understanding.`
       : '';
     const chemInject = chemMode ? ' CHEMISTRY MODE — When referencing molecules, compounds, or chemical structures, include their SMILES string formatted exactly as [SMILES: xxx] inline so they can be rendered as structural diagrams. Use standard SMILES notation.' : '';
-    return `You are Ascend generating a practice exam. ${studentCtx} ${classCtx}\n\n${goalCtx}${topic.trim() ? ` Topic focus: ${topic.trim()}.` : ''} ${crossDoc}Generate ${countStr} questions of these types: ${typeDescriptions}. ${typeList.length > 1 ? 'Distribute evenly across all types.' : ''} Make questions realistic to what this professor would actually test.${weakAreasInject}${weakSpotsInject}${chemInject}${custom}\n\nReturn ONLY a JSON array, no markdown, no backticks.${MATH_FORMAT_RULES_JSON} Use these exact formats:\n${formats}`;
+    return `You are Ascend generating a practice exam. ${studentCtx} ${classCtx}\n\n${goalCtx}${topic.trim() ? ` Topic focus: ${topic.trim()}.` : ''} ${crossDoc}Generate ${countStr} questions of these types: ${typeDescriptions}. ${typeList.length > 1 ? 'Distribute evenly across all types.' : ''} Make questions realistic to what this professor would actually test.${weakAreasInject}${weakSpotsInject}${chemInject}${custom}${CLASS_RULES}\n\nReturn ONLY a JSON array, no markdown, no backticks.${MATH_FORMAT_RULES_JSON} Use these exact formats:\n${formats}`;
   };
 
   const generate = async () => {

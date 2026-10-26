@@ -10,7 +10,8 @@ import { MoleculeStructure } from '../../components/MoleculeStructure';
 import { KaTeXRenderer } from '../../components/KaTeXRenderer';
 import { parseContent } from '../../../lib/parseContent';
 import FolderPicker from '../../components/FolderPicker';
-import { MATH_FORMAT_RULES_JSON } from '../../../lib/prompts';
+import { MATH_FORMAT_RULES_JSON, CLASS_RULES } from '../../../lib/prompts';
+import { gradeShort } from '../../../lib/students';
 
 function Mountain() {
   return (
@@ -247,7 +248,7 @@ function MichaelFlashcardsInner() {
   const fetchClassMeta = async (fId: string) => {
     const [{ data: folder }, { data: student }] = await Promise.all([
       supabase.from('exam_folders').select('name, exam_date, class_id').eq('id', fId).single(),
-      supabase.from('students').select('name, grade, track, target_school, target_program, grad_year, generation_profile').eq('id', 'michael').single(),
+      supabase.from('students').select('name, track, target_school, target_program, grad_year, generation_profile').eq('id', 'michael').single(),
     ]);
     if (!folder) return;
     const { data: cls } = await supabase.from('classes').select('name, professor, notes').eq('id', folder.class_id).single();
@@ -255,11 +256,11 @@ function MichaelFlashcardsInner() {
       className: cls.name, professor: cls.professor || '', notes: cls.notes || '',
       folderName: folder.name, examDate: folder.exam_date,
       studentName: student?.name || 'Michael',
-      studentGrade: student?.grade || '9th grade',
+      studentGrade:      student?.grad_year ? gradeShort(student.grad_year) : '',
       studentTrack: student?.track || 'Pre-Med',
       studentSchool: student?.target_school || 'WVU',
       studentProgram: student?.target_program || 'WVU School of Medicine',
-      studentGradYear: student?.grad_year ? String(student.grad_year) : '2028',
+      studentGradYear:   student?.grad_year ? String(student.grad_year) : '',
       generationProfile: student?.generation_profile || '',
     });
   };
@@ -675,7 +676,7 @@ function MichaelFlashcardsInner() {
       const chemInject = chemMode
         ? ' CHEMISTRY MODE — For common, stable molecules only (not reaction intermediates or charged species), include their SMILES string formatted exactly as [SMILES: xxx | Molecule Name] at the END of the answer text, after the explanation. Always include the molecule name after the pipe character. Only use SMILES for simple recognizable molecules like reactants and products. Use standard neutral SMILES notation only. Keep card text concise — one clear concept per card.'
         : '';
-      const prompt = baseInstruction + custom + chemInject + MATH_FORMAT_RULES_JSON + ' Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]';
+      const prompt = baseInstruction + custom + chemInject + CLASS_RULES + MATH_FORMAT_RULES_JSON + ' Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]';
       let raw = '';
       const formData = new FormData();
       renamedFiles.forEach(f => formData.append('files', f)); formData.append('resources', JSON.stringify(storedResources));

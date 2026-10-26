@@ -4,6 +4,8 @@ import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { APP_VERSION_LABEL } from '../../lib/version';
+import { STUDENTS } from '../../lib/students';
+import { useGradeLabels } from '../../lib/useGradeLabels';
 
 function Mountain() {
   return (
@@ -15,15 +17,12 @@ function Mountain() {
   );
 }
 
-const students = [
-  { id: 'matthew', name: 'Matthew', grade: 'Junior · 11th Grade', goal: 'WVU School of Dentistry', avatar: '/eagle.png', flip: false, color: '#7B6FA0', light: '#EDE9F7' },
-  { id: 'michael', name: 'Michael', grade: 'Incoming 9th Grade', goal: 'WVU School of Medicine', avatar: '/lion.png', flip: true, color: '#7B6FA0', light: '#EDE9F7' },
-  { id: 'brynne',  name: 'Brynne',  grade: '5th Grade',          goal: 'Future WVU Physician',  avatar: '/dragon.png', flip: false, color: '#E8956D', light: '#FFF3E8' },
-];
+const students = STUDENTS;
 
 type Stats = { guides: number; decks: number; exams: number; tasks: number; completedTasks: number; };
 
 export default function ParentDashboard() {
+  const labels = useGradeLabels();
   const [unlocked, setUnlocked]   = useState(false);
   const [password, setPassword]   = useState('');
   const [pwError,  setPwError]    = useState('');
@@ -208,7 +207,7 @@ export default function ParentDashboard() {
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26', marginBottom: 1 }}>{s.name}</div>
-                    <div style={{ fontSize: 11, color: '#9E9BB0' }}>{s.grade}</div>
+                    <div style={{ fontSize: 11, color: '#9E9BB0' }}>{labels[s.id] || '\u00A0'}</div>
                   </div>
                   <Link href={`/${s.id}`} style={{ fontSize: 11, fontWeight: 700, color: s.color, background: s.light, padding: '5px 12px', borderRadius: 999, textDecoration: 'none' }}>View →</Link>
                 </div>
