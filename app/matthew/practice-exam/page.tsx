@@ -10,6 +10,9 @@ import FolderPicker from '../../components/FolderPicker';
 import RichText from '../../components/RichText';
 import { MATH_FORMAT_RULES_JSON, CLASS_RULES } from '../../../lib/prompts';
 import { gradeShort } from '../../../lib/students';
+import { generateChecked, contextFrom } from '../../../lib/checkedGeneration';
+import QuestionNotes from '../../components/QuestionNotes';
+import type { MCQuestion, TFQuestion, SAQuestion, EssayQuestion, ExamQuestion as Question } from '../../../lib/quizChecks';
 
 function Mountain() {
   return (
@@ -86,11 +89,7 @@ function IconSave({ c, size = 16 }: { c: string; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 28 28" fill="none"><path d="M5 4h13l5 5v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke={c} strokeWidth="1.6" strokeLinejoin="round" fill="none"/><path d="M9 4v6h10V4" stroke={c} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/><rect x="8" y="16" width="12" height="8" rx="1" stroke={c} strokeWidth="1.4" fill="none"/></svg>;
 }
 
-type MCQuestion   = { type: 'mc'; question: string; options: { A: string; B: string; C: string; D: string }; answer: string; explanation: string; };
-type TFQuestion   = { type: 'tf'; question: string; answer: string; explanation: string; };
-type SAQuestion   = { type: 'sa'; question: string; model_answer: string; };
-type EssayQuestion = { type: 'essay'; question: string; key_points: string; };
-type Question     = MCQuestion | TFQuestion | SAQuestion | EssayQuestion;
+// Question types (with the optional `source` quote and `flag` note) live in lib/quizChecks.ts
 type PastExam     = { id: string; title: string; questions: Question[]; responses: Record<string, string>; score: number | null; status: string; created_at: string; completed_at: string | null; timer_seconds: number | null; folder_id?: string | null; folder_name?: string; class_name?: string; };
 type LibResource  = { id: string; file_name: string; file_type: string; storage_url: string; folder_id: string; };
 type LibFolder    = { id: string; name: string; class_id: string; resources: LibResource[]; };
@@ -132,6 +131,8 @@ function MatthewPracticeExamInner() {
   const [selectedClassName,  setSelectedClassName]  = useState<string>('');
   const [scheduleReview,     setScheduleReview]     = useState(false);
   const [reviewScheduled,    setReviewScheduled]    = useState(false);
+  const [stage, setStage] = useState('');
+  const [qcNote, setQcNote] = useState('');
   const [classMeta, setClassMeta] = useState<{ className: string; professor: string; notes: string; folderName: string; examDate: string | null; studentName: string; studentGrade: string; studentTrack: string; studentSchool: string; studentProgram: string; studentGradYear: string; generationProfile: string; } | null>(null);
 
   // Library
@@ -324,7 +325,7 @@ function MatthewPracticeExamInner() {
 
   const generate = async () => {
     if (!canGenerate) return;
-    setGenerating(true); setError('');
+    setGenerating(true); setError(''); setStage(''); setQcNote('');
     try {
       const allResources = library.flatMap(c => c.folders.flatMap(f => f.resources));
       const selResources = allResources.filter(r => selectedIds.has(r.id));
@@ -341,7 +342,7 @@ function MatthewPracticeExamInner() {
         if (transcriptResources) {
           transcripts = transcriptResources
             .filter(r => r.file_type !== 'image')
-            .map(r => ({ name: r.file_name, text: r.transcript }));
+            .map(r => ({ name: r.file_name, text: r.transcript, kind: r.file_type }));
         }
       }
 
@@ -363,12 +364,11 @@ function MatthewPracticeExamInner() {
         return;
       }
       const prompt   = buildPrompt(allFiles.length + transcripts.length);
-      let raw = '';
       const fd = new FormData(); renamedFiles.forEach(f => fd.append('files', f)); fd.append('resources', JSON.stringify(storedResources)); fd.append('student', 'matthew'); fd.append('prompt', prompt); fd.append('type', 'exam');
       if (transcripts.length > 0) fd.append('transcripts', JSON.stringify(transcripts));
-      const res = await fetch('/api/generate-study-guide', { method: 'POST', body: fd });
-      const d = await res.json(); raw = (d.studyGuide || d.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsed = parseJSONArray<Question>(raw);
+      const checked = await generateChecked({ kind: 'exam', formData: fd, onStage: setStage, target: countMode === 'auto' ? undefined : (Number(actualCount) || undefined), context: contextFrom(classMeta) });
+      setQcNote(checked.report.summary);
+      const parsed = parseJSONArray<Question>(checked.text);
       const title = examNameInput.trim() || topic.trim() || folderName || `Practice Exam — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
       const { data: examData } = await supabase.from('practice_exams').insert({ student_id: 'matthew', title, questions: parsed, responses: {}, status: 'in_progress', timer_seconds: timerEnabled ? timerMinutes * 60 : null, folder_id: selectedFolderId || folderId || null }).select().single();
       if (examData) { setExamId(examData.id); setActiveExam(examData); }
@@ -406,6 +406,7 @@ function MatthewPracticeExamInner() {
   };
 
   const openExam = (exam: PastExam) => {
+    setQcNote('');
     setActiveExam(exam); setExamId(exam.id); setExamTitle(exam.title);
     setQuestions(exam.questions);
     const resp: Record<number, string> = {};
@@ -417,6 +418,7 @@ function MatthewPracticeExamInner() {
 
   // `target` is passed from the history list, where examId/activeExam state isn't set yet.
   const retakeExam = async (target?: PastExam) => {
+    setQcNote('');
     const exam = target ?? activeExam;
     const id = target?.id ?? examId;
     if (!id) return;
@@ -476,6 +478,7 @@ function MatthewPracticeExamInner() {
   };
 
   const retryMissed = async (sourceExam?: PastExam) => {
+    setQcNote('');
     const exam = sourceExam || activeExam;
     if (!exam) return;
     setRetryMissedLoading(true);
@@ -910,7 +913,7 @@ function MatthewPracticeExamInner() {
           {generating ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
               <div style={{ width: 32, height: 32, border: '2.5px solid #E8E5F0', borderTopColor: color, borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.75s linear infinite' }} />
-              <div style={{ fontSize: 13, color: '#9E9BB0' }}>{totalSelected > 1 ? `Analyzing ${totalSelected} documents...` : 'Generating your exam...'}</div>
+              <div style={{ fontSize: 13, color: '#9E9BB0' }}>{stage || (totalSelected > 1 ? `Analyzing ${totalSelected} documents...` : 'Generating your exam...')}</div>
               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
           ) : (
@@ -924,6 +927,11 @@ function MatthewPracticeExamInner() {
       {/* ── EXAM SCREEN ── */}
       {screen === 'exam' && questions.length > 0 && (
         <main style={{ maxWidth: 680, margin: '0 auto', padding: '20px 20px 120px' }}>
+          {qcNote && (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: /could not|skipped/i.test(qcNote) ? '#FFF8EC' : '#EDF7F2', border: `1px solid ${/could not|skipped/i.test(qcNote) ? '#C8965A55' : '#5FAD8E40'}`, color: /could not|skipped/i.test(qcNote) ? '#8A6420' : '#3F8A6C', borderRadius: 12, padding: '9px 13px', fontSize: 11.5, fontWeight: 700, marginBottom: 14, lineHeight: 1.5 }}>
+              <span>{/could not|skipped/i.test(qcNote) ? '⚠' : '✓'}</span><span>{qcNote}</span>
+            </div>
+          )}
           {/* Resume banner */}
           {Object.keys(responses).length > 0 && (
             <div style={{ background: '#EDE9F7', border: '1.5px solid #7B6FA040', borderRadius: 12, padding: '10px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1126,6 +1134,7 @@ function MatthewPracticeExamInner() {
                   {/* Show explanation toggle for MC/TF */}
                   {(q.type === 'mc' || q.type === 'tf') && (
                     <div>
+                      <QuestionNotes source={q.source} flag={q.flag} />
                       <button onClick={() => setShowExplanation(s => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; })} style={{ fontSize: 12, fontWeight: 700, color: color, background: light, border: 'none', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', marginBottom: showExp ? 10 : 0 }}>
                         {showExp ? 'Hide Explanation' : 'Show Explanation'}
                       </button>
@@ -1146,6 +1155,7 @@ function MatthewPracticeExamInner() {
                       <div style={{ fontSize: 13, color: '#5A5078', lineHeight: 1.6 }}>
                         <RichText text={q.type === 'sa' ? (q as SAQuestion).model_answer : (q as EssayQuestion).key_points} />
                       </div>
+                      <div style={{ marginTop: 10 }}><QuestionNotes source={q.source} flag={q.flag} /></div>
                     </div>
                   )}
                 </div>

@@ -11,6 +11,7 @@ import FolderPicker from '../../components/FolderPicker';
 import GuideHtml from '../../components/GuideHtml';
 import { MATH_FORMAT_RULES, CLASS_RULES } from '../../../lib/prompts';
 import { gradeShort } from '../../../lib/students';
+import { generateChecked, contextFrom } from '../../../lib/checkedGeneration';
 
 function Mountain() {
   return (
@@ -293,6 +294,7 @@ function MichaelStudyInner() {
   const [questionFormat,     setQuestionFormat]     = useState('Multiple Choice');
   const [showAnswers,        setShowAnswers]        = useState(true);
   const [loading,            setLoading]            = useState(false);
+  const [qcNote, setQcNote] = useState('');
   const [loadingMessage,     setLoadingMessage]     = useState('');
   const [saving,             setSaving]             = useState(false);
   const [studyGuide,         setStudyGuide]         = useState('');
@@ -394,7 +396,7 @@ function MichaelStudyInner() {
           setSourceFiles(data.source_filename ? data.source_filename.split(', ') : []);
           setSaved(true);
           setShowNamePrompt(false);
-          setScreen('view');
+          setQcNote(''); setScreen('view');
         }
         setLoading(false);
       };
@@ -423,7 +425,7 @@ function MichaelStudyInner() {
       setSourceFiles(data.source_filename ? data.source_filename.split(', ') : []);
       setSaved(true);
       setShowNamePrompt(false);
-      setScreen('view');
+      setQcNote(''); setScreen('view');
     }
     setLoading(false);
   };
@@ -555,7 +557,7 @@ RULES:
         if (transcriptResources) {
           transcripts = transcriptResources
             .filter(r => r.file_type !== 'image')
-            .map(r => ({ name: r.file_name, text: r.transcript }));
+            .map(r => ({ name: r.file_name, text: r.transcript, kind: r.file_type }));
         }
       }
       // Library files are fetched by the server straight from storage (no download + re-upload through the browser,
@@ -582,68 +584,19 @@ RULES:
       formData.append('prompt', buildPrompt(allFiles.length + transcripts.length));
       if (transcripts.length > 0) formData.append('transcripts', JSON.stringify(transcripts));
       setLoadingMessage('Building your study guide...');
-      const res = await fetch('/api/generate-study-guide', { method: 'POST', body: formData, signal: ac.signal });
-      if (!res.ok) throw new Error('Generation failed');
-      const contentType = res.headers.get('content-type') || '';
-      if (contentType.includes('text/event-stream')) {
-        const reader = res.body!.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-        let accumulated = '';
-        setScreen('view');
-        setShowNamePrompt(false);
-        setSaved(false);
-        let finished = false;
-        const finalize = () => {
-          let output = accumulated;
-          const htmlStart = output.indexOf('<');
-          if (htmlStart > 0) output = output.slice(htmlStart);
-          output = output.replace(/^```html?\s*/i, '').replace(/\s*```$/, '').replace(/\sheight="auto"/g, '').trim();
-          if (!output) throw new Error('Empty response');
-          setStudyGuide(output);
-          setShowNamePrompt(true);
-          finished = true;
-        };
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-          for (const line of lines) {
-            if (!line.startsWith('data: ')) continue;
-            let parsed: { type?: string; text?: string; message?: string; slideImagePaths?: string[] };
-            try { parsed = JSON.parse(line.slice(6)); } catch { continue; }
-            if (parsed.type === 'meta') {
-              setSlideImagePaths(parsed.slideImagePaths || []);
-            } else if (parsed.type === 'delta') {
-              accumulated += parsed.text || '';
-              let output = accumulated;
-              const htmlStart = output.indexOf('<');
-              if (htmlStart > 0) output = output.slice(htmlStart);
-              output = output.replace(/^```html?\s*/i, '').replace(/\s*```$/, '').trim();
-              setStudyGuide(output);
-            } else if (parsed.type === 'done') {
-              finalize();
-            } else if (parsed.type === 'error') {
-              throw new Error(parsed.message || 'Generation failed');
-            }
-          }
-        }
-        // Stream ended without a "done" event (e.g. the server hit its time limit): keep what arrived so it can be saved.
-        if (!finished) {
-          if (!accumulated.trim()) throw new Error('Empty response');
-          finalize();
-        }
-      } else {
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
-        setStudyGuide(data.studyGuide);
-        setSlideImagePaths(data.slideImagePaths || []);
-        setShowNamePrompt(true);
-        setSaved(false);
-        setScreen('view');
-      }
+      // Draft -> audit against the class materials -> patch -> present (see lib/checkedGeneration.ts)
+      let lastShown = 0;
+      const checked = await generateChecked({
+        kind: 'guide', formData, signal: ac.signal, context: contextFrom(classMeta),
+        onStage: setLoadingMessage,
+        onDraftProgress: n => { if (n - lastShown > 1500) { lastShown = n; setLoadingMessage(`Drafting your study guide… (${Math.round(n / 1000)}k characters so far)`); } },
+      });
+      setStudyGuide(checked.text);
+      setSlideImagePaths(checked.slideImagePaths);
+      setQcNote(checked.report.summary);
+      setShowNamePrompt(true);
+      setSaved(false);
+      setScreen('view');
       const fileNames = allFiles.map(f => f.name);
       const transcriptNames = transcripts.map(t => t.name).filter(n => !fileNames.includes(n));
       setSourceFiles([...fileNames, ...transcriptNames]);
@@ -1039,6 +992,11 @@ RULES:
         <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
           <button onClick={() => { if (!saved && studyGuide && !confirm('Leave without saving your study guide?')) return; cleanupTempImages(); setScreen('history'); setStudyGuide(''); setSaved(false); setShowNamePrompt(false); setGuideName(''); setSourceFiles([]); setNewFileNames({}); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>← Study Guides</button>
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '24px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+            {qcNote && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: /could not|skipped/i.test(qcNote) ? '#FFF8EC' : '#EDF7F2', border: `1px solid ${/could not|skipped/i.test(qcNote) ? '#C8965A55' : '#5FAD8E40'}`, color: /could not|skipped/i.test(qcNote) ? '#8A6420' : '#3F8A6C', borderRadius: 12, padding: '9px 13px', fontSize: 11.5, fontWeight: 700, marginBottom: 16, lineHeight: 1.5 }}>
+                <span>{/could not|skipped/i.test(qcNote) ? '⚠' : '✓'}</span><span>{qcNote}</span>
+              </div>
+            )}
             {showNamePrompt && (
               <div style={{ background: light, borderRadius: 14, padding: '18px', marginBottom: 20 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color, marginBottom: 10 }}>Name this study guide</div>

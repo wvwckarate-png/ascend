@@ -12,6 +12,7 @@ import { parseContent } from '../../../lib/parseContent';
 import FolderPicker from '../../components/FolderPicker';
 import { MATH_FORMAT_RULES_JSON, CLASS_RULES } from '../../../lib/prompts';
 import { gradeShort } from '../../../lib/students';
+import { generateChecked, contextFrom } from '../../../lib/checkedGeneration';
 
 function Mountain() {
   return (
@@ -227,6 +228,8 @@ function MatthewFlashcardsInner() {
   const [loading,     setLoading]     = useState(false);
   const [saving,      setSaving]      = useState(false);
   const [error,       setError]       = useState('');
+  const [stage, setStage] = useState('');
+  const [qcNote, setQcNote] = useState('');
   const [classMeta, setClassMeta] = useState<{ className: string; professor: string; notes: string; folderName: string; examDate: string | null; studentName: string; studentGrade: string; studentTrack: string; studentSchool: string; studentProgram: string; studentGradYear: string; generationProfile: string; } | null>(null);
   const [cards,       setCards]       = useState<Card[]>([]);
   const [queue,       setQueue]       = useState<Card[]>([]);
@@ -368,6 +371,7 @@ function MatthewFlashcardsInner() {
   };
 
   const studyDeck = async (deck: Deck, cards: Card[], dueOnly: boolean = false) => {
+    setQcNote('');
     setCards(cards); setQi(0); setFlipped(false); setRatings({});
     setSaved(true); setSavedDeckId(deck.id); setShowSave(false);
     setStudyMode(dueOnly ? 'due' : 'full');
@@ -628,7 +632,7 @@ function MatthewFlashcardsInner() {
 
   const generate = async () => {
     if (!canGenerate) return;
-    setLoading(true); setError('');
+    setLoading(true); setError(''); setStage(''); setQcNote('');
     try {
       const allResources = library.flatMap(c => c.folders.flatMap(f => f.resources));
       const selectedResources = allResources.filter(r => selectedIds.has(r.id));
@@ -645,7 +649,7 @@ function MatthewFlashcardsInner() {
         if (transcriptResources) {
           transcripts = transcriptResources
             .filter(r => r.file_type !== 'image')
-            .map(r => ({ name: r.file_name, text: r.transcript }));
+            .map(r => ({ name: r.file_name, text: r.transcript, kind: r.file_type }));
         }
       }
 
@@ -689,17 +693,15 @@ function MatthewFlashcardsInner() {
         : `You are Ascend, an expert flashcard generator. ${studentCtx} ${classCtx}\n\n${goalCtx}\n\nGenerate ${countPhrase}${topic.trim() ? ` focused on: ${topic.trim()}` : ' from the uploaded material'}. Focus only on the most testable concepts from what was actually taught. Do not expand beyond the scope of the provided material.${weakSpotsInject}`;
       const custom = customInstructions.trim() ? ` Additional instructions: ${customInstructions.trim()}` : '';
       const prompt = baseInstruction + custom + chemInject + CLASS_RULES + MATH_FORMAT_RULES_JSON + ' Return ONLY a JSON array with no markdown, no backticks, no explanation. Format: [{"front":"question","back":"answer"}]';
-      let raw = '';
       const formData = new FormData();
       renamedFiles.forEach(f => formData.append('files', f)); formData.append('resources', JSON.stringify(storedResources));
       formData.append('student', 'matthew');
       formData.append('prompt', prompt);
       formData.append('type', 'flashcards');
       if (transcripts.length > 0) formData.append('transcripts', JSON.stringify(transcripts));
-      const res = await fetch('/api/generate-study-guide', { method: 'POST', body: formData });
-      const data = await res.json();
-      raw = (data.studyGuide || data.content || '').replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsed = parseJSONArray<Card>(raw);
+      const checked = await generateChecked({ kind: 'flashcards', formData, onStage: setStage, target: autoCount ? undefined : count, context: contextFrom(classMeta) });
+      setQcNote(checked.report.summary);
+      const parsed = parseJSONArray<Card>(checked.text);
       setCards(parsed); setQueue([...parsed]); setQi(0); setFlipped(false); setRatings({});
       setSaved(false); setSavedDeckId(null); setShowSave(true);
       if (!deckName) setDeckName(topic.trim() || (newFiles[0]?.name.replace('.pdf', '')) || 'New Deck');
@@ -1310,7 +1312,7 @@ function MatthewFlashcardsInner() {
           {loading ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
               <div style={{ width: 32, height: 32, border: '2.5px solid #E8E5F0', borderTopColor: color, borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.75s linear infinite' }} />
-              <div style={{ fontSize: 13, color: '#9E9BB0' }}>{totalSelected > 1 ? `Analyzing ${totalSelected} documents...` : 'Generating your deck...'}</div>
+              <div style={{ fontSize: 13, color: '#9E9BB0' }}>{stage || (totalSelected > 1 ? `Analyzing ${totalSelected} documents...` : 'Generating your deck...')}</div>
               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
           ) : (
@@ -1328,6 +1330,11 @@ function MatthewFlashcardsInner() {
       {/* ── STUDY SCREEN ── */}
       {screen === 'study' && curCard && (
         <main style={{ maxWidth: 600, margin: '0 auto', padding: '20px 20px 220px' }}>
+          {qcNote && (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: /could not|skipped/i.test(qcNote) ? '#FFF8EC' : '#EDF7F2', border: `1px solid ${/could not|skipped/i.test(qcNote) ? '#C8965A55' : '#5FAD8E40'}`, color: /could not|skipped/i.test(qcNote) ? '#8A6420' : '#3F8A6C', borderRadius: 12, padding: '9px 13px', fontSize: 11.5, fontWeight: 700, marginBottom: 14, lineHeight: 1.5 }}>
+              <span>{/could not|skipped/i.test(qcNote) ? '⚠' : '✓'}</span><span>{qcNote}</span>
+            </div>
+          )}
           {showSave && !saved && (
             <div style={{ background: light, border: `1.5px solid ${color}40`, borderRadius: 14, padding: '14px 16px', marginBottom: 16 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 8 }}>Save this deck?</div>
