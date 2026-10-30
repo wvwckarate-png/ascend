@@ -12,6 +12,7 @@ import GuideHtml from '../../components/GuideHtml';
 import { MATH_FORMAT_RULES, CLASS_RULES } from '../../../lib/prompts';
 import { gradeShort } from '../../../lib/students';
 import { generateChecked, contextFrom } from '../../../lib/checkedGeneration';
+import { requestGuidePdf, isTouchDevice, downloadFile, shareOrSave } from '../../../lib/exportPdf';
 
 function Mountain() {
   return (
@@ -636,8 +637,25 @@ RULES:
     setSlideImagePaths([]);
   };
 
-  const handlePrint = () => { window.print(); };
-  const handlePDF   = () => { window.print(); };
+  const [pdf, setPdf] = useState<{ status: 'idle' | 'working' | 'ready' | 'error'; intent?: 'print' | 'pdf'; file?: File; url?: string; message?: string }>({ status: 'idle' });
+  // Phones can't print web pages reliably, so Print and PDF both ask the server for a real PDF. On a computer the PDF
+  // downloads straight away; on a phone a second tap (Share / Save or Open) hands it to the device — iOS requires that tap.
+  const makePdf = async (intent: 'print' | 'pdf') => {
+    const el = printRef.current;
+    if (!el || pdf.status === 'working') return;
+    setPdf({ status: 'working', intent });
+    try {
+      const out = await requestGuidePdf(guideName || 'Study Guide', el.outerHTML);
+      if (!isTouchDevice()) { downloadFile(out.file, out.url); setPdf({ status: 'idle' }); return; }
+      setPdf({ status: 'ready', intent, ...out });
+    } catch (e) {
+      console.error('PDF export failed:', e);
+      if (intent === 'print' && !isTouchDevice()) { setPdf({ status: 'idle' }); window.print(); return; }
+      setPdf({ status: 'error', message: 'Could not create the PDF right now. Share and Copy still work, or try again in a moment.' });
+    }
+  };
+  const handlePrint = () => { if (isTouchDevice()) makePdf('print'); else window.print(); };
+  const handlePDF   = () => makePdf('pdf');
   const getPlainText = () => { const div = document.createElement('div'); div.innerHTML = studyGuide; return div.textContent || div.innerText || studyGuide; };
   const handleCopy  = async () => { await navigator.clipboard.writeText(getPlainText()); setCopied(true); setTimeout(() => setCopied(false), 2000); };
   const handleShare = async () => { if (navigator.share) { await navigator.share({ title: guideName || 'Ascend Study Guide', text: getPlainText() }); } else handleCopy(); };
@@ -1032,6 +1050,21 @@ RULES:
               <button onClick={handleCopy} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: `1.5px solid ${copied ? '#5FAD8E' : '#E8E5F0'}`, background: copied ? '#EDF7F2' : '#FAFAF8', color: copied ? '#5FAD8E' : '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}><IconCopy c={copied ? '#5FAD8E' : '#6B6880'} size={14} /> {copied ? 'Copied' : 'Copy'}</button>
               <button onClick={handlePDF} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}><IconDownload size={14} /> PDF</button>
             </div>
+
+            {pdf.status !== 'idle' && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, background: pdf.status === 'error' ? '#FFF8EC' : '#EDF7F2', border: `1px solid ${pdf.status === 'error' ? '#C8965A55' : '#5FAD8E40'}`, color: pdf.status === 'error' ? '#8A6420' : '#3F8A6C', borderRadius: 12, padding: '10px 14px', fontSize: 12, fontWeight: 700, marginBottom: 20, lineHeight: 1.5 }}>
+                {pdf.status === 'working' && <span>Creating your PDF…</span>}
+                {pdf.status === 'error' && <span style={{ flex: 1 }}>{pdf.message}</span>}
+                {pdf.status === 'ready' && pdf.file && pdf.url && (
+                  <>
+                    <span style={{ flex: '1 1 160px' }}>✓ Your PDF is ready{pdf.intent === 'print' ? ' — tap Open, then Share → Print.' : ' — save it or send it anywhere.'}</span>
+                    <button onClick={() => shareOrSave(pdf.file!, pdf.url!, guideName || 'Study Guide')} style={{ padding: '8px 14px', borderRadius: 9, border: 'none', background: '#3F8A6C', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Share / Save</button>
+                    <button onClick={() => window.open(pdf.url, '_blank')} style={{ padding: '8px 14px', borderRadius: 9, border: '1.5px solid #5FAD8E', background: 'white', color: '#3F8A6C', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Open</button>
+                  </>
+                )}
+                {pdf.status !== 'working' && <button onClick={() => setPdf({ status: 'idle' })} style={{ padding: '8px 12px', borderRadius: 9, border: 'none', background: 'transparent', color: 'inherit', fontSize: 12, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>Dismiss</button>}
+              </div>
+            )}
 
             <div id="ascend-print-zone">
               <div ref={printRef} className="sg-wrap">

@@ -7,11 +7,19 @@ const SHARP_FILES = [
   './node_modules/@img/sharp-linux-x64/**/*',
 ];
 
+// The PDF route renders with a bundled Chromium and reads the study guide stylesheet: keep both out of the bundler and in the function.
+const PDF_FILES = [
+  './node_modules/@sparticuz/chromium/bin/**/*',
+  './app/styles/study-guide.css',
+];
+
 const nextConfig: NextConfig = {
+  serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core'],
   outputFileTracingIncludes: {
     '/api/generate-study-guide': SHARP_FILES,
     '/api/extract-image-text': SHARP_FILES,
     '/api/health': SHARP_FILES,
+    '/api/export-pdf': PDF_FILES,
   },
   async headers() {
     return [
