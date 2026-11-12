@@ -18,6 +18,13 @@
   --amber: #C8965A;
   --shadow: rgba(29,27,38,0.06);
 
+  /* student theme defaults — overridden per student by lib/studentContext.tsx */
+  --accent: #7B6FA0;
+  --accent-light: #EDE9F7;
+  --accent-dark: #5A5078;
+  --accent-gradient: linear-gradient(135deg, #7B6FA0, #5A5078);
+  --class-1: #9B8EC4; --class-2: #7B6FA0; --class-3: #A89EC4; --class-4: #6B7FA0; --class-5: #8E9BC4; --class-6: #7B8FA0;
+
   /* legacy aliases for existing pages */
   --text-primary: #1D1B26;
   --text-secondary: #6B6880;

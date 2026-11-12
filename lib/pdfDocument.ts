@@ -11,6 +11,7 @@ export const PDF_ALLOWED_HOSTS = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'f
 
 const PRINT_CSS = `
   @page { size: Letter; }
+  :root { --accent: #7B6FA0; --accent-light: #EDE9F7; --accent-dark: #5A5078; --accent-gradient: #7B6FA0; }
   html, body { margin: 0; padding: 0; background: #fff; }
   body { font-family: 'Noto Sans', 'DejaVu Sans', sans-serif; font-size: 10.5pt; line-height: 1.6; color: #1D1B26; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .sg-wrap { font-family: 'Noto Sans', 'DejaVu Sans', sans-serif !important; }

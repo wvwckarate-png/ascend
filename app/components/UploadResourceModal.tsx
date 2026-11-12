@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 
 type Props = {
-  student: 'matthew' | 'michael' | 'brynne';
+  student: string;
   onClose: () => void;
   onSaved?: () => void;
 };
@@ -165,8 +165,6 @@ function fileTypeFromKey(key: string): string {
   return 'pdf';
 }
 
-const accent      = (s: string) => s === 'brynne' ? '#E8956D' : '#7B6FA0';
-const accentLight = (s: string) => s === 'brynne' ? '#FFF3E8' : '#EDE9F7';
 
 // ── Component ──────────────────────────────────────────────
 export default function UploadResourceModal({ student, onClose, onSaved }: Props) {
@@ -185,8 +183,8 @@ export default function UploadResourceModal({ student, onClose, onSaved }: Props
   const [error,     setError]     = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const color = accent(student);
-  const light = accentLight(student);
+  const color = 'var(--accent)';
+  const light = 'var(--accent-light)';
 
   const selectedType   = RESOURCE_TYPES.find(r => r.key === resType);
   const selectedClass  = classes.find(c => c.id === classId);

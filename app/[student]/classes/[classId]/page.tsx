@@ -1,0 +1,673 @@
+'use client';
+import Link from 'next/link';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import TabBar from '../../../components/TabBar';
+import { supabase } from '../../../../lib/supabase';
+import { localDateStr } from '../../../../lib/dates';
+import { useStudent } from '../../../../lib/studentContext';
+import { ACCENT as color, ACCENT_LIGHT as light, alpha } from '../../../../lib/theme';
+
+function Mountain() {
+  return (
+    <svg width="22" height="20" viewBox="0 0 60 56" fill="none">
+      <path d="M4 52L22 10L40 52" stroke="#7B6FA0" strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round"/>
+      <path d="M31 52L42 28L53 52" stroke="#7B6FA0" strokeWidth="2.8" strokeLinejoin="round" strokeLinecap="round"/>
+      <line x1="2" y1="52" x2="56" y2="52" stroke="#7B6FA0" strokeWidth="2.5" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function classLabel(name: string) {
+  const n = (name || '').toLowerCase();
+  if (n.includes('physics'))   return 'PHY';
+  if (n.includes('biology'))   return 'BIO';
+  if (n.includes('chemistry')) return 'CHM';
+  if (n.includes('algebra') || n.includes('math')) return 'MTH';
+  if (n.includes('english'))   return 'ENG';
+  if (n.includes('science'))   return 'SCI';
+  if (n.includes('history'))   return 'HIS';
+  if (n.includes('sat') || n.includes('act')) return 'SAT';
+  return name.slice(0, 3).toUpperCase();
+}
+
+type ClassRow   = { id: string; name: string; semester: string; professor: string; notes: string | null; grading_schema: Record<string, number> | null; };
+type Folder     = { id: string; name: string; exam_date: string | null; created_at: string; };
+type ParsedExam = { name: string; date: string | null; };
+type Grade      = { id: string; category: string; item_name: string; score: number; max_score: number; };
+
+
+async function createNudges(examName: string, examDate: string, studentId: string) {
+  const exam  = new Date(examDate + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const nudgeDays = [
+    { days: 14, label: `2 weeks until ${examName}` },
+    { days: 7,  label: `1 week until ${examName}` },
+    { days: 3,  label: `${examName} in 3 days` },
+    { days: 1,  label: `${examName} tomorrow` },
+  ];
+  const nudges = nudgeDays
+    .map(n => { const d = new Date(exam); d.setDate(exam.getDate() - n.days); return { date: d, label: n.label }; })
+    .filter(n => n.date >= today)
+    .map(n => ({ student_id: studentId, title: n.label, due_date: localDateStr(n.date), task_type: 'nudge', completed: false }));
+  if (nudges.length > 0) await supabase.from('tasks').insert(nudges);
+}
+
+export default function StudentClassBinder() {
+  const me = useStudent();
+  const studentId = me.id;
+  const router  = useRouter();
+  const params  = useParams();
+  const classId = params.classId as string;
+
+  const [cls,          setCls]          = useState<ClassRow | null>(null);
+  const [folders,      setFolders]      = useState<Folder[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [showAdd,      setShowAdd]      = useState(false);
+  const [newName,      setNewName]      = useState('');
+  const [newDate,      setNewDate]      = useState('');
+  const [saving,       setSaving]       = useState(false);
+  const [showSyllabus, setShowSyllabus] = useState(false);
+  const [syllabusFile, setSyllabusFile] = useState<File | null>(null);
+  const [parsing,      setParsing]      = useState(false);
+  const [parsedExams,  setParsedExams]  = useState<ParsedExam[]>([]);
+  const [parseError,   setParseError]   = useState('');
+  const [creating,     setCreating]     = useState(false);
+  const [createDone,   setCreateDone]   = useState(false);
+  const syllabusRef = useRef<HTMLInputElement>(null);
+
+  const [showEdit,      setShowEdit]      = useState(false);
+  const [editName,      setEditName]      = useState('');
+  const [editSemester,  setEditSemester]  = useState('');
+  const [editProfessor, setEditProfessor] = useState('');
+  const [editSaving,    setEditSaving]    = useState(false);
+  const [showDelete,    setShowDelete]    = useState(false);
+  const [deleting,      setDeleting]      = useState(false);
+  const [notes,         setNotes]         = useState('');
+  const [notesSaving,   setNotesSaving]   = useState(false);
+  const [renamingId,    setRenamingId]    = useState<string | null>(null);
+  const [renameValue,   setRenameValue]   = useState('');
+  const [grades,        setGrades]        = useState<Grade[]>([]);
+  const [showAddGrade,  setShowAddGrade]  = useState(false);
+  const [gradeCategory, setGradeCategory] = useState('');
+  const [gradeItem,     setGradeItem]     = useState('');
+  const [gradeScore,    setGradeScore]    = useState('');
+  const [gradeMax,      setGradeMax]      = useState('100');
+  const [gradeSaving,   setGradeSaving]   = useState(false);
+  const [gradeError,    setGradeError]    = useState('');
+
+  useEffect(() => {
+    const load = async () => {
+      const { data: classData } = await supabase.from('classes').select('id, name, semester, professor, notes, grading_schema').eq('id', classId).single();
+      if (classData) { setCls(classData); setNotes(classData.notes || ''); }
+      const [{ data: folderData }, { data: gradeData }] = await Promise.all([
+        supabase.from('exam_folders').select('id, name, exam_date, created_at').eq('class_id', classId).order('exam_date', { ascending: true }),
+        supabase.from('grades').select('id, category, item_name, score, max_score').eq('class_id', classId).order('created_at', { ascending: true }),
+      ]);
+      if (folderData) setFolders(folderData);
+      if (gradeData)  setGrades(gradeData);
+      setLoading(false);
+    };
+    load();
+  }, [classId]);
+
+  const openEdit = () => {
+    if (!cls) return;
+    setEditName(cls.name);
+    setEditSemester(cls.semester || '');
+    setEditProfessor(cls.professor || '');
+    setShowEdit(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!editName.trim()) return;
+    setEditSaving(true);
+    await supabase.from('classes').update({
+      name: editName.trim(),
+      semester: editSemester.trim() || null,
+      professor: editProfessor.trim() || null,
+    }).eq('id', classId);
+    setCls(prev => prev ? { ...prev, name: editName.trim(), semester: editSemester.trim(), professor: editProfessor.trim() } : prev);
+    setShowEdit(false);
+    setEditSaving(false);
+  };
+
+  const handleDelete = async () => {
+    if (!confirm(`Archive ${cls?.name}? You can restore it anytime from the Classes page.`)) return;
+    setDeleting(true);
+    await supabase.from('classes').update({ is_active: false }).eq('id', classId);
+    router.push(`/${studentId}/classes`);
+  };
+
+  const renameFolder = async (folderId: string, name: string) => {
+    await supabase.from('exam_folders').update({ name: name.trim() }).eq('id', folderId);
+    setFolders(prev => prev.map(f => f.id === folderId ? { ...f, name: name.trim() } : f));
+    setRenamingId(null);
+  };
+
+  const sortedInsert = (prev: Folder[], newItems: Folder[]) =>
+    [...prev, ...newItems].sort((a, b) => {
+      if (!a.exam_date) return 1;
+      if (!b.exam_date) return -1;
+      return a.exam_date.localeCompare(b.exam_date);
+    });
+
+  const handleAddFolder = async () => {
+    if (!newName.trim()) return;
+    setSaving(true);
+    const { data } = await supabase.from('exam_folders').insert({ class_id: classId, name: newName.trim(), exam_date: newDate || null }).select().single();
+    if (data) {
+      setFolders(prev => sortedInsert(prev, [data]));
+      if (newDate) await createNudges(newName.trim(), newDate, studentId);
+    }
+    setNewName(''); setNewDate(''); setShowAdd(false); setSaving(false);
+  };
+
+  const handleSyllabusParse = async () => {
+    if (!syllabusFile) return;
+    setParsing(true); setParseError(''); setParsedExams([]);
+    try {
+      const formData = new FormData();
+      formData.append('file', syllabusFile);
+      const res  = await fetch('/api/parse-syllabus', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      if (!data.exams || data.exams.length === 0) {
+        setParseError('No exams found in this syllabus. Try adding folders manually.');
+      } else {
+        setParsedExams(data.exams);
+      }
+    } catch (err: any) {
+      setParseError(err.message || 'Could not parse syllabus. Try again.');
+    } finally {
+      setParsing(false);
+    }
+  };
+
+  const updateParsedExam = (i: number, field: 'name' | 'date', value: string) =>
+    setParsedExams(prev => prev.map((e, idx) => idx === i ? { ...e, [field]: value } : e));
+
+  const removeParsedExam = (i: number) =>
+    setParsedExams(prev => prev.filter((_, idx) => idx !== i));
+
+  const handleCreateFolders = async () => {
+    if (parsedExams.length === 0) return;
+    setCreating(true);
+    try {
+      const { data } = await supabase.from('exam_folders').insert(parsedExams.map(e => ({ class_id: classId, name: e.name, exam_date: e.date || null }))).select();
+      if (data) {
+        setFolders(prev => sortedInsert(prev, data));
+        for (const exam of parsedExams) {
+          if (exam.date) await createNudges(exam.name, exam.date, studentId);
+        }
+      }
+      setCreateDone(true);
+      setTimeout(() => { setShowSyllabus(false); setSyllabusFile(null); setParsedExams([]); setCreateDone(false); setParseError(''); }, 1200);
+    } catch {
+      setParseError('Could not create folders. Please try again.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const saveGrade = async () => {
+    if (!gradeCategory || !gradeItem || gradeScore === '') return;
+    const scoreNum = parseFloat(gradeScore);
+    if (Number.isNaN(scoreNum)) return;
+    setGradeSaving(true);
+    setGradeError('');
+    const { data, error: gradeInsertError } = await supabase.from('grades').insert({
+      class_id: classId, student_id: studentId,
+      category: gradeCategory, item_name: gradeItem,
+      score: scoreNum, max_score: parseFloat(gradeMax) || 100,
+    }).select().single();
+    if (gradeInsertError || !data) {
+      console.error('Grade save failed:', gradeInsertError?.message);
+      setGradeError("Couldn't save that grade. Please try again.");
+      setGradeSaving(false);
+      return;
+    }
+    setGrades(prev => [...prev, data]);
+    setGradeCategory(''); setGradeItem(''); setGradeScore(''); setGradeMax('100');
+    setShowAddGrade(false); setGradeSaving(false);
+  };
+
+  const deleteGrade = async (id: string) => {
+    const { error: gradeDeleteError } = await supabase.from('grades').delete().eq('id', id);
+    if (gradeDeleteError) { console.error('Grade delete failed:', gradeDeleteError.message); return; }
+    setGrades(prev => prev.filter(g => g.id !== id));
+  };
+
+  const calcWeightedGrade = () => {
+    if (!cls?.grading_schema || Object.keys(cls.grading_schema).length === 0) return null;
+    let totalWeight = 0; let weightedSum = 0;
+    for (const [cat, weight] of Object.entries(cls.grading_schema)) {
+      const catGrades = grades.filter(g => g.category.toLowerCase() === cat.toLowerCase());
+      if (catGrades.length === 0) continue;
+      const avg = catGrades.reduce((sum, g) => sum + (g.score / g.max_score) * 100, 0) / catGrades.length;
+      weightedSum += avg * (weight / 100);
+      totalWeight += weight;
+    }
+    if (totalWeight === 0) return null;
+    // Re-normalise to the categories graded so far (e.g. only Exams at 60% weight, avg 90 -> 90, not 54).
+    return Math.round((weightedSum / (totalWeight / 100)) * 10) / 10;
+  };
+
+  const gradeColor = (g: number) => g >= 90 ? '#5FAD8E' : g >= 80 ? 'var(--accent)' : g >= 70 ? '#C8965A' : '#C47878';
+
+  const resetSyllabus = () => {
+    setSyllabusFile(null); setParsedExams([]); setParseError(''); setCreateDone(false);
+    if (syllabusRef.current) syllabusRef.current.value = '';
+  };
+
+  const formatDate = (d: string | null) => {
+    if (!d) return null;
+    return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const daysUntil = (d: string | null) => {
+    if (!d) return null;
+    const diff = Math.ceil((new Date(d + 'T00:00:00').getTime() - Date.now()) / 86400000);
+    if (diff < 0)   return null;
+    if (diff === 0) return 'Today';
+    if (diff === 1) return '1 day away';
+    return `${diff} days away`;
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '11px 14px', border: '1.5px solid #E8E5F0',
+    borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14,
+    color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box',
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#FAFAF8' }}>
+      <nav style={{ height: 58, display: 'flex', alignItems: 'center', padding: '0 20px', gap: 10, background: 'rgba(250,250,248,0.95)', backdropFilter: 'blur(16px)', borderBottom: '1px solid #E8E5F0', position: 'sticky', top: 0, zIndex: 90 }}>
+        <Link href={`/${studentId}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Mountain />
+          <span style={{ fontSize: 18, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.5px' }}>Ascend</span>
+          <span style={{ fontSize: 9, fontWeight: 700, color: '#C4C1D4', letterSpacing: 1.5, textTransform: 'uppercase', fontStyle: 'italic', marginLeft: 4 }}>Forged in Focus</span>
+        </Link>
+      </nav>
+
+      <main style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
+        <button onClick={() => router.push(`/${studentId}/classes`)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#6B6880', fontFamily: 'var(--font-jakarta)', marginBottom: 20, padding: 0 }}>
+          ← Classes
+        </button>
+
+        {cls && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: alpha(color, '20'), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color, flexShrink: 0 }}>
+              {classLabel(cls.name)}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 24, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.6px', marginBottom: 2 }}>{cls.name}</div>
+              <div style={{ fontSize: 12, color: '#9E9BB0' }}>{[cls.semester, cls.professor].filter(Boolean).join(' · ')}</div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+              <button onClick={openEdit} style={{ padding: '7px 14px', borderRadius: 999, background: light, border: 'none', color, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Edit</button>
+              <button onClick={() => setShowDelete(true)} style={{ padding: '7px 14px', borderRadius: 999, background: '#F3F1EC', border: 'none', color: '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Archive</button>
+            </div>
+          </div>
+        )}
+
+        {cls && (
+          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '14px 16px', marginBottom: 20, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' as const, color: '#C4C1D4', marginBottom: 8 }}>Professor Notes</div>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              onBlur={async () => { setNotesSaving(true); await supabase.from('classes').update({ notes: notes.trim() || null }).eq('id', classId); setNotesSaving(false); }}
+              placeholder='e.g. "Curves lowest exam. Attendance counts 10%. Office hours Tue 2–4pm."'
+              rows={3}
+              style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 13, color: '#1D1B26', background: '#FAFAF8', outline: 'none', resize: 'vertical', lineHeight: 1.6, boxSizing: 'border-box' as const }}
+            />
+            {notesSaving && <div style={{ fontSize: 10, color: '#9E9BB0', marginTop: 4 }}>Saving...</div>}
+          </div>
+        )}
+
+        {cls && (
+          <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '16px', marginBottom: 20, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' as const, color: '#C4C1D4' }}>Grade Tracker</div>
+              <button onClick={() => { setGradeCategory(cls.grading_schema ? Object.keys(cls.grading_schema)[0] || '' : ''); setShowAddGrade(true); }} style={{ padding: '5px 12px', borderRadius: 999, background: light, border: 'none', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Add Grade</button>
+            </div>
+            {(() => {
+              const weighted = calcWeightedGrade();
+              return weighted !== null ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14, padding: '12px 14px', borderRadius: 12, background: light }}>
+                  <div>
+                    <div style={{ fontSize: 32, fontWeight: 900, color: gradeColor(weighted), lineHeight: 1 }}>{weighted.toFixed(1)}%</div>
+                    <div style={{ fontSize: 10, color: '#9E9BB0', fontWeight: 600, marginTop: 2 }}>Current Weighted Grade</div>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ height: 8, borderRadius: 99, background: '#E8E5F0', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${Math.min(weighted, 100)}%`, background: gradeColor(weighted), borderRadius: 99, transition: 'width 0.4s' }} />
+                    </div>
+                  </div>
+                </div>
+              ) : null;
+            })()}
+            {cls.grading_schema && Object.keys(cls.grading_schema).length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {Object.entries(cls.grading_schema).map(([cat, weight]) => {
+                  const catGrades = grades.filter(g => g.category.toLowerCase() === cat.toLowerCase());
+                  const avg = catGrades.length > 0 ? catGrades.reduce((sum, g) => sum + (g.score / g.max_score) * 100, 0) / catGrades.length : null;
+                  return (
+                    <div key={cat}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', textTransform: 'capitalize' }}>{cat}</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: '#9E9BB0', background: '#F3F1EC', padding: '1px 7px', borderRadius: 999 }}>{weight}%</span>
+                        </div>
+                        {avg !== null ? (
+                          <span style={{ fontSize: 13, fontWeight: 800, color: gradeColor(avg) }}>{avg.toFixed(1)}%</span>
+                        ) : (
+                          <span style={{ fontSize: 11, color: '#C4C1D4' }}>No grades yet</span>
+                        )}
+                      </div>
+                      {catGrades.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 4 }}>
+                          {catGrades.map(g => (
+                            <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 7, background: '#FAFAF8' }}>
+                              <span style={{ flex: 1, fontSize: 11, color: '#6B6880' }}>{g.item_name}</span>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: gradeColor((g.score / g.max_score) * 100) }}>{g.score}/{g.max_score}</span>
+                              <button onClick={() => deleteGrade(g.id)} aria-label="Delete" title="Delete" style={{ fontSize: 10, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}>✕</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: '#9E9BB0', textAlign: 'center', padding: '8px 0' }}>
+                No grading schema — add grades manually or{' '}
+                <button onClick={() => setShowAddGrade(true)} style={{ color, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', fontSize: 12, fontWeight: 700, padding: 0 }}>log a grade</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!loading && folders.length === 0 && (
+          <div style={{ background: 'var(--accent-gradient)', borderRadius: 18, padding: '20px 22px', marginBottom: 20, color: 'white' }}>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', opacity: 0.6, marginBottom: 6 }}>Quick Setup</div>
+            <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Upload your syllabus</div>
+            <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 16, lineHeight: 1.5 }}>Ascend reads your syllabus and creates all your exam folders — and countdown reminders — automatically.</div>
+            <button onClick={() => setShowSyllabus(true)} style={{ padding: '10px 20px', borderRadius: 999, background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+              Upload Syllabus →
+            </button>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4' }}>Exam Folders</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {folders.length > 0 && (
+              <button onClick={() => setShowSyllabus(true)} style={{ padding: '6px 14px', borderRadius: 999, background: '#F3F1EC', border: 'none', color: '#9E9BB0', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Syllabus</button>
+            )}
+            <button onClick={() => setShowAdd(true)} style={{ padding: '6px 14px', borderRadius: 999, background: light, border: 'none', color, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ Add Folder</button>
+          </div>
+        </div>
+
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '60px 0', color: '#9E9BB0', fontSize: 13 }}>Loading...</div>
+        ) : folders.length === 0 ? (
+          <div style={{ background: '#FFFFFF', border: '1.5px dashed #C4C1D4', borderRadius: 18, padding: '40px 20px', textAlign: 'center' }}>
+            <div style={{ width: 56, height: 56, borderRadius: 16, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M3 9a2 2 0 012-2h5l2 2h11a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke={color} strokeWidth="1.6" strokeLinejoin="round" fill="none"/></svg>
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No exam folders yet</div>
+            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>Upload your syllabus above or add folders manually.</div>
+            <button onClick={() => setShowAdd(true)} style={{ padding: '10px 22px', borderRadius: 999, background: color, border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Add First Folder</button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {folders.map((folder) => {
+              const countdown = daysUntil(folder.exam_date);
+              const isUrgent  = countdown && countdown !== 'Today' && parseInt(countdown) <= 7;
+              return (
+                <div key={folder.id} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '18px 20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 11, background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color, flexShrink: 0 }}>
+                      {folder.name.slice(0, 1).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {renamingId === folder.id ? (
+                        <div style={{ marginBottom: 2 }}>
+                          <input
+                            value={renameValue}
+                            onChange={e => setRenameValue(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && renameValue.trim()) renameFolder(folder.id, renameValue); if (e.key === 'Escape') setRenamingId(null); }}
+                            autoFocus
+                            style={{ width: '100%', padding: '4px 8px', border: `1.5px solid ${color}`, borderRadius: 7, fontFamily: 'var(--font-jakarta)', fontSize: 14, fontWeight: 800, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }}
+                          />
+                          <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                            <button onClick={() => { if (renameValue.trim()) renameFolder(folder.id, renameValue); }} style={{ flex: 1, fontSize: 10, fontWeight: 700, color: 'white', background: color, border: 'none', borderRadius: 6, padding: '4px 0', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Save</button>
+                            <button onClick={() => setRenamingId(null)} style={{ flex: 1, fontSize: 10, fontWeight: 700, color: '#9E9BB0', background: '#F3F1EC', border: 'none', borderRadius: 6, padding: '4px 0', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div onClick={() => router.push(`/${studentId}/classes/${classId}/${folder.id}`)} style={{ cursor: 'pointer' }}>
+                          <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>{folder.name}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            {folder.exam_date && <span style={{ fontSize: 11, color: '#9E9BB0' }}>{formatDate(folder.exam_date)}</span>}
+                            {countdown && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: countdown === 'Today' ? '#FDF2F2' : isUrgent ? '#FFF3E8' : light, color: countdown === 'Today' ? '#C47878' : isUrgent ? '#C8965A' : color }}>{countdown}</span>}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 10 }}>
+                    {renamingId !== folder.id && (
+                      <button onClick={() => { setRenamingId(folder.id); setRenameValue(folder.name); }} style={{ background: '#F3F1EC', border: 'none', borderRadius: 7, padding: '6px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="12" height="12" viewBox="0 0 28 28" fill="none"><path d="M4 24l4-1 13-13-3-3L5 20l-1 4z" stroke="#9E9BB0" strokeWidth="1.6" strokeLinejoin="round" fill="none"/><path d="M18 8l3 3" stroke="#9E9BB0" strokeWidth="1.6" strokeLinecap="round"/></svg>
+                      </button>
+                    )}
+                    {renamingId !== folder.id && (
+                      <span onClick={() => router.push(`/${studentId}/classes/${classId}/${folder.id}`)} style={{ color: '#C4C1D4', fontSize: 16, cursor: 'pointer' }}>›</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </main>
+
+      {/* ── EDIT CLASS MODAL ── */}
+      {showEdit && (
+        <div onClick={e => { if (e.target === e.currentTarget) setShowEdit(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '28px 24px', width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(29,27,38,0.18)' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 20 }}>Edit Class</div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Class Name</label>
+              <input autoFocus value={editName} onChange={e => setEditName(e.target.value)} placeholder="e.g. AP Biology" style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Semester (optional)</label>
+              <input value={editSemester} onChange={e => setEditSemester(e.target.value)} placeholder="e.g. Fall 2026" style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Instructor (optional)</label>
+              <input value={editProfessor} onChange={e => setEditProfessor(e.target.value)} placeholder="e.g. Dr. Smith" style={inputStyle} />
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setShowEdit(false)} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={handleEditSave} disabled={!editName.trim() || editSaving} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: 'var(--accent-gradient)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !editName.trim() ? 0.4 : 1 }}>
+                {editSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ARCHIVE CLASS MODAL ── */}
+      {showDelete && (
+        <div onClick={e => { if (e.target === e.currentTarget) setShowDelete(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '28px 24px', width: '100%', maxWidth: 400, boxShadow: '0 8px 40px rgba(29,27,38,0.18)' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 8 }}>Archive Class?</div>
+            <div style={{ fontSize: 14, color: '#9E9BB0', marginBottom: 24, lineHeight: 1.6 }}>
+              <strong style={{ color: '#1D1B26' }}>{cls?.name}</strong> will be moved to your archived classes. All folders, resources, and materials are preserved — you can restore it anytime from the Classes page.
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setShowDelete(false)} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={handleDelete} disabled={deleting} style={{ flex: 1, padding: '13px', borderRadius: 12, border: 'none', background: 'var(--accent-gradient)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: deleting ? 0.6 : 1 }}>
+                {deleting ? 'Archiving...' : 'Archive'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ADD FOLDER MODAL ── */}
+      {showAdd && (
+        <div onClick={e => { if (e.target === e.currentTarget) { setShowAdd(false); setNewName(''); setNewDate(''); }}} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.45)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '24px 20px 28px', width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(29,27,38,0.18)' }}>
+            <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 20px' }} />
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>New Exam Folder</div>
+            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 22 }}>Ascend will create countdown reminders automatically when you add a date.</div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Folder Name</label>
+              <input autoFocus value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newName.trim()) handleAddFolder(); }} placeholder="e.g. Exam 2, Midterm, Final..." style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: 22 }}>
+              <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Exam Date (optional)</label>
+              <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} style={inputStyle} />
+            </div>
+            {newDate && <div style={{ background: light, borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color, fontWeight: 600 }}>Countdown reminders will be added at 14 days, 7 days, 3 days, and 1 day before</div>}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => { setShowAdd(false); setNewName(''); setNewDate(''); }} style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={handleAddFolder} disabled={!newName.trim() || saving} style={{ flex: 2, padding: '12px', borderRadius: 12, border: 'none', background: 'var(--accent-gradient)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !newName.trim() || saving ? 0.4 : 1 }}>
+                {saving ? 'Saving...' : 'Create Folder'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SYLLABUS MODAL ── */}
+      {showSyllabus && (
+        <div onClick={e => { if (e.target === e.currentTarget) { setShowSyllabus(false); resetSyllabus(); }}} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '24px 20px 32px', width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(29,27,38,0.18)', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 20px' }} />
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>Upload Syllabus</div>
+            <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20 }}>Ascend will create exam folders and countdown reminders automatically.</div>
+            {!parsedExams.length && !parsing && (
+              <>
+                <input ref={syllabusRef} type="file" accept=".pdf" onChange={e => { setSyllabusFile(e.target.files?.[0] || null); setParseError(''); }} style={{ display: 'none' }} />
+                {syllabusFile ? (
+                  <div style={{ padding: '14px 16px', borderRadius: 12, border: `1.5px solid ${color}`, background: light, display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                    <svg width="24" height="24" viewBox="0 0 28 28" fill="none"><path d="M6 4h10l6 6v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke={color} strokeWidth="1.6" strokeLinejoin="round" fill="none"/><path d="M16 4v6h6" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{syllabusFile.name}</div>
+                      <div style={{ fontSize: 11, color: '#9E9BB0' }}>{(syllabusFile.size / 1024 / 1024).toFixed(1)} MB</div>
+                    </div>
+                    <button onClick={resetSyllabus} aria-label="Remove file" title="Remove file" style={{ fontSize: 13, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>✕</button>
+                  </div>
+                ) : (
+                  <div onClick={() => syllabusRef.current?.click()} style={{ border: '2px dashed #E8E5F0', borderRadius: 12, padding: '28px 20px', textAlign: 'center', cursor: 'pointer', background: '#FAFAF8', marginBottom: 14 }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.borderColor = color} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.borderColor = '#E8E5F0'}>
+                    <svg width="40" height="40" viewBox="0 0 28 28" fill="none" style={{ margin: '0 auto 10px', display: 'block' }}><path d="M20 19a5 5 0 10-1-9.9A7 7 0 104 17" stroke="#C4C1D4" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none"/><path d="M14 15v8" stroke="#C4C1D4" strokeWidth="1.6" strokeLinecap="round"/><path d="M11 18l3-3 3 3" stroke="#C4C1D4" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>Tap to choose syllabus PDF</div>
+                    <div style={{ fontSize: 11, color: '#9E9BB0' }}>PDF files only</div>
+                  </div>
+                )}
+                {parseError && <div style={{ background: '#FDF2F2', border: '1.5px solid rgba(196,120,120,0.25)', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#C47878', fontWeight: 600, marginBottom: 14 }}>{parseError}</div>}
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={() => { setShowSyllabus(false); resetSyllabus(); }} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+                  <button onClick={handleSyllabusParse} disabled={!syllabusFile} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: syllabusFile ? 'var(--accent-gradient)' : '#F3F1EC', color: syllabusFile ? 'white' : '#C4C1D4', fontSize: 13, fontWeight: 800, cursor: syllabusFile ? 'pointer' : 'not-allowed', fontFamily: 'var(--font-jakarta)' }}>Parse Syllabus</button>
+                </div>
+              </>
+            )}
+            {parsing && (
+              <div style={{ textAlign: 'center', padding: '32px 0' }}>
+                <div style={{ width: 36, height: 36, border: '3px solid #E8E5F0', borderTopColor: color, borderRadius: '50%', margin: '0 auto 16px', animation: 'spin 0.75s linear infinite' }} />
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#1D1B26', marginBottom: 6 }}>Reading your syllabus...</div>
+                <div style={{ fontSize: 12, color: '#9E9BB0' }}>Finding exams and creating reminders</div>
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+              </div>
+            )}
+            {parsedExams.length > 0 && !parsing && (
+              <>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>{parsedExams.length} exam{parsedExams.length !== 1 ? 's' : ''} found</div>
+                <div style={{ fontSize: 12, color: '#9E9BB0', marginBottom: 16 }}>Review and edit before creating folders.</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+                  {parsedExams.map((exam, i) => (
+                    <div key={i} style={{ background: '#FAFAF8', border: '1.5px solid #E8E5F0', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <input value={exam.name} onChange={e => updateParsedExam(i, 'name', e.target.value)} style={{ padding: '7px 10px', border: '1.5px solid #E8E5F0', borderRadius: 8, fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, color: '#1D1B26', background: '#FFFFFF', outline: 'none', width: '100%', boxSizing: 'border-box' as const }} />
+                        <input type="date" value={exam.date || ''} onChange={e => updateParsedExam(i, 'date', e.target.value)} style={{ padding: '7px 10px', border: '1.5px solid #E8E5F0', borderRadius: 8, fontFamily: 'var(--font-jakarta)', fontSize: 12, color: '#9E9BB0', background: '#FFFFFF', outline: 'none', width: '100%', boxSizing: 'border-box' as const }} />
+                      </div>
+                      <button onClick={() => removeParsedExam(i)} aria-label="Remove" title="Remove" style={{ fontSize: 14, color: '#C4C1D4', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', flexShrink: 0 }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ background: light, borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color, fontWeight: 600 }}>Countdown reminders will be created at 14, 7, 3, and 1 day before each exam</div>
+                {parseError && <div style={{ background: '#FDF2F2', border: '1.5px solid rgba(196,120,120,0.25)', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#C47878', fontWeight: 600, marginBottom: 14 }}>{parseError}</div>}
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={resetSyllabus} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Start Over</button>
+                  <button onClick={handleCreateFolders} disabled={parsedExams.length === 0 || creating || createDone} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: createDone ? '#5FAD8E' : 'var(--accent-gradient)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: creating ? 0.7 : 1 }}>
+                    {createDone ? 'Folders Created!' : creating ? 'Creating...' : `Create ${parsedExams.length} Folder${parsedExams.length !== 1 ? 's' : ''}`}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showAddGrade && (
+        <div onClick={e => { if (e.target === e.currentTarget) setShowAddGrade(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '28px 24px', width: '100%', maxWidth: 420, boxShadow: '0 8px 40px rgba(29,27,38,0.18)' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 20 }}>Log a Grade</div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Category</label>
+              {cls?.grading_schema && Object.keys(cls.grading_schema).length > 0 ? (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {Object.keys(cls.grading_schema).map(cat => (
+                    <button key={cat} onClick={() => setGradeCategory(cat)} style={{ padding: '7px 14px', borderRadius: 999, border: `1.5px solid ${gradeCategory === cat ? color : '#E8E5F0'}`, background: gradeCategory === cat ? color : '#FAFAF8', color: gradeCategory === cat ? 'white' : '#9E9BB0', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', textTransform: 'capitalize' }}>{cat}</button>
+                  ))}
+                </div>
+              ) : (
+                <input value={gradeCategory} onChange={e => setGradeCategory(e.target.value)} placeholder="e.g. Exams, Homework" style={inputStyle} />
+              )}
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Item Name</label>
+              <input autoFocus value={gradeItem} onChange={e => setGradeItem(e.target.value)} placeholder="e.g. Exam 1, Homework 3" style={inputStyle} />
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Score</label>
+                <input type="number" value={gradeScore} onChange={e => setGradeScore(e.target.value)} placeholder="e.g. 88" style={inputStyle} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Out of</label>
+                <input type="number" value={gradeMax} onChange={e => setGradeMax(e.target.value)} placeholder="100" style={inputStyle} />
+              </div>
+            </div>
+            {gradeScore && parseFloat(gradeMax) > 0 && (
+              <div style={{ background: light, borderRadius: 10, padding: '10px 14px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 12, color: '#6B6880' }}>Grade preview</span>
+                <span style={{ fontSize: 18, fontWeight: 900, color: gradeColor((parseFloat(gradeScore) / parseFloat(gradeMax)) * 100) }}>
+                  {((parseFloat(gradeScore) / parseFloat(gradeMax)) * 100).toFixed(1)}%
+                </span>
+              </div>
+            )}
+            {gradeError && <div style={{ background: '#FDF2F2', color: '#C47878', fontSize: 12, fontWeight: 700, padding: '10px 14px', borderRadius: 10, marginBottom: 12 }}>{gradeError}</div>}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => { setShowAddGrade(false); setGradeError(''); }} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: 'transparent', color: '#6B6880', fontFamily: 'var(--font-jakarta)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={saveGrade} disabled={!gradeCategory || !gradeItem || gradeScore === '' || gradeSaving} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: color, color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: (!gradeCategory || !gradeItem || gradeScore === '') ? 0.4 : 1 }}>
+                {gradeSaving ? 'Saving...' : 'Save Grade'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <TabBar student={studentId} />
+    </div>
+  );
+}

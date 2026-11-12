@@ -13,7 +13,7 @@ interface FolderPickerProps {
   accentColor?: string;
 }
 
-export default function FolderPicker({ studentId, currentFolderId, onSelect, onClose, accentColor = '#7B6FA0' }: FolderPickerProps) {
+export default function FolderPicker({ studentId, currentFolderId, onSelect, onClose, accentColor = 'var(--accent)' }: FolderPickerProps) {
   const [classes,  setClasses]  = useState<Class[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -45,7 +45,7 @@ export default function FolderPicker({ studentId, currentFolderId, onSelect, onC
     load();
   }, [studentId]);
 
-  const light = accentColor === '#E8956D' ? '#FFF3E8' : '#EDE9F7';
+  const light = 'var(--accent-light)';
 
   return (
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }} style={{ position: 'fixed', inset: 0, background: 'rgba(29,27,38,0.5)', backdropFilter: 'blur(4px)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>

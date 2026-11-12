@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { STUDENTS } from './students';
 
 // Server-only client using the service-role key. Import this from API routes only — never from a client component.
 export const supabaseAdmin = createClient(
@@ -7,6 +8,5 @@ export const supabaseAdmin = createClient(
   { auth: { persistSession: false } },
 );
 
-export const STUDENT_IDS = ['matthew', 'michael', 'brynne'] as const;
-export type StudentId = typeof STUDENT_IDS[number];
-export const isStudentId = (v: unknown): v is StudentId => typeof v === 'string' && (STUDENT_IDS as readonly string[]).includes(v);
+// Who counts as a student comes from the one roster (lib/students.ts).
+export const isStudentId = (v: unknown): v is string => typeof v === 'string' && STUDENTS.some(s => s.id === v);

@@ -1,25 +1,32 @@
-// The three students in one place: roster details + automatic grade level.
+// The students in one place: roster details + automatic grade level. Every student page is the SAME code
+// (app/[student]/…) driven by this roster — adding a student is adding a row here (later: a row in the database).
 // The graduation year (students.grad_year in the database) is the only thing that has to be right — the grade then
 // advances on its own every school year, so nobody has to remember to edit it.
 
-export type StudentId = 'matthew' | 'michael' | 'brynne';
+import type { ThemeName } from './theme';
+
+export type StudentId = string;
 
 export type StudentInfo = {
   id: StudentId;
   name: string;
   avatar: string;
+  avatarAlt: string;
   flip: boolean;        // the lion faces the wrong way unless flipped
+  theme: ThemeName;
+  track: string;        // default until the profile is filled in
+  admissionsExam: string; // DAT / MCAT — used in profile hint text
   goal: string;         // short label on the login card
   program: string;      // where they're headed
   gradYear: number;     // high-school graduation year (used until the database value loads)
-  color: string;        // accent colour
+  color: string;        // accent colour (parent dashboard)
   light: string;        // soft tint of the accent
 };
 
 export const STUDENTS: StudentInfo[] = [
-  { id: 'matthew', name: 'Matthew', avatar: '/eagle.png',  flip: false, goal: 'Future Dentist',   program: 'WVU School of Dentistry', gradYear: 2027, color: '#7B6FA0', light: '#EDE9F7' },
-  { id: 'michael', name: 'Michael', avatar: '/lion.png',   flip: true,  goal: 'Future Physician', program: 'WVU School of Medicine',  gradYear: 2030, color: '#7B6FA0', light: '#EDE9F7' },
-  { id: 'brynne',  name: 'Brynne',  avatar: '/dragon.png', flip: false, goal: 'Future Physician', program: 'WVU School of Medicine',  gradYear: 2033, color: '#E8956D', light: '#FFF3E8' },
+  { id: 'matthew', name: 'Matthew', avatar: '/eagle.png',  avatarAlt: 'Eagle',  flip: false, theme: 'purple', track: 'Pre-Dental', admissionsExam: 'DAT', goal: 'Future Dentist',   program: 'WVU School of Dentistry', gradYear: 2027, color: '#7B6FA0', light: '#EDE9F7' },
+  { id: 'michael', name: 'Michael', avatar: '/lion.png',   avatarAlt: 'Lion',   flip: true,  theme: 'purple', track: 'Pre-Med',    admissionsExam: 'MCAT', goal: 'Future Physician', program: 'WVU School of Medicine',  gradYear: 2030, color: '#7B6FA0', light: '#EDE9F7' },
+  { id: 'brynne',  name: 'Brynne',  avatar: '/dragon.png', avatarAlt: 'Dragon', flip: false, theme: 'orange', track: 'Pre-Med',    admissionsExam: 'MCAT', goal: 'Future Physician', program: 'WVU School of Medicine',  gradYear: 2033, color: '#E8956D', light: '#FFF3E8' },
 ];
 
 const ORDINALS = ['th', 'st', 'nd', 'rd'];

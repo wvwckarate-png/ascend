@@ -41,7 +41,7 @@ export default function MoleculeStructure({ smiles, width = 200, height = 150 }:
 
   if (!svg) return (
     <div style={{ width, height, borderRadius: 10, background: '#F3F1EC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 20, height: 20, border: '2px solid #E8E5F0', borderTopColor: '#7B6FA0', borderRadius: '50%', animation: 'spin 0.75s linear infinite' }} />
+      <div style={{ width: 20, height: 20, border: '2px solid #E8E5F0', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.75s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
