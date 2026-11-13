@@ -635,7 +635,7 @@ RULES:
     if (!guideName.trim()) return;
     setSaving(true);
     try {
-      const { data: insertedGuide } = await supabase.from('study_guides').insert({ student_id: studentId, title: guideName.trim(), content: studyGuide, source_filename: sourceFiles.join(', ') || 'Custom', folder_id: selectedFolderId || folderId || null, slide_image_paths: slideImagePaths }).select().single();
+      const { data: insertedGuide } = await supabase.from('study_guides').insert({ student_id: studentId, title: guideName.trim(), content: studyGuide, source_filename: sourceFiles.join(', ') || 'Custom', folder_id: selectedFolderId || folderId || null, slide_image_paths: slideImagePaths, source_resource_ids: [...selectedIds] }).select().single();
       const today = new Date();
       await supabase.from('tasks').insert([1, 3, 7].map(days => ({ student_id: studentId, title: `Review: ${guideName.trim()}`, due_date: addDays(today, days), task_type: 'review', completed: false, resource_id: insertedGuide?.id || null, resource_type: 'study_guide' })));
       setSaved(true); setShowNamePrompt(false);

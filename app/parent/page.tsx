@@ -2,6 +2,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
+import PeoplePanel from '../components/PeoplePanel';
+import { authHeader, myAccount } from '../../lib/supabaseAuth';
 import { supabase } from '../../lib/supabase';
 import { APP_VERSION_LABEL } from '../../lib/version';
 import { STUDENTS } from '../../lib/students';
@@ -37,6 +39,9 @@ export default function ParentDashboard() {
   const [stats,   setStats]   = useState<Record<string, Stats>>({});
   const [statsLoading, setStatsLoading] = useState(true);
 
+  // A parent who is signed in with their email goes straight in; the password box is the older way and still works.
+  useEffect(() => { myAccount().then(a => { if (a?.role === 'parent') setUnlocked(true); }); }, []);
+
   const handleUnlock = async () => {
     setChecking(true);
     setPwError('');
@@ -65,7 +70,7 @@ export default function ParentDashboard() {
     try {
       const res = await fetch('/api/parent-pins', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
         body: JSON.stringify({ password, action, student: studentId, pin }),
       });
       const data = await res.json().catch(() => null);
@@ -161,7 +166,8 @@ export default function ParentDashboard() {
           >
             {checking ? 'Checking...' : 'Unlock'}
           </button>
-          <div style={{ marginTop: 16 }}>
+          <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center', gap: 18 }}>
+            <Link href="/login" style={{ fontSize: 12, fontWeight: 700, color: '#7B6FA0', textDecoration: 'none' }}>Sign in with email</Link>
             <Link href="/" style={{ fontSize: 12, fontWeight: 700, color: '#9E9BB0', textDecoration: 'none' }}>← Back to Ascend</Link>
           </div>
         </div>
@@ -245,6 +251,9 @@ export default function ParentDashboard() {
             );
           })}
         </div>
+
+        {/* People & sign-ins */}
+        <PeoplePanel password={password} />
 
         {/* PIN Management */}
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 14 }}>PIN Management</div>

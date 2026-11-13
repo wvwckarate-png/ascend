@@ -186,6 +186,9 @@ export default function Home() {
             Parent Dashboard
           </button>
         </Link>
+        <Link href="/login" style={{ textDecoration: 'none' }}>
+          <button style={{ padding: '11px 26px', borderRadius: 999, border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--muted)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Sign in</button>
+        </Link>
       </div>
 
       <div style={{ fontSize: 10, color: 'var(--light)', marginTop: 40, letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.8 }}>

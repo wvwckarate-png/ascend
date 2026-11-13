@@ -13,6 +13,7 @@ node e2e/pipeline.js       # generate -> check -> improve -> present
 node e2e/personalize.js    # theme picker, re-orderable class cards, old-exam uploads
 node e2e/today.js          # Today's Plan (ring + streak), grade targeting, class context from the general screen
 node e2e/loop.js           # drag preview, slimmer home page, weak-spot drill, after-exam follow-up
+node e2e/accounts.js       # People & sign-ins panel (mocked, never sends email), sign-in and set-password screens
 npx -y tsx e2e/unit/plan.test.ts   # the plan / streak / grade-target rules on their own (no browser)
 REAL_API=1 node e2e/export.js   # study guide Print / PDF (uses the real PDF route)
 ```

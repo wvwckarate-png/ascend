@@ -387,7 +387,7 @@ function StudentPracticeExamInner() {
       setQcNote(checked.report.summary);
       const parsed = parseJSONArray<Question>(checked.text);
       const title = examNameInput.trim() || topic.trim() || folderName || `Practice Exam — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-      const { data: examData } = await supabase.from('practice_exams').insert({ student_id: studentId, title, questions: parsed, responses: {}, status: 'in_progress', timer_seconds: timerEnabled ? timerMinutes * 60 : null, folder_id: selectedFolderId || folderId || null }).select().single();
+      const { data: examData } = await supabase.from('practice_exams').insert({ student_id: studentId, title, questions: parsed, responses: {}, status: 'in_progress', timer_seconds: timerEnabled ? timerMinutes * 60 : null, folder_id: selectedFolderId || folderId || null, source_resource_ids: [...selectedIds] }).select().single();
       if (examData) { setExamId(examData.id); setActiveExam(examData); }
       setExamTitle(title); setQuestions(parsed); setResponses({}); setReviewed(new Set()); setShowExplanation(new Set());
       if (timerEnabled) { setTimeLeft(timerMinutes * 60); setTimerRunning(true); }

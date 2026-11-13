@@ -767,7 +767,7 @@ function StudentFlashcardsInner() {
     if (!deckName.trim() || saved) return;
     setSaving(true);
     try {
-      const { data: deck } = await supabase.from('flashcard_decks').insert({ student_id: studentId, title: deckName.trim(), card_count: cards.length, folder_id: selectedFolderId || folderId || null }).select().single();
+      const { data: deck } = await supabase.from('flashcard_decks').insert({ student_id: studentId, title: deckName.trim(), card_count: cards.length, folder_id: selectedFolderId || folderId || null, source_resource_ids: [...selectedIds] }).select().single();
       if (deck) {
         setSavedDeckId(deck.id);
         await supabase.from('flashcard_cards').insert(cards.map((c, i) => ({ deck_id: deck.id, front: c.front, back: c.back, position: i })));

@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { timingSafeEqual } from 'crypto';
 import { supabaseAdmin, isStudentId } from '../../../lib/supabaseAdmin';
-import { clientKey, rateLimit, requireSameOrigin } from '../../../lib/apiGuard';
+import { clientKey, rateLimit, requireSameOrigin, resetLimit } from '../../../lib/apiGuard';
+import { isParent } from '../../../lib/authServer';
 
-// Parent-only PIN management. Every call re-checks the parent password, so the PINs can't be changed from a student's device.
+// Parent-only PIN management. Every call re-checks that the caller is a parent, so the PINs can't be changed from a student's device.
 // body: { password, action: 'status' | 'set' | 'clear', student?, pin? }
 export async function POST(req: NextRequest) {
   const blocked = requireSameOrigin(req);
   if (blocked) return blocked;
-
-  const expected = process.env.PARENT_PASSWORD;
-  if (!expected) return NextResponse.json({ error: 'Parent password not configured' }, { status: 500 });
 
   const limited = rateLimit(`parentpins:${clientKey(req)}`, 60, 10 * 60 * 1000);
   if (limited) return limited;
@@ -18,11 +15,12 @@ export async function POST(req: NextRequest) {
   let body: { password?: unknown; action?: unknown; student?: unknown; pin?: unknown };
   try { body = await req.json(); } catch { return NextResponse.json({ error: 'Bad request' }, { status: 400 }); }
 
-  const given = typeof body.password === 'string' ? Buffer.from(body.password) : Buffer.alloc(0);
-  const want = Buffer.from(expected);
-  if (given.length !== want.length || !timingSafeEqual(given, want)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  // A parent: signed in with their email, or the parent dashboard password.
+  // Password guesses share the parent-password limit: 8 wrong tries per 10 minutes per device.
+  const guessKey = `parent:${clientKey(req)}`;
+  if (typeof body.password === 'string' && body.password) { const tooMany = rateLimit(guessKey, 8, 10 * 60 * 1000); if (tooMany) return tooMany; }
+  if (!(await isParent(req, body.password))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  resetLimit(guessKey);
 
   if (body.action === 'set' || body.action === 'clear') {
     if (!isStudentId(body.student)) return NextResponse.json({ error: 'Unknown student' }, { status: 400 });
