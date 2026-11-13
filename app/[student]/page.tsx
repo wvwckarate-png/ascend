@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import TabBar from '../components/TabBar';
 import UploadResourceModal from '../components/UploadResourceModal';
+import TodayPlan from '../components/TodayPlan';
 import { supabase } from '../../lib/supabase';
 import { localDateStr } from '../../lib/dates';
 import { useMounted } from '../../lib/useMounted';
@@ -63,9 +64,9 @@ function IconUpload({ c }: { c: string }) {
   );
 }
 
-type Task      = { id: string; title: string; due_date: string; due_time: string | null; completed: boolean; class_name: string | null; task_type: string; resource_id?: string | null; resource_type?: string | null; };
+type Task      = { id: string; title: string; due_date: string; due_time: string | null; completed: boolean; completed_at?: string | null; class_name: string | null; task_type: string; resource_id?: string | null; resource_type?: string | null; };
 type ClassRow  = { id: string; name: string; semester: string; professor: string | null; };
-type ExamEvent = { id: string; name: string; exam_date: string; class_name: string; };
+type ExamEvent = { id: string; name: string; exam_date: string; class_name: string; class_id: string; };
 
 
 const QUOTES = [
@@ -195,7 +196,7 @@ useEffect(() => {
         setExams(
           folderData
             .filter(f => f.exam_date)
-            .map(f => ({ id: f.id, name: f.name, exam_date: f.exam_date, class_name: classMap[f.class_id] || '' }))
+            .map(f => ({ id: f.id, name: f.name, exam_date: f.exam_date, class_name: classMap[f.class_id] || '', class_id: f.class_id }))
         );
       }
 setLoading(false);
@@ -216,8 +217,9 @@ setLoading(false);
   }, []);
   const toggleTask = async (task: Task) => {
     const updated = !task.completed;
-    await supabase.from('tasks').update({ completed: updated }).eq('id', task.id);
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: updated } : t));
+    const completed_at = updated ? new Date().toISOString() : null;   // lets Today's Plan know it was finished today
+    await supabase.from('tasks').update({ completed: updated, completed_at }).eq('id', task.id);
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: updated, completed_at } : t));
   };
 
   const deleteTask = async (id: string) => {
@@ -229,8 +231,6 @@ setLoading(false);
   const overdueTasks   = tasks.filter(t => !t.completed && t.due_date < todayStr);
   const completedTasks = tasks.filter(t => t.completed).sort((a, b) => b.due_date.localeCompare(a.due_date)).slice(0, 5);
   const todayExams     = exams.filter(e => e.exam_date === todayStr);
-  const reviewTasks    = tasks.filter(t => t.task_type === 'review' && !t.completed && t.due_date >= todayStr).slice(0, 3);
-  const nudgeTasks     = tasks.filter(t => t.task_type === 'nudge'  && !t.completed && t.due_date >= todayStr).slice(0, 3);
 
   const weekStart = new Date(today);
   weekStart.setDate(today.getDate() - today.getDay());
@@ -338,6 +338,9 @@ setLoading(false);
             </div>
           </div>
         ))}
+
+        {/* ── TODAY'S PLAN ── */}
+        {!loading && <TodayPlan studentId={studentId} todayStr={todayStr} tasks={tasks} exams={exams} onToggleTask={id => { const t = tasks.find(x => x.id === id); if (t) toggleTask(t); }} />}
 
         {/* ── 1. CALENDAR ── */}
         <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '18px 20px', marginBottom: 16, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
@@ -484,25 +487,6 @@ setLoading(false);
             </>
           )}
         </div>
-
-        {/* ── SPACED REPETITION BAND ── */}
-        {(reviewTasks.length > 0 || nudgeTasks.length > 0) && (
-          <div style={{ background: 'var(--accent-gradient)', borderRadius: 18, padding: '18px 20px', marginBottom: 16 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', marginBottom: 10 }}>
-              {reviewTasks.length > 0 ? 'Spaced Repetition' : 'Upcoming Exams'}
-            </div>
-            {[...nudgeTasks, ...reviewTasks].map(task => (
-              <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <button
-                  onClick={() => toggleTask(task)}
-                  style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.4)', background: task.completed ? '#5FAD8E' : 'transparent', cursor: 'pointer', flexShrink: 0 }}
-                />
-                <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: 'white', textDecoration: task.completed ? 'line-through' : 'none', opacity: task.completed ? 0.5 : 1 }}>{task.title}</div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.6)' }}>{formatDue(task.due_date)}</div>
-              </div>
-            ))}
-          </div>
-        )}
 
         {/* ── 3. CLASSES ── */}
         {classes.length > 0 && (

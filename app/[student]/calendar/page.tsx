@@ -125,7 +125,7 @@ export default function StudentCalendar() {
   }, []);
 
   const toggleTask = async (task: Task) => {
-    await supabase.from('tasks').update({ completed: !task.completed }).eq('id', task.id);
+    await supabase.from('tasks').update({ completed: !task.completed, completed_at: task.completed ? null : new Date().toISOString() }).eq('id', task.id);
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: !t.completed } : t));
   };
 

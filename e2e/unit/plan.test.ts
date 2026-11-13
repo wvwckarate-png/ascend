@@ -1,0 +1,74 @@
+import { buildTodayPlan, planProgress, streakFrom } from '../../lib/todayPlan';
+import { gradeTarget } from '../../lib/gpa';
+let pass = 0, fail = 0; const ok = (n: string, c: boolean, x?: unknown) => { if (c) pass++; else { fail++; console.log('✗', n, x === undefined ? '' : JSON.stringify(x)); } };
+const T = '2026-11-12';
+const deck = (o: any) => ({ id: 'd1', title: 'Deck', folder_id: null, class_name: 'BIO', created_at: '2026-06-01T00:00:00Z', cards: 20, new_cards: 0, due_seen: 0, reviewed_today: 0, weak: 0, retired: 0, ...o });
+const exam = (o: any) => ({ folderId: 'f1', classId: 'c1', name: 'Exam 1', className: 'BIO', examDate: '2026-11-15', resources: 3, hasDeck: true, examsTaken: 1, lastTakenDay: '2026-11-11', takenToday: false, madeToday: false, ...o });
+const task = (o: any) => ({ id: 't1', title: 'HW', due_date: T, completed: false, completed_at: null, class_name: 'BIO', task_type: 'assignment', resource_id: null, resource_type: null, ...o });
+const plan = (i: any) => buildTodayPlan({ studentId: 'm', todayStr: T, tasks: [], decks: [], exams: [], ...i });
+
+ok('empty', plan({}).length === 0);
+let p = plan({ decks: [deck({ due_seen: 8, weak: 2 })] });
+ok('due deck listed', p.length === 1 && p[0].kind === 'cards' && /8 cards due/.test(p[0].detail) && /2 you keep missing/.test(p[0].detail) && p[0].href === '/m/flashcards?deckId=d1' && p[0].progress === 0, p);
+p = plan({ decks: [deck({ due_seen: 6, reviewed_today: 2 })] }); ok('partial progress', Math.abs(p[0].progress - 0.25) < 1e-9, p[0].progress);
+p = plan({ decks: [deck({ due_seen: 0, reviewed_today: 9 })] }); ok('deck finished today stays, done', p.length === 1 && p[0].progress === 1 && /9 cards reviewed/.test(p[0].detail));
+ok('nothing due, nothing reviewed -> hidden', plan({ decks: [deck({})] }).length === 0);
+ok('old untouched deck hidden', plan({ decks: [deck({ new_cards: 20 })] }).length === 0);
+ok('fresh untouched deck shown as Start', /^Start:/.test(plan({ decks: [deck({ new_cards: 20, created_at: '2026-11-10T00:00:00Z' })] })[0]?.title || ''));
+ok('untouched deck with exam soon shown', plan({ decks: [deck({ new_cards: 20, folder_id: 'f1' })], exams: [exam({})] }).some((i: any) => i.kind === 'cards' && /exam in 3 days/.test(i.detail)));
+ok('mastered deck: unseen cards not counted', plan({ decks: [deck({ new_cards: 5, retired: 15, created_at: '2026-11-10T00:00:00Z' })] }).length === 0);
+ok('partly-seen deck counts its new cards', /12 cards due/.test(plan({ decks: [deck({ new_cards: 10, due_seen: 2 })] })[0].detail));
+// exams
+ok('no materials -> upload', /^Upload your materials/.test(plan({ exams: [exam({ resources: 0, hasDeck: false })] })[0].title));
+ok('no deck -> make flashcards', /^Make flashcards/.test(plan({ exams: [exam({ hasDeck: false })] })[0].title) && /folderId=f1/.test(plan({ exams: [exam({ hasDeck: false })] })[0].href || ''));
+ok('practice taken yesterday, exam in 3d -> not asked again', plan({ exams: [exam({})] }).length === 0);
+ok('practice 2 days ago, exam in 3d -> asked', /^Take a practice exam/.test(plan({ exams: [exam({ lastTakenDay: '2026-11-10' })] })[0]?.title || ''));
+ok('exam tomorrow -> asked even if taken yesterday', plan({ exams: [exam({ examDate: '2026-11-13' })] }).length === 1 && plan({ exams: [exam({ examDate: '2026-11-13' })] })[0].urgent);
+ok('never taken, exam in 12d -> asked', plan({ exams: [exam({ examDate: '2026-11-24', examsTaken: 0, lastTakenDay: null })] }).length === 1);
+ok('taken once, exam in 12d -> not asked', plan({ exams: [exam({ examDate: '2026-11-24' })] }).length === 0);
+ok('taken today -> done', plan({ exams: [exam({ takenToday: true, lastTakenDay: T })] })[0].progress === 1);
+ok('exam 20 days out ignored', plan({ exams: [exam({ examDate: '2026-12-02', examsTaken: 0 })] }).length === 0);
+ok('past exam ignored', plan({ exams: [exam({ examDate: '2026-11-11', examsTaken: 0 })] }).length === 0);
+// tasks
+ok('task due today', plan({ tasks: [task({})] })[0].detail === 'Due today' && plan({ tasks: [task({})] })[0].taskId === 't1');
+ok('future task not in plan', plan({ tasks: [task({ due_date: '2026-11-13' })] }).length === 0);
+ok('overdue 3d in plan', /Overdue by 3 days/.test(plan({ tasks: [task({ due_date: '2026-11-09' })] })[0].detail));
+ok('overdue 1d singular', /Overdue by 1 day$/.test(plan({ tasks: [task({ due_date: '2026-11-11' })] })[0].detail));
+ok('overdue 30d left out', plan({ tasks: [task({ due_date: '2026-10-01' })] }).length === 0);
+ok('completed earlier not in plan', plan({ tasks: [task({ completed: true, completed_at: '2026-11-10T15:00:00' })] }).length === 0);
+ok('completed with no timestamp not in plan', plan({ tasks: [task({ completed: true })] }).length === 0);
+ok('completed today counts as done', plan({ tasks: [task({ completed: true, completed_at: new Date(2026, 10, 12, 9).toISOString(), due_date: '2026-11-20' })] })[0].progress === 1);
+ok('nudge only on its day', plan({ tasks: [task({ task_type: 'nudge', due_date: '2026-11-10' })] }).length === 0 && plan({ tasks: [task({ task_type: 'nudge' })] }).length === 1);
+ok('deck review task merged into deck item', plan({ decks: [deck({ due_seen: 3 })], tasks: [task({ task_type: 'review', resource_type: 'flashcard_deck', resource_id: 'd1' })] }).length === 1);
+ok('deck review task kept when deck has nothing due', plan({ decks: [deck({})], tasks: [task({ task_type: 'review', resource_type: 'flashcard_deck', resource_id: 'd1' })] }).length === 1);
+ok('guide review links to guide', plan({ tasks: [task({ task_type: 'review', resource_type: 'study_guide', resource_id: 'g9' })] })[0].href === '/m/study?guideId=g9');
+// order
+p = plan({ decks: [deck({ id: 'far', due_seen: 30 }), deck({ id: 'near', due_seen: 4, folder_id: 'f1' })], exams: [exam({ lastTakenDay: '2026-11-09' })], tasks: [task({}), task({ id: 't2', task_type: 'review', title: 'Review guide' }), task({ id: 't3', completed: true, completed_at: new Date(2026, 10, 12, 8).toISOString() })] });
+ok('order: graded task, exam prep, near-exam deck, other deck, review, finished last', p.map((i: any) => i.key).join(',') === 'task-t1,prep-f1,deck-near,deck-far,task-t2,task-t3', p.map((i: any) => i.key));
+const pr = planProgress(p); ok('progress counts', pr.total === 6 && pr.done === 1 && Math.abs(pr.fraction - 1 / 6) < 1e-9, pr);
+ok('progress empty', planProgress([]).fraction === 0);
+// streak
+const D = (day: string, planned: number, done: number) => ({ day, planned, done });
+ok('streak 0', streakFrom([], T) === 0);
+ok('streak today only', streakFrom([D(T, 3, 1)], T) === 1);
+ok('streak alive before studying today', streakFrom([D(T, 3, 0), D('2026-11-11', 2, 2), D('2026-11-10', 2, 1)], T) === 2);
+ok('streak 3 incl today', streakFrom([D(T, 3, 3), D('2026-11-11', 2, 2), D('2026-11-10', 2, 1)], T) === 3);
+ok('missed day breaks', streakFrom([D(T, 3, 3), D('2026-11-10', 2, 1)], T) === 1);
+ok('planned but nothing done breaks', streakFrom([D(T, 3, 3), D('2026-11-11', 2, 0), D('2026-11-10', 2, 1)], T) === 1);
+ok('rest day (nothing planned) does not break', streakFrom([D(T, 3, 3), D('2026-11-11', 0, 0), D('2026-11-10', 2, 1)], T) === 2);
+ok('across month boundary', streakFrom([D('2026-12-01', 1, 1), D('2026-11-30', 1, 1), D('2026-11-29', 1, 1)], '2026-12-01') === 3);
+// grade target
+const sch = { Exams: 50, Homework: 20, Final: 30 };
+const g = (category: string, score: number, max_score = 100) => ({ category, score, max_score });
+ok('no schema', gradeTarget(null, [], 93).status === 'no-schema' && gradeTarget({}, [], 93).status === 'no-schema');
+ok('no grades', gradeTarget(sch, [], 93).status === 'no-grades');
+let t: any = gradeTarget(sch, [g('Exams', 90), g('homework', 19, 20)], 93);
+ok('needed on the final', t.status === 'needed' && t.current === 91.4 && t.needed === 96.7 && t.remaining.length === 1 && t.remaining[0].category === 'Final' && t.remainingWeight === 30, t);
+t = gradeTarget(sch, [g('Exams', 80), g('Homework', 80)], 93); ok('out of reach', t.status === 'out-of-reach' && t.best === 86, t);
+t = gradeTarget({ Exams: 90, Bonus: 10 }, [g('Exams', 100)], 87); ok('secured', t.status === 'secured' && t.worst === 90, t);
+t = gradeTarget(sch, [g('Exams', 95), g('Homework', 95), g('Final', 91)], 93); ok('final reached', t.status === 'final' && t.reached && t.current === 93.8, t);
+t = gradeTarget(sch, [g('Exams', 90), g('Homework', 90), g('Final', 90)], 93); ok('final short', t.status === 'final' && !t.reached && t.current === 90, t);
+t = gradeTarget({ Exams: 60, Final: 20 }, [g('Exams', 90)], 90); ok('weights not summing to 100', t.status === 'needed' && t.needed === 90 && t.remainingWeight === 25, t);
+t = gradeTarget(sch, [g('Exams', 90, 0), g('Exams', 45, 50)], 93); ok('ignores zero-max rows', t.current === 90, t);
+t = gradeTarget(sch, [g('Exams', 93)], 93); ok('exactly needed 93', t.needed === 93 && t.status === 'needed', t);
+console.log(`unit: ${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

@@ -6,6 +6,7 @@ import TabBar from '../../../components/TabBar';
 import { supabase } from '../../../../lib/supabase';
 import { localDateStr } from '../../../../lib/dates';
 import { useStudent } from '../../../../lib/studentContext';
+import { GRADE_TARGETS, gradeTarget, percentToLetter } from '../../../../lib/gpa';
 import { ACCENT as color, ACCENT_LIGHT as light, alpha } from '../../../../lib/theme';
 
 function Mountain() {
@@ -89,6 +90,7 @@ export default function StudentClassBinder() {
   const [renamingId,    setRenamingId]    = useState<string | null>(null);
   const [renameValue,   setRenameValue]   = useState('');
   const [grades,        setGrades]        = useState<Grade[]>([]);
+  const [targetPct,     setTargetPct]     = useState(93);   // A-hunting: the default target is an A
   const [showAddGrade,  setShowAddGrade]  = useState(false);
   const [gradeCategory, setGradeCategory] = useState('');
   const [gradeItem,     setGradeItem]     = useState('');
@@ -348,6 +350,53 @@ export default function StudentClassBinder() {
                   </div>
                 </div>
               ) : null;
+            })()}
+            {(() => {
+              const t = gradeTarget(cls.grading_schema, grades, targetPct);
+              if (t.status === 'no-schema' || t.status === 'no-grades') return null;
+              const letter = GRADE_TARGETS.find(g => g.min === targetPct)?.letter || 'A';
+              const an = /^A/.test(letter) ? 'an' : 'a';
+              const list = (r: { category: string; weight: number }[]) => r.map(x => `${x.category} (${x.weight}%)`).join(', ');
+              const tone = t.status === 'out-of-reach' || (t.status === 'final' && !t.reached) ? '#C47878' : t.status === 'needed' && t.needed >= 95 ? '#C8965A' : t.status === 'needed' ? 'var(--accent)' : '#5FAD8E';
+              return (
+                <div data-grade-target style={{ marginBottom: 14, padding: '12px 14px', borderRadius: 12, border: '1.5px solid #E8E5F0', background: '#FAFAF8' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0' }}>Target</div>
+                    <div role="radiogroup" aria-label="Target grade" style={{ display: 'flex', gap: 4 }}>
+                      {GRADE_TARGETS.map(g => (
+                        <button key={g.letter} role="radio" aria-checked={targetPct === g.min} onClick={() => setTargetPct(g.min)} style={{ minWidth: 34, padding: '4px 9px', borderRadius: 999, border: 'none', background: targetPct === g.min ? color : '#F0EEF5', color: targetPct === g.min ? 'white' : '#6B6880', fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{g.letter}</button>
+                      ))}
+                    </div>
+                  </div>
+                  {t.status === 'needed' && (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                        <div style={{ fontSize: 26, fontWeight: 900, color: tone, lineHeight: 1 }}>{t.needed.toFixed(1)}%</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#1D1B26' }}>needed on what&apos;s left for {an} {letter}</div>
+                      </div>
+                      <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 6, lineHeight: 1.5 }}>Still to come: {list(t.remaining)}. Assumes your graded categories stay where they are.</div>
+                    </>
+                  )}
+                  {t.status === 'secured' && (
+                    <>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: tone }}>{an === 'an' ? 'An' : 'A'} {letter} is locked in</div>
+                      <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 4, lineHeight: 1.5 }}>Even a zero on {list(t.remaining)} leaves you at {t.worst.toFixed(1)}%. Assumes your graded categories stay where they are.</div>
+                    </>
+                  )}
+                  {t.status === 'out-of-reach' && (
+                    <>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: tone }}>{an === 'an' ? 'An' : 'A'} {letter} needs more than 100% on what&apos;s left</div>
+                      <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 4, lineHeight: 1.5 }}>A perfect score on {list(t.remaining)} gets you to {t.best.toFixed(1)}% ({percentToLetter(t.best)}). Raising a graded category (extra credit, a dropped exam) changes this.</div>
+                    </>
+                  )}
+                  {t.status === 'final' && (
+                    <>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: tone }}>{t.reached ? `On track for ${an} ${letter}` : `${(targetPct - t.current).toFixed(1)} points short of ${an} ${letter}`}</div>
+                      <div style={{ fontSize: 11, color: '#9E9BB0', marginTop: 4, lineHeight: 1.5 }}>Every category has grades, so this follows your current averages ({t.current.toFixed(1)}%, {percentToLetter(t.current)}). New scores in any category will move it.</div>
+                    </>
+                  )}
+                </div>
+              );
             })()}
             {cls.grading_schema && Object.keys(cls.grading_schema).length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

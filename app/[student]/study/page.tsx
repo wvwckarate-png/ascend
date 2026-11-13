@@ -308,23 +308,26 @@ function StudentStudyInner() {
   const [copied,             setCopied]             = useState(false);
   const [sourceFiles,        setSourceFiles]        = useState<string[]>([]);
   const [slideImagePaths,    setSlideImagePaths]    = useState<string[]>([]);
+  const classMetaAsk = useRef(0);
   const [classMeta, setClassMeta] = useState<{ className: string; professor: string; notes: string; folderName: string; examDate: string | null; studentName: string; studentGrade: string; studentTrack: string; studentSchool: string; studentProgram: string; studentGradYear: string; generationProfile: string; } | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const fetchClassMeta = async (fId: string) => {
+  const fetchClassMeta = async (fId: string, spanName?: string) => {
+    const ask = ++classMetaAsk.current;
     const [{ data: folder }, { data: student }] = await Promise.all([
       supabase.from('exam_folders').select('name, exam_date, class_id').eq('id', fId).single(),
       supabase.from('students').select('name, track, target_school, target_program, grad_year, generation_profile').eq('id', studentId).single(),
     ]);
     if (!folder) return;
     const { data: cls } = await supabase.from('classes').select('name, professor, notes').eq('id', folder.class_id).single();
+    if (ask !== classMetaAsk.current) return;   // a newer selection has replaced this one
     if (cls) setClassMeta({
       className:         cls.name,
       professor:         cls.professor || '',
       notes:             cls.notes || '',
-      folderName:        folder.name,
-      examDate:          folder.exam_date,
+      folderName:        spanName || folder.name,
+      examDate:          spanName ? null : folder.exam_date,
       studentName:       student?.name || studentName,
       studentGrade:      student?.grad_year ? gradeShort(student.grad_year) : '',
       studentTrack:      student?.track || me.track,
@@ -334,6 +337,17 @@ function StudentStudyInner() {
       generationProfile: student?.generation_profile || '',
     });
   };
+
+  // Picked from the general screen (not opened from a class folder): if everything chosen belongs to one class,
+  // give the AI that class and professor too, so the result is aimed at this class just the same.
+  useEffect(() => {
+    if (folderId) return;
+    const folders = library.flatMap(c => c.folders).filter(f => f.resources.some(r => selectedIds.has(r.id)));
+    const classIds = new Set(folders.map(f => f.class_id));
+    if (folders.length === 0 || classIds.size !== 1) { classMetaAsk.current++; setClassMeta(null); return; }
+    fetchClassMeta(folders[0].id, folders.length > 1 ? folders.map(f => f.name).join(' + ') : undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIds, library, folderId]);
 
   const loadHistory = async () => {
     setHistLoading(true);

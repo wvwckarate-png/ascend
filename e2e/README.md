@@ -11,6 +11,8 @@ node e2e/exam-cards.js     # practice exams + flashcards
 node e2e/organize.js       # classes/GPA, add-class, dashboard, calendar, binder, folder, profile
 node e2e/pipeline.js       # generate -> check -> improve -> present
 node e2e/personalize.js    # theme picker, re-orderable class cards, old-exam uploads
+node e2e/today.js          # Today's Plan (ring + streak), grade targeting, class context from the general screen
+npx -y tsx e2e/unit/plan.test.ts   # the plan / streak / grade-target rules on their own (no browser)
 REAL_API=1 node e2e/export.js   # study guide Print / PDF (uses the real PDF route)
 ```
 

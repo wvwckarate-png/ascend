@@ -106,3 +106,44 @@ export function gpaColor(gpa: number | null): string {
   if (gpa >= 2.5) return '#C8965A';
   return '#C47878';
 }
+
+// ── Grade targeting: "what do I need on what's left to finish with an A?" ──
+export const GRADE_TARGETS = [{ letter: 'A', min: 93 }, { letter: 'A-', min: 90 }, { letter: 'B+', min: 87 }, { letter: 'B', min: 83 }] as const;
+
+export function percentToLetter(pct: number): string {
+  if (pct >= 93) return 'A'; if (pct >= 90) return 'A-'; if (pct >= 87) return 'B+'; if (pct >= 83) return 'B';
+  if (pct >= 80) return 'B-'; if (pct >= 77) return 'C+'; if (pct >= 73) return 'C'; if (pct >= 70) return 'C-';
+  if (pct >= 60) return 'D'; return 'F';
+}
+
+export type GradeTarget =
+  | { status: 'no-schema' | 'no-grades' }
+  | { status: 'final'; current: number; reached: boolean }                                   // everything is graded
+  | { status: 'secured' | 'needed' | 'out-of-reach'; current: number; needed: number; best: number; worst: number; remaining: { category: string; weight: number }[]; remainingWeight: number };
+
+/**
+ * Uses the syllabus weights. Categories that already have grades are assumed to hold their current average;
+ * the answer is the average needed across the categories that have no grades yet.
+ */
+export function gradeTarget(schema: Record<string, number> | null | undefined, grades: { category: string; score: number; max_score: number }[], targetPct: number): GradeTarget {
+  const entries = Object.entries(schema || {}).filter(([, w]) => Number(w) > 0);
+  if (entries.length === 0) return { status: 'no-schema' };
+  let totalWeight = 0, gradedWeight = 0, earned = 0;
+  const remaining: { category: string; weight: number }[] = [];
+  for (const [cat, weightRaw] of entries) {
+    const weight = Number(weightRaw); totalWeight += weight;
+    const catGrades = grades.filter(g => g.category.toLowerCase() === cat.toLowerCase() && g.max_score > 0);
+    if (catGrades.length === 0) { remaining.push({ category: cat, weight }); continue; }
+    const avg = catGrades.reduce((sum, g) => sum + (g.score / g.max_score) * 100, 0) / catGrades.length;
+    earned += avg * weight; gradedWeight += weight;
+  }
+  if (gradedWeight === 0) return { status: 'no-grades' };
+  const round = (n: number) => Math.round(n * 10) / 10;
+  const current = round(earned / gradedWeight);
+  const remainingWeight = totalWeight - gradedWeight;
+  if (remainingWeight <= 0) return { status: 'final', current, reached: current >= targetPct };
+  const needed = round((targetPct * totalWeight - earned) / remainingWeight);
+  const best = round((earned + 100 * remainingWeight) / totalWeight);
+  const worst = round(earned / totalWeight);
+  return { status: needed <= 0 ? 'secured' : needed > 100 ? 'out-of-reach' : 'needed', current, needed, best, worst, remaining, remainingWeight: round((remainingWeight / totalWeight) * 100) };
+}
