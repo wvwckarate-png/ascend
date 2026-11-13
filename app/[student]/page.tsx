@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import TabBar from '../components/TabBar';
 import UploadResourceModal from '../components/UploadResourceModal';
 import TodayPlan from '../components/TodayPlan';
+import ExamFollowUp from '../components/ExamFollowUp';
+import { isPlanTask } from '../../lib/todayPlan';
 import { supabase } from '../../lib/supabase';
 import { localDateStr } from '../../lib/dates';
 import { useMounted } from '../../lib/useMounted';
@@ -173,6 +175,14 @@ export default function StudentDashboard() {
   const [showUpload,   setShowUpload]   = useState(false);
   const [selectedDay,  setSelectedDay]  = useState<string | null>(null);
   const [quoteIndex, setQuoteIndex] = useState(0);
+  // "Add to home screen" tip: hidden once dismissed on this device, and when Ascend is already running as an installed app.
+  const [showInstallHint, setShowInstallHint] = useState(false);
+  useEffect(() => {
+    let dismissed = false; try { dismissed = localStorage.getItem('ascend:install-hint') === 'hidden'; } catch {}
+    const installed = window.matchMedia?.('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    setShowInstallHint(!dismissed && !installed);
+  }, []);
+  const dismissInstallHint = () => { setShowInstallHint(false); try { localStorage.setItem('ascend:install-hint', 'hidden'); } catch {} };
   useEffect(() => {
     setQuoteIndex(Math.floor(Math.random() * QUOTES.length));
   }, []);
@@ -227,8 +237,9 @@ setLoading(false);
     setTasks(prev => prev.filter(t => t.id !== id));
   };
 
-  const upcomingTasks  = tasks.filter(t => t.due_date >= todayStr).slice(0, 8);
-  const overdueTasks   = tasks.filter(t => !t.completed && t.due_date < todayStr);
+  // Today's Plan (top of the page) owns what is due now; this card is what's coming next, plus old leftovers the plan skips.
+  const upcomingTasks  = tasks.filter(t => !t.completed && t.due_date > todayStr).slice(0, 8);
+  const overdueTasks   = tasks.filter(t => !t.completed && t.due_date < todayStr && !isPlanTask(t, todayStr) && t.task_type !== 'nudge');
   const completedTasks = tasks.filter(t => t.completed).sort((a, b) => b.due_date.localeCompare(a.due_date)).slice(0, 5);
   const todayExams     = exams.filter(e => e.exam_date === todayStr);
 
@@ -342,6 +353,8 @@ setLoading(false);
         {/* ── TODAY'S PLAN ── */}
         {!loading && <TodayPlan studentId={studentId} todayStr={todayStr} tasks={tasks} exams={exams} onToggleTask={id => { const t = tasks.find(x => x.id === id); if (t) toggleTask(t); }} />}
 
+        {!loading && <ExamFollowUp studentId={studentId} todayStr={todayStr} exams={exams} />}
+
         {/* ── 1. CALENDAR ── */}
         <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '18px 20px', marginBottom: 16, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -451,7 +464,7 @@ setLoading(false);
         {/* ── 2. TASKS ── */}
         <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '18px 20px', marginBottom: 16, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4' }}>Tasks</div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4' }}>Coming Up</div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <button onClick={() => setShowDone(s => !s)} style={{ fontSize: 10, fontWeight: 700, color: showDone ? color : '#9E9BB0', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
                 {showDone ? 'Hide done' : 'Show done'}
@@ -466,14 +479,14 @@ setLoading(false);
             <>
               {overdueTasks.length > 0 && (
                 <div style={{ background: '#FDF2F2', borderRadius: 10, padding: '8px 12px', marginBottom: 8, marginTop: 8 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#C47878', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Overdue</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#C47878', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Long overdue</div>
                   {overdueTasks.map(task => <TaskRow key={task.id} task={task} />)}
                 </div>
               )}
               {upcomingTasks.length === 0 && overdueTasks.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>All clear</div>
-                  <div style={{ fontSize: 12, color: '#9E9BB0' }}>No upcoming tasks.</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 4 }}>Nothing on the horizon</div>
+                  <div style={{ fontSize: 12, color: '#9E9BB0' }}>Add an assignment or exam date and it will show up here.</div>
                 </div>
               ) : (
                 upcomingTasks.map(task => <TaskRow key={task.id} task={task} />)
@@ -505,20 +518,23 @@ setLoading(false);
               {(reordering ? classes : classes.slice(0, 4)).map((cls, i) => {
                 const c = CLASS_COLORS[i % CLASS_COLORS.length];
                 const drag = reorder.cardProps(cls.id);
-                const lifted = reorder.draggingId === cls.id;
+                const lifted = reorder.draggingId === cls.id;   // this card is in the air: its slot becomes the "lands here" outline
                 return (
                   <div
                     key={cls.id}
                     {...drag}
+                    data-drop-slot={lifted ? 'true' : undefined}
                     onClick={() => { if (!reordering) router.push(`/${studentId}/classes/${cls.id}`); }}
-                    style={{ background: '#FFFFFF', border: `1.5px ${reordering ? 'dashed' : 'solid'} ${lifted ? color : reordering ? '#C4C1D4' : '#E8E5F0'}`, borderRadius: 14, padding: '14px', cursor: 'pointer', boxShadow: lifted ? '0 8px 24px rgba(29,27,38,0.16)' : '0 1px 4px rgba(29,27,38,0.06)', transition: 'transform 0.15s, box-shadow 0.15s', transform: lifted ? 'scale(1.03)' : undefined, position: 'relative', ...(drag as { style?: React.CSSProperties }).style }}
+                    style={{ background: lifted ? light : '#FFFFFF', border: lifted ? `2px dashed ${color}` : `1.5px ${reordering ? 'dashed' : 'solid'} ${reordering ? '#C4C1D4' : '#E8E5F0'}`, borderRadius: 14, padding: lifted ? '13.5px' : '14px', cursor: 'pointer', boxShadow: lifted ? 'none' : '0 1px 4px rgba(29,27,38,0.06)', transition: 'transform 0.15s, box-shadow 0.15s, background 0.15s', position: 'relative', ...(drag as { style?: React.CSSProperties }).style }}
                     onMouseEnter={e => { if (!reordering) (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'; }}
                     onMouseLeave={e => { if (!reordering) (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'; }}
                   >
-                    <div style={{ width: 32, height: 32, borderRadius: 9, background: alpha(c, '20'), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: c, marginBottom: 8 }}>{classLabel(cls.name)}</div>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: '#1D1B26', lineHeight: 1.3, marginBottom: 2 }}>{cls.name}</div>
-                    <div style={{ fontSize: 10, color: '#9E9BB0' }}>{cls.semester || ''}</div>
-                    {reordering && (
+                    <div style={{ visibility: lifted ? 'hidden' : 'visible' }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 9, background: alpha(c, '20'), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: c, marginBottom: 8 }}>{classLabel(cls.name)}</div>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: '#1D1B26', lineHeight: 1.3, marginBottom: 2 }}>{cls.name}</div>
+                      <div style={{ fontSize: 10, color: '#9E9BB0' }}>{cls.semester || ''}</div>
+                    </div>
+                    {reordering && !lifted && (
                       <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 }}>
                         <button aria-label={`Move ${cls.name} earlier`} disabled={i === 0} onClick={e => { e.stopPropagation(); reorder.move(cls.id, -1); }} style={{ width: 26, height: 26, borderRadius: 8, border: 'none', background: '#F3F1EC', color: '#6B6880', fontSize: 13, fontWeight: 800, cursor: 'pointer', opacity: i === 0 ? 0.35 : 1 }}>‹</button>
                         <button aria-label={`Move ${cls.name} later`} disabled={i === classes.length - 1} onClick={e => { e.stopPropagation(); reorder.move(cls.id, 1); }} style={{ width: 26, height: 26, borderRadius: 8, border: 'none', background: '#F3F1EC', color: '#6B6880', fontSize: 13, fontWeight: 800, cursor: 'pointer', opacity: i === classes.length - 1 ? 0.35 : 1 }}>›</button>
@@ -528,11 +544,25 @@ setLoading(false);
                 );
               })}
             </div>
+            {/* The card being carried: follows the finger while its outline in the grid shows where it will land. */}
+            {reorder.ghost && (() => {
+              const g = reorder.ghost; const idx = classes.findIndex(x => x.id === g.id); const cls = classes[idx];
+              if (!cls) return null;
+              const c = CLASS_COLORS[idx % CLASS_COLORS.length];
+              return (
+                <div data-drag-ghost aria-hidden style={{ position: 'fixed', left: g.left, top: g.top, width: g.width, height: g.height, zIndex: 300, pointerEvents: 'none', boxSizing: 'border-box', background: '#FFFFFF', border: `1.5px solid ${color}`, borderRadius: 14, padding: '14px', boxShadow: '0 14px 34px rgba(29,27,38,0.22)', transform: 'scale(1.04) rotate(-1.5deg)', opacity: 0.96 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 9, background: alpha(c, '20'), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: c, marginBottom: 8 }}>{classLabel(cls.name)}</div>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: '#1D1B26', lineHeight: 1.3, marginBottom: 2 }}>{cls.name}</div>
+                  <div style={{ fontSize: 10, color: '#9E9BB0' }}>{cls.semester || ''}</div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
         {/* ── ADD TO HOME SCREEN HINT ── */}
-        <div style={{ background: 'var(--accent-gradient)', borderRadius: 16, padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
+        {showInstallHint && (
+        <div data-install-hint style={{ background: 'var(--accent-gradient)', borderRadius: 16, padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ width: 40, height: 40, borderRadius: 11, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg width="22" height="20" viewBox="0 0 60 56" fill="none">
               <path d="M4 52L22 10L40 52" stroke="white" strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round"/>
@@ -544,7 +574,9 @@ setLoading(false);
             <div style={{ fontSize: 13, fontWeight: 800, color: 'white', marginBottom: 2 }}>Add Ascend to your home screen</div>
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>Tap Share → &quot;Add to Home Screen&quot; in your browser</div>
           </div>
+          <button aria-label="Hide this tip" onClick={dismissInstallHint} style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: 'rgba(255,255,255,0.18)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', flexShrink: 0 }}>✕</button>
         </div>
+        )}
 
         {/* ── 4. STUDY TOOLS ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>

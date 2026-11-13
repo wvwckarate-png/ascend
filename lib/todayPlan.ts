@@ -31,6 +31,14 @@ const isSameLocalDay = (iso: string | null | undefined, todayStr: string) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === todayStr;
 };
 
+/** Is this unfinished task shown in Today's Plan? (Due today or up to two weeks overdue; countdown reminders only on their day.) */
+export function isPlanTask(t: { due_date: string; completed: boolean; task_type: string }, todayStr: string): boolean {
+  if (t.completed) return false;
+  const late = daysBetween(t.due_date, todayStr);
+  if (late < 0 || late > 14) return false;
+  return !(t.task_type === 'nudge' && late !== 0);
+}
+
 export function buildTodayPlan(input: { studentId: string; todayStr: string; tasks: PlanTask[]; decks: PlanDeck[]; exams: PlanExam[] }): PlanItem[] {
   const { studentId, todayStr, tasks, decks, exams } = input;
   const items: PlanItem[] = [];

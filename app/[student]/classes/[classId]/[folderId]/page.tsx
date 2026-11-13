@@ -221,6 +221,10 @@ export default function StudentBinder() {
   const [upType,         setUpType]         = useState('');
   const [upName,         setUpName]         = useState('');
   const [upOldExam,      setUpOldExam]      = useState(false);
+  // Arriving from "Upload the graded exam" on the home page: open the upload form with the old-exam switch already on.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('upload') === 'oldexam') { setUpOldExam(true); setShowUpload(true); }
+  }, []);
   const [upLink,         setUpLink]         = useState('');
   const [upFile,         setUpFile]         = useState<File | null>(null);
   const [uploading,      setUploading]      = useState(false);
@@ -556,6 +560,11 @@ export default function StudentBinder() {
                   ))}
                 </div>
                 <div style={{ fontSize: 11, color: '#9E9BB0', marginBottom: 12 }}>Generate targeted material focused on these weak areas:</div>
+                {weakSpots.some(w => w.source === 'flashcard') && (
+                  <button onClick={() => router.push(`/${studentId}/flashcards?drill=weak&drillFolder=${folderId}`)} style={{ width: '100%', padding: '11px', borderRadius: 10, border: 'none', background: '#C47878', color: 'white', fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', marginBottom: 8 }}>
+                    Drill the cards I keep missing
+                  </button>
+                )}
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button onClick={() => router.push(`/${studentId}/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}&weakSpots=${encodeURIComponent(JSON.stringify(weakSpots.map(w => w.text)))}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: 'var(--accent)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
                     <IconCards c="var(--accent)" size={13} />Flashcards

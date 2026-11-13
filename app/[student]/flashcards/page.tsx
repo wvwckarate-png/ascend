@@ -137,7 +137,7 @@ function IconDone({ size = 64 }: { size?: number }) {
 }
 
 type Block       = { x: number; y: number; w: number; h: number; };
-type Card        = { id?: string; front: string; back: string; front_image_url?: string | null; back_image_url?: string | null; front_blocks?: Block[] | null; back_blocks?: Block[] | null; };
+type Card        = { id?: string; deck_id?: string; front: string; back: string; front_image_url?: string | null; back_image_url?: string | null; front_blocks?: Block[] | null; back_blocks?: Block[] | null; };
 type Deck        = { id: string; title: string; source_files: string | null; card_count: number; created_at: string; class_name?: string | null; folder_name?: string | null; folder_id?: string | null; };
 type LibResource = { id: string; file_name: string; file_type: string; storage_url: string; folder_id: string; is_old_exam?: boolean; };
 type LibFolder   = { id: string; name: string; class_id: string; resources: LibResource[]; };
@@ -163,6 +163,8 @@ function StudentFlashcardsInner() {
   const folderName    = searchParams.get('folderName');
   const deckIdParam   = searchParams.get('deckId');
   const weakSpotsRaw  = searchParams.get('weakSpots');
+  const drillParam    = searchParams.get('drill');
+  const drillFolder   = searchParams.get('drillFolder');
   const weakSpotsList: string[] = weakSpotsRaw ? (() => { try { return JSON.parse(decodeURIComponent(weakSpotsRaw)); } catch { return []; } })() : [];
 
   const [screen, setScreen] = useState<'decks' | 'generate' | 'study' | 'done' | 'deck-detail' | 'build'>('decks');
@@ -288,6 +290,40 @@ function StudentFlashcardsInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedIds, library, folderId]);
 
+  // ── Weak-spot drill: only the cards this student keeps missing (seen 3+ times, missed 40%+), worst first. No AI involved. ──
+  const [weakCount, setWeakCount] = useState(0);
+  const [drilling,  setDrilling]  = useState(false);
+  const [drillNote, setDrillNote] = useState('');
+  const findWeakCards = async (onlyFolder?: string | null): Promise<Card[]> => {
+    let deckQuery = supabase.from('flashcard_decks').select('id').eq('student_id', studentId);
+    if (onlyFolder) deckQuery = deckQuery.eq('folder_id', onlyFolder);
+    const { data: deckRows } = await deckQuery;
+    const deckIds = (deckRows || []).map(d => d.id);
+    if (deckIds.length === 0) return [];
+    const { data: items } = await supabase.from('flashcard_items').select('*').eq('student_id', studentId).in('deck_id', deckIds).gte('times_seen', 3).eq('is_retired', false);
+    const weak = ((items || []) as (FlashcardItem & { deck_id: string })[]).filter(it => it.times_missed / it.times_seen >= 0.4).sort((a, b) => b.times_missed / b.times_seen - a.times_missed / a.times_seen).slice(0, 30);
+    if (weak.length === 0) return [];
+    const { data: cardRows } = await supabase.from('flashcard_cards').select('*').in('id', weak.map(w => w.card_id));
+    const byId = new Map((cardRows || []).map((c: Card) => [c.id, c]));
+    const itemMap: Record<string, FlashcardItem> = {};
+    weak.forEach(w => { itemMap[w.card_id] = w; });
+    setFlashcardItems(itemMap);
+    return weak.map(w => byId.get(w.card_id)).filter((c): c is Card => !!c);
+  };
+  const startDrill = async (onlyFolder?: string | null) => {
+    setDrillNote('');
+    const weak = await findWeakCards(onlyFolder);
+    if (weak.length === 0) { setDrillNote('No weak spots right now. Cards land here once you have seen them a few times and keep missing them.'); setScreen('decks'); return; }
+    setQcNote(''); setActiveDeck(null); setSavedDeckId(null); setSaved(true); setShowSave(false); setStudyMode('full'); setDeckIsRetired(false); setDeckExamDate(null);
+    setCards(weak); setQueue([...weak]); setQi(0); setFlipped(false); setRatings({}); setDrilling(true); setScreen('study');
+  };
+  useEffect(() => {
+    if (drillParam === 'weak') { startDrill(drillFolder); return; }
+    supabase.rpc('study_plan_decks', { p_student: studentId, p_day_start: new Date().toISOString() }, { get: true })
+      .then(({ data }) => { if (Array.isArray(data)) setWeakCount(data.reduce((n: number, d: { weak: number }) => n + (Number(d.weak) || 0), 0)); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drillParam, drillFolder]);
+
   useEffect(() => { loadDecks(); loadLibrary(); }, []);
   useEffect(() => { if (folderId) { setScreen('generate'); fetchClassMeta(folderId); } }, [folderId]);
   useEffect(() => {
@@ -388,7 +424,7 @@ function StudentFlashcardsInner() {
   };
 
   const studyDeck = async (deck: Deck, cards: Card[], dueOnly: boolean = false) => {
-    setQcNote('');
+    setQcNote(''); setDrilling(false);
     setCards(cards); setQi(0); setFlipped(false); setRatings({});
     setSaved(true); setSavedDeckId(deck.id); setShowSave(false);
     setStudyMode(dueOnly ? 'due' : 'full');
@@ -719,7 +755,7 @@ function StudentFlashcardsInner() {
       const checked = await generateChecked({ kind: 'flashcards', formData, onStage: setStage, target: autoCount ? undefined : count, context: contextFrom(classMeta) });
       setQcNote(checked.report.summary);
       const parsed = parseJSONArray<Card>(checked.text);
-      setCards(parsed); setQueue([...parsed]); setQi(0); setFlipped(false); setRatings({});
+      setCards(parsed); setQueue([...parsed]); setQi(0); setFlipped(false); setRatings({}); setDrilling(false);
       setSaved(false); setSavedDeckId(null); setShowSave(true);
       if (!deckName) setDeckName(topic.trim() || (newFiles[0]?.name.replace('.pdf', '')) || 'New Deck');
       setScreen('study');
@@ -791,7 +827,8 @@ function StudentFlashcardsInner() {
   const rate    = (correct: boolean) => {
     const card = mode === 'smart' ? queue[qi] : cards[qi];
     if (!card) return;
-    if (card.id && savedDeckId) recordRating(card.id, savedDeckId, correct);
+    const ratedDeck = card.deck_id || savedDeckId;   // a weak-spot drill mixes cards from several decks
+    if (card.id && ratedDeck) recordRating(card.id, ratedDeck, correct);
     setRatings(r => ({ ...r, [qi]: correct ? 1 : 0 }));
     if (mode === 'smart') { const nq = requeue(queue, qi, correct); if (nq.length === 0) { setScreen('done'); return; } setQueue(nq); setFlipped(false); } else { next(); }
   };
@@ -847,6 +884,16 @@ function StudentFlashcardsInner() {
 </div>
           </div>
 
+          {drillNote && <div style={{ background: '#F3F1EC', borderRadius: 12, padding: '12px 14px', marginBottom: 14, fontSize: 12, color: '#6B6880', lineHeight: 1.5 }}>{drillNote}</div>}
+          {weakCount > 0 && (
+            <div data-weak-drill style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#FDF2F2', border: '1.5px solid rgba(196,120,120,0.25)', borderRadius: 16, padding: '14px 16px', marginBottom: 16 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>{weakCount} weak spot{weakCount === 1 ? '' : 's'}</div>
+                <div style={{ fontSize: 11, color: '#9E9BB0', lineHeight: 1.4 }}>Cards you keep missing, from all your decks. Worst first.</div>
+              </div>
+              <button onClick={() => startDrill(null)} style={{ padding: '10px 16px', borderRadius: 999, border: 'none', background: '#C47878', color: 'white', fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>Drill them</button>
+            </div>
+          )}
           {decksLoading ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: '#9E9BB0', fontSize: 13 }}>Loading decks...</div>
           ) : decks.length === 0 ? (
@@ -1347,6 +1394,11 @@ function StudentFlashcardsInner() {
       {/* ── STUDY SCREEN ── */}
       {screen === 'study' && curCard && (
         <main style={{ maxWidth: 600, margin: '0 auto', padding: '20px 20px 220px' }}>
+          {drilling && (
+            <div data-drill-banner style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#FDF2F2', border: '1px solid rgba(196,120,120,0.25)', color: '#A05050', borderRadius: 12, padding: '9px 13px', marginBottom: 14, fontSize: 12, fontWeight: 700 }}>
+              Weak-spot drill · {cards.length} card{cards.length === 1 ? '' : 's'} you keep missing
+            </div>
+          )}
           {qcNote && (
             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: /could not|skipped/i.test(qcNote) ? '#FFF8EC' : '#EDF7F2', border: `1px solid ${/could not|skipped/i.test(qcNote) ? '#C8965A55' : '#5FAD8E40'}`, color: /could not|skipped/i.test(qcNote) ? '#8A6420' : '#3F8A6C', borderRadius: 12, padding: '9px 13px', fontSize: 11.5, fontWeight: 700, marginBottom: 14, lineHeight: 1.5 }}>
               <span>{/could not|skipped/i.test(qcNote) ? '⚠' : '✓'}</span><span>{qcNote}</span>
