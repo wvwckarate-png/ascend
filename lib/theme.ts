@@ -3,6 +3,7 @@
 import type { CSSProperties } from 'react';
 
 export type Theme = {
+  label: string;        // name shown in the picker
   accent: string;       // main colour
   light: string;        // soft tint (chips, highlights)
   dark: string;         // deep shade (body text on tints)
@@ -10,20 +11,20 @@ export type Theme = {
   classColors: string[]; // the 6 rotating colours for class cards
 };
 
+const grad = (a: string, b: string) => `linear-gradient(135deg, ${a}, ${b})`;
+
 export const THEMES = {
-  purple: {
-    accent: '#7B6FA0', light: '#EDE9F7', dark: '#5A5078',
-    gradient: 'linear-gradient(135deg, #7B6FA0, #5A5078)',
-    classColors: ['#9B8EC4', '#7B6FA0', '#A89EC4', '#6B7FA0', '#8E9BC4', '#7B8FA0'],
-  },
-  orange: {
-    accent: '#E8956D', light: '#FFF3E8', dark: '#9C5A3C',
-    gradient: '#E8956D',
-    classColors: ['#E8956D', '#C4A882', '#D4845A', '#C8965A', '#E0A882', '#D49E6D'],
-  },
+  purple: { label: 'Violet',  accent: '#7B6FA0', light: '#EDE9F7', dark: '#5A5078', gradient: grad('#7B6FA0', '#5A5078'), classColors: ['#9B8EC4', '#7B6FA0', '#A89EC4', '#6B7FA0', '#8E9BC4', '#7B8FA0'] },
+  blue:   { label: 'Ocean',   accent: '#5B82B5', light: '#E7EEF8', dark: '#3D5F8C', gradient: grad('#5B82B5', '#3D5F8C'), classColors: ['#7FA0CC', '#5B82B5', '#8FB0D4', '#5A7FA0', '#7C9CC4', '#6B8FB0'] },
+  green:  { label: 'Forest',  accent: '#5A977B', light: '#E5F2EB', dark: '#3C6E58', gradient: grad('#5A977B', '#3C6E58'), classColors: ['#7DB89C', '#5A977B', '#8FC4AA', '#5A9080', '#74AE96', '#689E8A'] },
+  red:    { label: 'Crimson', accent: '#B5566A', light: '#FAEAEE', dark: '#873C4C', gradient: grad('#B5566A', '#873C4C'), classColors: ['#CF7B8C', '#B5566A', '#D892A0', '#A85064', '#C66F82', '#B86478'] },
+  orange: { label: 'Ember',   accent: '#E8956D', light: '#FFF3E8', dark: '#9C5A3C', gradient: '#E8956D',                  classColors: ['#E8956D', '#C4A882', '#D4845A', '#C8965A', '#E0A882', '#D49E6D'] },
+  grey:   { label: 'Slate',   accent: '#68707F', light: '#ECEEF2', dark: '#454B57', gradient: grad('#68707F', '#454B57'), classColors: ['#8B93A1', '#68707F', '#9CA3AF', '#5F6673', '#7D8592', '#727987'] },
 } satisfies Record<string, Theme>;
 
 export type ThemeName = keyof typeof THEMES;
+export const THEME_NAMES = Object.keys(THEMES) as ThemeName[];
+export const isThemeName = (v: unknown): v is ThemeName => typeof v === 'string' && v in THEMES;
 
 // What pages reference.
 export const ACCENT = 'var(--accent)';

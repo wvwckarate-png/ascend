@@ -10,6 +10,11 @@ import type { ContentBlock } from './claude';
 
 const MAX_RESOURCE_BYTES = 40 * 1024 * 1024;
 
+type StoredRef = { name: string; url: string; oldExam?: boolean };
+
+// Put in front of anything the student marked as an old exam, so the model knows exactly what it is looking at.
+const oldExamNote = (name: string) => `=== OLD EXAM / QUIZ from this class: "${name}" === The student marked this file as a past exam or quiz from this professor. It is the strongest evidence of how this professor tests: mirror its question style, format, difficulty, wording and topic emphasis. (Its questions are also fair material to study.)`;
+
 // Returns Claude-supported media type, 'heic' for HEIC/HEIF (needs conversion), or null for non-image
 function getImageMediaType(filename: string, mimeType?: string): string | null {
   const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'));
@@ -89,8 +94,9 @@ async function extractOfficeText(file: File): Promise<string> {
 }
 
 // Library files are fetched here, server-side, straight from this project's own storage (no ~4.5 MB request cap).
-async function fetchStoredResources(list: { name: string; url: string }[]): Promise<{ files: File[]; failed: string[] }> {
+async function fetchStoredResources(list: StoredRef[]): Promise<{ files: File[]; oldExams: Set<File>; failed: string[] }> {
   const slots: (File | null)[] = list.map(() => null);
+  const oldExams = new Set<File>();
   const failed: string[] = [];
   await Promise.all(list.map(async (r, i) => {
     try {
@@ -99,12 +105,13 @@ async function fetchStoredResources(list: { name: string; url: string }[]): Prom
       const ext = (new URL(r.url).pathname.match(/\.[a-z0-9]{2,5}$/i)?.[0] || '').toLowerCase();
       const fname = ext && !r.name.toLowerCase().endsWith(ext) ? r.name + ext : r.name;
       slots[i] = await fetchOwnStorageFile(r.url, fname, MAX_RESOURCE_BYTES);
+      if (r.oldExam) oldExams.add(slots[i] as File);
     } catch (err) {
       console.error(`Could not fetch stored resource ${r?.name}:`, err);
       failed.push(r?.name || 'file');
     }
   }));
-  return { files: slots.filter((f): f is File => f !== null), failed };
+  return { files: slots.filter((f): f is File => f !== null), oldExams, failed };
 }
 
 const KIND_LABEL: Record<string, string> = {
@@ -135,12 +142,12 @@ export async function buildMaterials(formData: FormData, opts: { slideImages: bo
   const singleFile = formData.get('file');
   const uploaded = (filesRaw.length > 0 ? filesRaw : singleFile ? [singleFile] : []) as File[];
 
-  let storedList: { name: string; url: string }[] = [];
+  let storedList: StoredRef[] = [];
   try { storedList = JSON.parse((formData.get('resources') as string | null) || '[]'); } catch { storedList = []; }
   const stored = await fetchStoredResources(Array.isArray(storedList) ? storedList.slice(0, 20) : []);
   const allFiles = [...stored.files, ...uploaded];
 
-  let transcripts: { name: string; text: string; kind?: string }[] = [];
+  let transcripts: { name: string; text: string; kind?: string; oldExam?: boolean }[] = [];
   try { transcripts = JSON.parse((formData.get('transcripts') as string | null) || '[]'); } catch { transcripts = []; }
 
   const content: ContentBlock[] = [];
@@ -149,6 +156,7 @@ export async function buildMaterials(formData: FormData, opts: { slideImages: bo
 
   for (const t of transcripts) {
     const label = t.kind && KIND_LABEL[t.kind] ? ` (${KIND_LABEL[t.kind]})` : '';
+    if (t.oldExam) content.push({ type: 'text', text: oldExamNote(t.name) });
     content.push({ type: 'text', text: `--- Resource${label}: ${t.name} ---\n${t.text}\n--- End of resource ---` });
   }
 
@@ -157,6 +165,7 @@ export async function buildMaterials(formData: FormData, opts: { slideImages: bo
     const isPptx = name.endsWith('.pptx') || name.endsWith('.ppt');
     const isDocx = name.endsWith('.docx') || name.endsWith('.doc');
     const imageMediaType = getImageMediaType(file.name, file.type);
+    if (stored.oldExams.has(file)) content.push({ type: 'text', text: oldExamNote(file.name) });
 
     if (isPptx || isDocx) {
       try {

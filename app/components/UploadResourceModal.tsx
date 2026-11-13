@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
+import OldExamToggle from './OldExamToggle';
 
 type Props = {
   student: string;
@@ -175,6 +176,7 @@ export default function UploadResourceModal({ student, onClose, onSaved }: Props
   const [folders,   setFolders]   = useState<FolderRow[]>([]);
   const [folderId,  setFolderId]  = useState('');
   const [fileName,  setFileName]  = useState('');
+  const [oldExam,   setOldExam]   = useState(false);
   const [fileLink,  setFileLink]  = useState('');
   const [file,      setFile]      = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -233,7 +235,7 @@ export default function UploadResourceModal({ student, onClose, onSaved }: Props
             const tr = await fetch('/api/transcribe-audio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: storageUrl, name: file.name }) });
             const td = await tr.json();
             if (td.transcript) {
-              await supabase.from('resources').insert({ folder_id: folderId, file_name: fileName.trim(), file_type: 'audio', storage_url: storageUrl, transcript: td.transcript });
+              await supabase.from('resources').insert({ folder_id: folderId, is_old_exam: oldExam, file_name: fileName.trim(), file_type: 'audio', storage_url: storageUrl, transcript: td.transcript });
               setSaved(true);
               setTimeout(() => { onSaved?.(); onClose(); }, 900);
               return;
@@ -250,7 +252,7 @@ export default function UploadResourceModal({ student, onClose, onSaved }: Props
           });
           const data = await res.json();
           if (data.transcript) {
-            await supabase.from('resources').insert({ folder_id: folderId, file_name: fileName.trim(), file_type: 'youtube', storage_url: fileLink.trim(), transcript: data.transcript });
+            await supabase.from('resources').insert({ folder_id: folderId, is_old_exam: oldExam, file_name: fileName.trim(), file_type: 'youtube', storage_url: fileLink.trim(), transcript: data.transcript });
             setSaved(true);
             setTimeout(() => { onSaved?.(); onClose(); }, 900);
             return;
@@ -265,7 +267,7 @@ export default function UploadResourceModal({ student, onClose, onSaved }: Props
       } else if (isGdoc && fileLink.trim()) {
         storageUrl = fileLink.trim();
       }
-      const { error: insertError } = await supabase.from('resources').insert({ folder_id: folderId, file_name: fileName.trim(), file_type: fileTypeFromKey(resType), storage_url: storageUrl });
+      const { error: insertError } = await supabase.from('resources').insert({ folder_id: folderId, is_old_exam: oldExam, file_name: fileName.trim(), file_type: fileTypeFromKey(resType), storage_url: storageUrl });
       if (insertError) throw new Error('Uploaded the file but could not save it. Please try again.');
       setSaved(true);
       setTimeout(() => { onSaved?.(); onClose(); }, 900);
@@ -405,6 +407,7 @@ export default function UploadResourceModal({ student, onClose, onSaved }: Props
                 </div>
               )}
             </div>
+            <OldExamToggle value={oldExam} onChange={setOldExam} />
 
             {(isGdoc || resType === 'link') && (
               <div style={{ marginBottom: 14 }}>

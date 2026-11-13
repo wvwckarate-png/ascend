@@ -107,7 +107,7 @@ function addDays(date: Date, days: number): string {
   const d = new Date(date); d.setDate(d.getDate() + days); return localDateStr(d);
 }
 
-type LibResource = { id: string; file_name: string; file_type: string; storage_url: string; folder_id: string; };
+type LibResource = { id: string; file_name: string; file_type: string; storage_url: string; folder_id: string; is_old_exam?: boolean; };
 type LibFolder   = { id: string; name: string; class_id: string; resources: LibResource[]; };
 type LibClass    = { id: string; name: string; folders: LibFolder[]; };
 type SavedGuide  = { id: string; title: string; created_at: string; source_filename: string | null; folder_id: string | null; folder_name?: string; class_name?: string; };
@@ -369,7 +369,7 @@ function StudentStudyInner() {
     const folderIds = (folderData || []).map(f => f.id);
     let resourceData: any[] = [];
     if (folderIds.length > 0) {
-      const { data } = await supabase.from('resources').select('id, file_name, file_type, storage_url, folder_id').in('folder_id', folderIds).in('file_type', ['pdf', 'youtube', 'audio', 'image', 'pptx']).not('storage_url', 'is', null);
+      const { data } = await supabase.from('resources').select('id, file_name, file_type, storage_url, folder_id, is_old_exam').in('folder_id', folderIds).in('file_type', ['pdf', 'youtube', 'audio', 'image', 'pptx']).not('storage_url', 'is', null);
       resourceData = data || [];
     }
     const rByFolder: Record<string, LibResource[]> = {};
@@ -557,20 +557,20 @@ RULES:
       if (selectedResourceIds.length > 0) {
         const { data: transcriptResources } = await supabase
           .from('resources')
-          .select('file_name, transcript, file_type')
+          .select('file_name, transcript, file_type, is_old_exam')
           .in('id', selectedResourceIds)
           .not('transcript', 'is', null);
         if (transcriptResources) {
           transcripts = transcriptResources
             .filter(r => r.file_type !== 'image')
-            .map(r => ({ name: r.file_name, text: r.transcript, kind: r.file_type }));
+            .map(r => ({ name: r.file_name, text: r.transcript, kind: r.file_type, oldExam: !!r.is_old_exam }));
         }
       }
       // Library files are fetched by the server straight from storage (no download + re-upload through the browser,
       // which also avoids the ~4.5 MB request-size cap). Name-only stand-ins keep the file counts and labels below working.
       const storedResources = selectedResources
         .filter(r => r.storage_url && r.file_type !== 'youtube')
-        .map(r => ({ name: r.file_name, url: r.storage_url }));
+        .map(r => ({ name: r.file_name, url: r.storage_url, oldExam: !!r.is_old_exam }));
       const fetchedFiles: File[] = storedResources.map(r => new File([], r.name));
       const renamedFiles = newFiles.map((f, i) => {
         const customName = newFileNames[i]?.trim();
@@ -856,7 +856,7 @@ RULES:
                                           <div key={r.id} onClick={() => toggleResource(r.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, border: `1.5px solid ${isSel ? color : '#E8E5F0'}`, background: isSel ? light : '#FFFFFF', cursor: 'pointer', transition: 'all 0.15s' }}>
                                             <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${isSel ? color : '#C4C1D4'}`, background: isSel ? color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{isSel && <span style={{ color: 'white', fontSize: 10 }}>✓</span>}</div>
                                             {r.file_type === 'image' ? <IconPhoto c={isSel ? color : '#9E9BB0'} size={13} /> : r.file_type === 'pptx' ? <IconPptx c={isSel ? color : '#9E9BB0'} size={13} /> : r.file_type === 'audio' ? <IconAudio c={isSel ? color : '#9E9BB0'} size={13} /> : r.file_type === 'youtube' ? <IconYoutube c={isSel ? color : '#9E9BB0'} size={13} /> : <IconFile c={isSel ? color : '#9E9BB0'} size={13} />}
-                                            <span style={{ fontSize: 12, fontWeight: isSel ? 700 : 500, color: isSel ? color : '#1D1B26', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.file_name}</span>
+                                            <span style={{ fontSize: 12, fontWeight: isSel ? 700 : 500, color: isSel ? color : '#1D1B26', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.file_name}</span>{r.is_old_exam && <span style={{ fontSize: 9, fontWeight: 700, color: 'white', background: color, padding: '1px 7px', borderRadius: 999, flexShrink: 0, marginLeft: 6 }}>Old exam</span>}
                                           </div>
                                         );
                                       })}

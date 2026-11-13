@@ -16,6 +16,12 @@ h.run('auth', async () => {
       h.check('correct PIN logs in', page.url().endsWith('/' + s), page.url());
       h.check('lands on a working dashboard', /Hey, Matthew/.test(await h.text(page)));
     }
+    if (pins[s] === null) {
+      const acc = await page.evaluate(() => document.querySelector('[style*="--accent"]')?.style.getPropertyValue('--accent').trim());
+      const html = await (await fetch(h.BASE + '/' + s)).text(); const served = (html.match(/--accent:\s*([^;"]+)/) || [])[1];
+      if (s === 'michael') h.check('saved theme (green) is in the page the server sends — no colour flash', served === '#5A977B' && acc === '#5A977B', `${served} / ${acc}`);
+      else h.check(`${s} with no saved theme gets the default colours`, !!served && served === acc, `${served} / ${acc}`);
+    }
     h.check(`${s} login: no runtime errors`, page.t.errors.length === 0, page.t.errors.join('|'));
     await page.close();
   }

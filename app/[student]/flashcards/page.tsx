@@ -139,7 +139,7 @@ function IconDone({ size = 64 }: { size?: number }) {
 type Block       = { x: number; y: number; w: number; h: number; };
 type Card        = { id?: string; front: string; back: string; front_image_url?: string | null; back_image_url?: string | null; front_blocks?: Block[] | null; back_blocks?: Block[] | null; };
 type Deck        = { id: string; title: string; source_files: string | null; card_count: number; created_at: string; class_name?: string | null; folder_name?: string | null; folder_id?: string | null; };
-type LibResource = { id: string; file_name: string; file_type: string; storage_url: string; folder_id: string; };
+type LibResource = { id: string; file_name: string; file_type: string; storage_url: string; folder_id: string; is_old_exam?: boolean; };
 type LibFolder   = { id: string; name: string; class_id: string; resources: LibResource[]; };
 type LibClass         = { id: string; name: string; folders: LibFolder[]; };
 type FlashcardItem    = { id: string; card_id: string; times_seen: number; times_correct: number; times_missed: number; interval_days: number; is_retired: boolean; is_flagged?: boolean; next_review?: string; };
@@ -323,7 +323,7 @@ function StudentFlashcardsInner() {
     const folderIds = (folderData || []).map(f => f.id);
     let resourceData: any[] = [];
     if (folderIds.length > 0) {
-      const { data } = await supabase.from('resources').select('id, file_name, file_type, storage_url, folder_id').in('folder_id', folderIds).in('file_type', ['pdf', 'youtube', 'audio', 'image', 'pptx']).not('storage_url', 'is', null);
+      const { data } = await supabase.from('resources').select('id, file_name, file_type, storage_url, folder_id, is_old_exam').in('folder_id', folderIds).in('file_type', ['pdf', 'youtube', 'audio', 'image', 'pptx']).not('storage_url', 'is', null);
       resourceData = data || [];
     }
     const rByFolder: Record<string, LibResource[]> = {};
@@ -646,13 +646,13 @@ function StudentFlashcardsInner() {
       if (selectedResourceIds.length > 0) {
         const { data: transcriptResources } = await supabase
           .from('resources')
-          .select('file_name, transcript, file_type')
+          .select('file_name, transcript, file_type, is_old_exam')
           .in('id', selectedResourceIds)
           .not('transcript', 'is', null);
         if (transcriptResources) {
           transcripts = transcriptResources
             .filter(r => r.file_type !== 'image')
-            .map(r => ({ name: r.file_name, text: r.transcript, kind: r.file_type }));
+            .map(r => ({ name: r.file_name, text: r.transcript, kind: r.file_type, oldExam: !!r.is_old_exam }));
         }
       }
 
@@ -660,7 +660,7 @@ function StudentFlashcardsInner() {
       // which also avoids the ~4.5 MB request-size cap). Name-only stand-ins keep the file counts and labels below working.
       const storedResources = selectedResources
         .filter(r => r.storage_url && r.file_type !== 'youtube')
-        .map(r => ({ name: r.file_name, url: r.storage_url }));
+        .map(r => ({ name: r.file_name, url: r.storage_url, oldExam: !!r.is_old_exam }));
       const fetchedFiles: File[] = storedResources.map(r => new File([], r.name));
       const renamedFiles = newFiles.map((f, i) => {
         const customName = newFileNames[i]?.trim();
@@ -1219,7 +1219,7 @@ function StudentFlashcardsInner() {
                                             {isSel && <span style={{ color: 'white', fontSize: 9 }}>✓</span>}
                                           </div>
                                           {r.file_type === 'image' ? <IconPhoto c={isSel ? color : '#9E9BB0'} size={12} /> : r.file_type === 'pptx' ? <IconPptx c={isSel ? color : '#9E9BB0'} size={12} /> : r.file_type === 'audio' ? <IconAudio c={isSel ? color : '#9E9BB0'} size={12} /> : r.file_type === 'youtube' ? <IconYoutube c={isSel ? color : '#9E9BB0'} size={12} /> : <IconFile c={isSel ? color : '#9E9BB0'} size={12} />}
-                                          <span style={{ fontSize: 11, fontWeight: isSel ? 700 : 400, color: isSel ? color : '#1D1B26', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginLeft: 2 }}>{r.file_name}</span>
+                                          <span style={{ fontSize: 11, fontWeight: isSel ? 700 : 400, color: isSel ? color : '#1D1B26', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginLeft: 2 }}>{r.file_name}</span>{r.is_old_exam && <span style={{ fontSize: 9, fontWeight: 700, color: 'white', background: color, padding: '1px 7px', borderRadius: 999, flexShrink: 0, marginLeft: 6 }}>Old exam</span>}
                                         </div>
                                       );
                                     })}

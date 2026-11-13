@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import TabBar from '../../../../components/TabBar';
 import { supabase } from '../../../../../lib/supabase';
 import { useStudent } from '../../../../../lib/studentContext';
+import OldExamToggle from '../../../../components/OldExamToggle';
 
 function Mountain() {
   return (
@@ -166,7 +167,7 @@ function classLabel(name: string) {
 
 type ClassRow  = { id: string; name: string; semester: string; professor: string; };
 type Folder    = { id: string; name: string; exam_date: string | null; };
-type Resource  = { id: string; file_name: string; file_type: string; storage_url: string | null; created_at: string; };
+type Resource  = { id: string; file_name: string; file_type: string; storage_url: string | null; created_at: string; is_old_exam?: boolean; };
 type WeakSpot  = { text: string; source: 'flashcard' | 'exam'; };
 
 const TABS = [
@@ -219,6 +220,7 @@ export default function StudentBinder() {
   const [showUpload,     setShowUpload]     = useState(false);
   const [upType,         setUpType]         = useState('');
   const [upName,         setUpName]         = useState('');
+  const [upOldExam,      setUpOldExam]      = useState(false);
   const [upLink,         setUpLink]         = useState('');
   const [upFile,         setUpFile]         = useState<File | null>(null);
   const [uploading,      setUploading]      = useState(false);
@@ -239,7 +241,7 @@ export default function StudentBinder() {
       const [{ data: classData }, { data: folderData }, { data: resourceData }, { data: deckData }, { data: examData }, { data: guideData }] = await Promise.all([
         supabase.from('classes').select('id, name, semester, professor').eq('id', classId).single(),
         supabase.from('exam_folders').select('id, name, exam_date').eq('id', folderId).single(),
-        supabase.from('resources').select('id, file_name, file_type, storage_url, created_at').eq('folder_id', folderId).order('created_at', { ascending: false }),
+        supabase.from('resources').select('id, file_name, file_type, storage_url, created_at, is_old_exam').eq('folder_id', folderId).order('created_at', { ascending: false }),
         supabase.from('flashcard_decks').select('id, title, card_count').eq('folder_id', folderId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('practice_exams').select('id, title, status, score, questions').eq('folder_id', folderId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('study_guides').select('id, title, created_at').eq('folder_id', folderId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
@@ -302,8 +304,15 @@ export default function StudentBinder() {
     setResources(prev => prev.filter(r => r.id !== id));
   };
 
+  const toggleOldExam = async (r: Resource) => {
+    const next = !r.is_old_exam;
+    const { error } = await supabase.from('resources').update({ is_old_exam: next }).eq('id', r.id);
+    if (error) { console.error('Could not update resource:', error.message); return; }
+    setResources(prev => prev.map(x => x.id === r.id ? { ...x, is_old_exam: next } : x));
+  };
+
   const resetUpload = () => {
-    setUpType(''); setUpName(''); setUpLink(''); setUpFile(null);
+    setUpType(''); setUpName(''); setUpLink(''); setUpFile(null); setUpOldExam(false);
     setUploading(false); setUploadProgress(0); setUpError(''); setUpSaved(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -353,7 +362,7 @@ export default function StudentBinder() {
             const transcribeRes = await fetch('/api/transcribe-audio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: storageUrl, name: upFile.name }) });
             const transcribeData = await transcribeRes.json();
             if (transcribeData.transcript) {
-              const { data } = await supabase.from('resources').insert({ folder_id: folderId, file_name: upName.trim(), file_type: 'audio', storage_url: storageUrl, transcript: transcribeData.transcript }).select().single();
+              const { data } = await supabase.from('resources').insert({ folder_id: folderId, is_old_exam: upOldExam, file_name: upName.trim(), file_type: 'audio', storage_url: storageUrl, transcript: transcribeData.transcript }).select().single();
               if (data) setResources(prev => [data, ...prev]);
               setUpSaved(true);
               setTimeout(() => { setShowUpload(false); resetUpload(); }, 900);
@@ -369,7 +378,7 @@ export default function StudentBinder() {
             const extractRes = await fetch('/api/extract-image-text', { method: 'POST', body: imageForm });
             const extractData = await extractRes.json();
             if (extractData.transcript) {
-              const { data } = await supabase.from('resources').insert({ folder_id: folderId, file_name: upName.trim(), file_type: 'image', storage_url: storageUrl, transcript: extractData.transcript }).select().single();
+              const { data } = await supabase.from('resources').insert({ folder_id: folderId, is_old_exam: upOldExam, file_name: upName.trim(), file_type: 'image', storage_url: storageUrl, transcript: extractData.transcript }).select().single();
               if (data) setResources(prev => [data, ...prev]);
               setUpSaved(true);
               setTimeout(() => { setShowUpload(false); resetUpload(); }, 900);
@@ -385,7 +394,7 @@ export default function StudentBinder() {
             const extractRes = await fetch('/api/extract-pptx-text', { method: 'POST', body: pptxForm });
             const extractData = await extractRes.json();
             if (extractData.transcript) {
-              const { data } = await supabase.from('resources').insert({ folder_id: folderId, file_name: upName.trim(), file_type: 'pptx', storage_url: storageUrl, transcript: extractData.transcript }).select().single();
+              const { data } = await supabase.from('resources').insert({ folder_id: folderId, is_old_exam: upOldExam, file_name: upName.trim(), file_type: 'pptx', storage_url: storageUrl, transcript: extractData.transcript }).select().single();
               if (data) setResources(prev => [data, ...prev]);
               setUpSaved(true);
               setTimeout(() => { setShowUpload(false); resetUpload(); }, 900);
@@ -404,7 +413,7 @@ export default function StudentBinder() {
           });
           const data = await res.json();
           if (data.transcript) {
-            const { data: saved } = await supabase.from('resources').insert({ folder_id: folderId, file_name: upName.trim(), file_type: 'youtube', storage_url: upLink.trim(), transcript: data.transcript }).select().single();
+            const { data: saved } = await supabase.from('resources').insert({ folder_id: folderId, is_old_exam: upOldExam, file_name: upName.trim(), file_type: 'youtube', storage_url: upLink.trim(), transcript: data.transcript }).select().single();
             if (saved) setResources(prev => [saved, ...prev]);
             setUpSaved(true);
             setTimeout(() => { setShowUpload(false); resetUpload(); }, 900);
@@ -419,7 +428,7 @@ export default function StudentBinder() {
         }
       }
 
-      const { data, error: insertError } = await supabase.from('resources').insert({ folder_id: folderId, file_name: upName.trim(), file_type: upType, storage_url: storageUrl }).select().single();
+      const { data, error: insertError } = await supabase.from('resources').insert({ folder_id: folderId, is_old_exam: upOldExam, file_name: upName.trim(), file_type: upType, storage_url: storageUrl }).select().single();
       if (insertError || !data) throw new Error('Uploaded the file but could not save it. Please try again.');
       setResources(prev => [data, ...prev]);
       setUpSaved(true);
@@ -591,7 +600,13 @@ export default function StudentBinder() {
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.file_name}</div>
-                            <div style={{ fontSize: 11, color: '#9E9BB0', textTransform: 'capitalize', marginTop: 2 }}>{r.file_type}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
+                              <span style={{ fontSize: 11, color: '#9E9BB0', textTransform: 'capitalize' }}>{r.file_type}</span>
+                              <button onClick={() => toggleOldExam(r)} aria-pressed={!!r.is_old_exam} title={r.is_old_exam ? 'Marked as an old exam — tap to unmark' : 'Mark this file as an old exam or quiz'}
+                                style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', border: r.is_old_exam ? 'none' : '1px dashed #C4C1D4', background: r.is_old_exam ? 'var(--accent)' : 'transparent', color: r.is_old_exam ? 'white' : '#9E9BB0' }}>
+                                {r.is_old_exam ? 'Old exam ✓' : 'Mark as old exam'}
+                              </button>
+                            </div>
                           </div>
                           {r.storage_url && (
                             <a href={r.storage_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', textDecoration: 'none', flexShrink: 0, padding: '5px 12px', background: 'var(--accent-light)', borderRadius: 999 }}>Open</a>
@@ -746,6 +761,8 @@ export default function StudentBinder() {
               <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase' as const, color: '#9E9BB0', marginBottom: 6, display: 'block' }}>Name</label>
               <input autoFocus value={upName} onChange={e => setUpName(e.target.value)} placeholder='e.g. "Lecture 8 - Krebs Cycle"' style={{ width: '100%', padding: '12px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 14, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' as const }} />
             </div>
+
+            <OldExamToggle value={upOldExam} onChange={setUpOldExam} />
 
             {upType === 'link' && (
               <div style={{ marginBottom: 14 }}>

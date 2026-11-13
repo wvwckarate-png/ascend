@@ -59,7 +59,7 @@ export default function StudentClasses() {
   useEffect(() => {
     const load = async () => {
       const cols = 'id, name, semester, professor, class_level, credit_hours, is_bcpm, is_science, grade_only, letter_grade, grading_schema';
-      const { data: active }   = await supabase.from('classes').select(cols).eq('student_id', studentId).eq('is_active', true).order('created_at', { ascending: false });
+      const { data: active }   = await supabase.from('classes').select(cols).eq('student_id', studentId).eq('is_active', true).order('sort_order', { ascending: true, nullsFirst: false }).order('created_at', { ascending: false });
       const { data: inactive } = await supabase.from('classes').select(cols).eq('student_id', studentId).eq('is_active', false).order('created_at', { ascending: false });
       const { data: gradeData, error: gradeError } = await supabase.from('grades').select('class_id, category, score, max_score').eq('student_id', studentId);
       if (gradeError) console.error('Could not load grades:', gradeError.message);

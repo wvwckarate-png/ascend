@@ -6,7 +6,8 @@ import TabBar from '../../components/TabBar';
 import { supabase } from '../../../lib/supabase';
 import { gradeLabel } from '../../../lib/students';
 import { useMounted } from '../../../lib/useMounted';
-import { useStudent } from '../../../lib/studentContext';
+import { useStudent, useTheme } from '../../../lib/studentContext';
+import { THEMES, THEME_NAMES } from '../../../lib/theme';
 import { ACCENT as color, ACCENT_LIGHT as light } from '../../../lib/theme';
 
 function Mountain() {
@@ -31,6 +32,9 @@ function EditIcon() {
 
 export default function StudentProfile() {
   const me = useStudent();
+  const { theme, setTheme } = useTheme();
+  const [themeError, setThemeError] = useState(false);
+  const [hasPin, setHasPin] = useState<boolean | null>(null);
   const studentId = me.id;
   const studentName = me.name;
   const mounted = useMounted();
@@ -56,6 +60,7 @@ export default function StudentProfile() {
 
   useEffect(() => {
     const load = async () => {
+      fetch('/api/pin-status', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(d => setHasPin(d ? !!d[studentId] : false)).catch(() => setHasPin(false));
       const { data } = await supabase.from('students').select('name, focus, track, bio, target_school, target_program, grad_year, generation_profile').eq('id', studentId).single();
       if (data) {
         if (data.name)               setName(data.name);
@@ -246,6 +251,26 @@ export default function StudentProfile() {
           )}
         </div>
 
+        {/* Theme */}
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 12 }}>Theme</div>
+        <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '18px 14px 14px', marginBottom: 24, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+          <div role="radiogroup" aria-label="Colour theme" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4 }}>
+            {THEME_NAMES.map(name => {
+              const t = THEMES[name]; const selected = name === theme;
+              return (
+                <button key={name} role="radio" aria-checked={selected} aria-label={`${t.label} theme`} onClick={async () => { setThemeError(!(await setTheme(name))); }}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, padding: '4px 0', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                  <span style={{ width: 38, height: 38, borderRadius: '50%', background: t.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: selected ? `0 0 0 3px #FFFFFF, 0 0 0 5px ${t.accent}` : '0 1px 4px rgba(29,27,38,0.15)', transition: 'box-shadow 0.15s' }}>
+                    {selected && <svg width="16" height="16" viewBox="0 0 28 28" fill="none"><path d="M6 14l6 6 10-11" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: selected ? t.accent : '#9E9BB0' }}>{t.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          {themeError && <div style={{ fontSize: 11, color: '#C47878', fontWeight: 600, textAlign: 'center', marginTop: 10 }}>Couldn&apos;t save your theme — it will reset next time. Try again in a moment.</div>}
+        </div>
+
         {/* Stats grid */}
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 12 }}>Activity</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 24 }}>
@@ -313,7 +338,7 @@ export default function StudentProfile() {
               <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 2 }}>PIN Protection</div>
               <div style={{ fontSize: 11, color: '#9E9BB0' }}>Managed by Parent Dashboard</div>
             </div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#5FAD8E', background: '#EDF7F2', padding: '4px 10px', borderRadius: 999 }}>Active</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: hasPin ? '#5FAD8E' : '#C4C1D4', background: hasPin ? '#EDF7F2' : '#F3F1EC', padding: '4px 10px', borderRadius: 999 }}>{hasPin === null ? '…' : hasPin ? 'Active' : 'Off'}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>

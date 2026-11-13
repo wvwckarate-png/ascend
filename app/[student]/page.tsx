@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import TabBar from '../components/TabBar';
 import UploadResourceModal from '../components/UploadResourceModal';
@@ -9,6 +9,7 @@ import { localDateStr } from '../../lib/dates';
 import { useMounted } from '../../lib/useMounted';
 import { useStudent } from '../../lib/studentContext';
 import { ACCENT as color, ACCENT_LIGHT as light, CLASS_COLORS, alpha } from '../../lib/theme';
+import { useDragReorder } from '../../lib/useDragReorder';
 
 function Mountain() {
   return (
@@ -155,6 +156,14 @@ export default function StudentDashboard() {
 
   const [student,    setStudent]    = useState<{ name: string; grade: string; focus: string } | null>(null);
   const [classes,    setClasses]    = useState<ClassRow[]>([]);
+  const [reordering, setReordering] = useState(false);
+  const [orderError, setOrderError] = useState(false);
+  // Saves the student's chosen class order (each class remembers its position).
+  const saveClassOrder = useCallback(async (ordered: ClassRow[]) => {
+    const results = await Promise.all(ordered.map((c, i) => supabase.from('classes').update({ sort_order: i }).eq('id', c.id)));
+    setOrderError(results.some(r => r.error));
+  }, []);
+  const reorder = useDragReorder(classes, setClasses, reordering, saveClassOrder);
   const [tasks,      setTasks]      = useState<Task[]>([]);
   const [exams,      setExams]      = useState<ExamEvent[]>([]);
   const [loading,    setLoading]    = useState(true);
@@ -169,7 +178,7 @@ export default function StudentDashboard() {
 
 useEffect(() => {
     const load = async () => {      const { data: studentData } = await supabase.from('students').select('name, grade, focus').eq('id', studentId).single();
-      const { data: classData }   = await supabase.from('classes').select('id, name, semester, professor').eq('student_id', studentId).eq('is_active', true).eq('grade_only', false).order('created_at', { ascending: false });
+      const { data: classData }   = await supabase.from('classes').select('id, name, semester, professor').eq('student_id', studentId).eq('is_active', true).eq('grade_only', false).order('sort_order', { ascending: true, nullsFirst: false }).order('created_at', { ascending: false });
       // Everything unfinished, plus anything dated in the last 3 weeks — years of old completed tasks don't need to load every time.
       const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 21);
       const { data: taskData }    = await supabase.from('tasks').select('*').eq('student_id', studentId).or(`completed.eq.false,due_date.gte.${localDateStr(cutoff)}`).order('due_date', { ascending: true });
@@ -499,23 +508,38 @@ setLoading(false);
         {classes.length > 0 && (
           <div style={{ marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4' }}>My Classes</div>
-              <Link href={`/${studentId}/classes`} style={{ fontSize: 11, fontWeight: 700, color, textDecoration: 'none' }}>See all</Link>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4' }}>{reordering ? 'Drag to reorder' : 'My Classes'}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                {orderError && <span style={{ fontSize: 11, fontWeight: 600, color: '#C47878' }}>Couldn&apos;t save order</span>}
+                {classes.length > 1 && (
+                  <button onClick={() => { setReordering(r => !r); setOrderError(false); }} style={{ fontSize: 11, fontWeight: 700, color: reordering ? 'white' : '#9E9BB0', background: reordering ? color : 'none', border: 'none', borderRadius: 999, padding: reordering ? '4px 12px' : 0, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{reordering ? 'Done' : 'Reorder'}</button>
+                )}
+                {!reordering && <Link href={`/${studentId}/classes`} style={{ fontSize: 11, fontWeight: 700, color, textDecoration: 'none' }}>See all</Link>}
+              </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8 }}>
-              {classes.slice(0, 4).map((cls, i) => {
+              {(reordering ? classes : classes.slice(0, 4)).map((cls, i) => {
                 const c = CLASS_COLORS[i % CLASS_COLORS.length];
+                const drag = reorder.cardProps(cls.id);
+                const lifted = reorder.draggingId === cls.id;
                 return (
                   <div
                     key={cls.id}
-                    onClick={() => router.push(`/${studentId}/classes/${cls.id}`)}
-                    style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '14px', cursor: 'pointer', boxShadow: '0 1px 4px rgba(29,27,38,0.06)', transition: 'transform 0.15s' }}
-                    onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'}
-                    onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}
+                    {...drag}
+                    onClick={() => { if (!reordering) router.push(`/${studentId}/classes/${cls.id}`); }}
+                    style={{ background: '#FFFFFF', border: `1.5px ${reordering ? 'dashed' : 'solid'} ${lifted ? color : reordering ? '#C4C1D4' : '#E8E5F0'}`, borderRadius: 14, padding: '14px', cursor: 'pointer', boxShadow: lifted ? '0 8px 24px rgba(29,27,38,0.16)' : '0 1px 4px rgba(29,27,38,0.06)', transition: 'transform 0.15s, box-shadow 0.15s', transform: lifted ? 'scale(1.03)' : undefined, position: 'relative', ...(drag as { style?: React.CSSProperties }).style }}
+                    onMouseEnter={e => { if (!reordering) (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'; }}
+                    onMouseLeave={e => { if (!reordering) (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'; }}
                   >
                     <div style={{ width: 32, height: 32, borderRadius: 9, background: alpha(c, '20'), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: c, marginBottom: 8 }}>{classLabel(cls.name)}</div>
                     <div style={{ fontSize: 12, fontWeight: 800, color: '#1D1B26', lineHeight: 1.3, marginBottom: 2 }}>{cls.name}</div>
                     <div style={{ fontSize: 10, color: '#9E9BB0' }}>{cls.semester || ''}</div>
+                    {reordering && (
+                      <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 }}>
+                        <button aria-label={`Move ${cls.name} earlier`} disabled={i === 0} onClick={e => { e.stopPropagation(); reorder.move(cls.id, -1); }} style={{ width: 26, height: 26, borderRadius: 8, border: 'none', background: '#F3F1EC', color: '#6B6880', fontSize: 13, fontWeight: 800, cursor: 'pointer', opacity: i === 0 ? 0.35 : 1 }}>‹</button>
+                        <button aria-label={`Move ${cls.name} later`} disabled={i === classes.length - 1} onClick={e => { e.stopPropagation(); reorder.move(cls.id, 1); }} style={{ width: 26, height: 26, borderRadius: 8, border: 'none', background: '#F3F1EC', color: '#6B6880', fontSize: 13, fontWeight: 800, cursor: 'pointer', opacity: i === classes.length - 1 ? 0.35 : 1 }}>›</button>
+                      </div>
+                    )}
                   </div>
                 );
               })}

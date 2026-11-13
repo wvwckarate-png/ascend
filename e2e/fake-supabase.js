@@ -1,7 +1,7 @@
 // Stand-in for the `students` table so the PIN routes can be tested without the real database.
-//   node e2e/fake-supabase.js   (listens on :4010; Matthew's PIN is 4321, the others have none)
+//   node e2e/fake-supabase.js   (listens on :4010; Matthew's PIN is 4321, the others have none; Michael has saved the green theme)
 const http = require('http');
-const rows = { matthew: { id: 'matthew', pin: '4321' }, michael: { id: 'michael', pin: null }, brynne: { id: 'brynne', pin: null } };
+const rows = { matthew: { id: 'matthew', pin: '4321' }, michael: { id: 'michael', pin: null, theme: 'green' }, brynne: { id: 'brynne', pin: null } };
 http.createServer((req, res) => {
   const u = new URL(req.url, 'http://x'); let body = '';
   req.on('data', c => body += c); req.on('end', () => {
