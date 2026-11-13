@@ -160,6 +160,9 @@ export default function StudentClasses() {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => openGPAModal()} style={{ fontSize: 12, fontWeight: 700, color: '#9E9BB0', background: '#F3F1EC', padding: '8px 14px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>+ GPA Class</button>
+            <Link href={`/${studentId}/library`} style={{ textDecoration: 'none' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#5E5C57', background: '#FFFFFF', border: '1.5px solid #D8D5CC', padding: '6.5px 14px', borderRadius: 999, display: 'block' }}>Library</span>
+            </Link>
             <Link href={`/${studentId}/add-class`} style={{ textDecoration: 'none' }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', background: 'var(--accent-light)', padding: '8px 16px', borderRadius: 999, display: 'block' }}>+ Add Class</span>
             </Link>

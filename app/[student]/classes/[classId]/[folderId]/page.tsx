@@ -4,6 +4,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import TabBar from '../../../../components/TabBar';
 import { supabase } from '../../../../../lib/supabase';
+import { Shelf, FileCard, MadeCard, paperButton, madeButton, kindName, PAPER } from '../../../../components/ResourceLooks';
+import { noteRecent } from '../../../../../lib/recent';
+import { uploadResourceFile } from '../../../../../lib/uploadResource';
 import { useStudent } from '../../../../../lib/studentContext';
 import OldExamToggle from '../../../../components/OldExamToggle';
 
@@ -210,14 +213,16 @@ export default function StudentBinder() {
   const [cls,            setCls]            = useState<ClassRow | null>(null);
   const [folder,         setFolder]         = useState<Folder | null>(null);
   const [resources,      setResources]      = useState<Resource[]>([]);
-  const [tab,            setTab]            = useState('resources');
   const [loading,        setLoading]        = useState(true);
-  const [folderDeck,     setFolderDeck]     = useState<{id:string;title:string;card_count:number} | null>(null);
-  const [folderExam,     setFolderExam]     = useState<{id:string;title:string;status:string;score:number|null;questions:any[]} | null>(null);
-  const [folderGuide,    setFolderGuide]    = useState<{id:string;title:string;created_at:string} | null>(null);
+  // Everything Ascend has made for this exam (each remembers which uploaded files it was built from).
+  const [decks,          setDecks]          = useState<{ id: string; title: string; card_count: number; created_at: string; source_resource_ids: string[] | null }[]>([]);
+  const [exams,          setExams]          = useState<{ id: string; title: string; status: string; score: number | null; created_at: string; completed_at: string | null; source_resource_ids: string[] | null }[]>([]);
+  const [guides,         setGuides]         = useState<{ id: string; title: string; created_at: string; source_filename: string | null; source_resource_ids: string[] | null }[]>([]);
   const [weakSpots,      setWeakSpots]      = useState<WeakSpot[]>([]);
   const [weakLoading,    setWeakLoading]    = useState(true);
   const [showUpload,     setShowUpload]     = useState(false);
+  const [dropping,       setDropping]       = useState(false);
+  const [dropNote,       setDropNote]       = useState('');
   const [upType,         setUpType]         = useState('');
   const [upName,         setUpName]         = useState('');
   const [upOldExam,      setUpOldExam]      = useState(false);
@@ -246,16 +251,16 @@ export default function StudentBinder() {
         supabase.from('classes').select('id, name, semester, professor').eq('id', classId).single(),
         supabase.from('exam_folders').select('id, name, exam_date').eq('id', folderId).single(),
         supabase.from('resources').select('id, file_name, file_type, storage_url, created_at, is_old_exam').eq('folder_id', folderId).order('created_at', { ascending: false }),
-        supabase.from('flashcard_decks').select('id, title, card_count').eq('folder_id', folderId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-        supabase.from('practice_exams').select('id, title, status, score, questions').eq('folder_id', folderId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-        supabase.from('study_guides').select('id, title, created_at').eq('folder_id', folderId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('flashcard_decks').select('id, title, card_count, created_at, source_resource_ids').eq('folder_id', folderId).eq('student_id', studentId).order('created_at', { ascending: false }),
+        supabase.from('practice_exams').select('id, title, status, score, created_at, completed_at, source_resource_ids').eq('folder_id', folderId).eq('student_id', studentId).order('created_at', { ascending: false }),
+        supabase.from('study_guides').select('id, title, created_at, source_filename, source_resource_ids').eq('folder_id', folderId).eq('student_id', studentId).order('created_at', { ascending: false }),
       ]);
       if (classData)    setCls(classData);
       if (folderData)   { setFolder(folderData); setNewDate(folderData.exam_date || ''); }
       if (resourceData) setResources(resourceData);
-      if (deckData)     setFolderDeck(deckData);
-      if (examData)     setFolderExam(examData);
-      if (guideData)    setFolderGuide(guideData);
+      if (Array.isArray(deckData))  setDecks(deckData);
+      if (Array.isArray(examData))  setExams(examData);
+      if (Array.isArray(guideData)) setGuides(guideData);
       setLoading(false);
 
       // Weak spots
@@ -451,6 +456,37 @@ export default function StudentBinder() {
   const hasResources = resources.length > 0;
   const selectedType = FILE_TYPES.find(f => f.key === upType);
 
+  // What Ascend made here, newest first, each with the names of the uploads it came from.
+  const nameOf = new Map(resources.map(r => [r.id, r.file_name]));
+  const ids = (v: string[] | null | undefined) => (Array.isArray(v) ? v : []);
+  const fromNames = (v: string[] | null | undefined) => ids(v).map(id => nameOf.get(id)).filter((n): n is string => !!n);
+  const day = (d: string | null) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+  const q = folder ? `folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}` : '';
+  const madeAll = [
+    ...guides.map(g => ({ key: 'guide-' + g.id, kind: 'guide' as const, label: 'Study guide', title: g.title, created: g.created_at, sources: ids(g.source_resource_ids), from: fromNames(g.source_resource_ids).length ? fromNames(g.source_resource_ids) : (g.source_filename && g.source_filename !== 'Custom' ? g.source_filename.split(', ').slice(0, 3) : []), note: day(g.created_at), action: 'Open', href: `/${studentId}/study?guideId=${g.id}&${q}` })),
+    ...decks.map(d => ({ key: 'deck-' + d.id, kind: 'deck' as const, label: `Flashcards · ${d.card_count}`, title: d.title, created: d.created_at, sources: ids(d.source_resource_ids), from: fromNames(d.source_resource_ids), note: day(d.created_at), action: 'Study', href: `/${studentId}/flashcards?deckId=${d.id}` })),
+    ...exams.map(e => ({ key: 'exam-' + e.id, kind: 'exam' as const, label: e.status === 'completed' ? `Practice exam · ${e.score ?? 0}%` : 'Practice exam · in progress', title: e.title, created: e.created_at, sources: ids(e.source_resource_ids), from: fromNames(e.source_resource_ids), note: e.status === 'completed' ? `taken ${day(e.completed_at || e.created_at)}` : day(e.created_at), action: e.status === 'completed' ? 'Review' : 'Continue', href: `/${studentId}/practice-exam?examId=${e.id}` })),
+  ].sort((a, b) => (b.created || '').localeCompare(a.created || ''));
+  // Things made before Ascend recorded sources can't say which files they used, so "not used yet" is only shown when it is certain.
+  const canTellUnused = madeAll.every(m => m.sources.length > 0);
+  const unusedFiles = resources.filter(r => !madeAll.some(m => m.sources.includes(r.id)));
+  const readySteps = [{ label: 'Materials', done: hasResources }, { label: 'Study guide', done: guides.length > 0 }, { label: 'Flashcards', done: decks.length > 0 }, { label: 'Practice exam', done: exams.length > 0 }];
+  const nextStep = readySteps.find(x => !x.done)?.label;
+
+  // Dropping files from a computer onto the grey shelf uploads them all into this exam.
+  const dropFiles = async (list: FileList | null) => {
+    const files = [...(list || [])];
+    if (files.length === 0) return;
+    let done = 0; const failed: string[] = [];
+    for (const file of files) {
+      setDropNote(`Uploading ${done + 1} of ${files.length}: ${file.name}`);
+      try { const row = await uploadResourceFile({ file, studentId, folderId }); setResources(prev => [row as Resource, ...prev]); }
+      catch (err) { failed.push(`${file.name} (${err instanceof Error ? err.message : 'failed'})`); }
+      done++;
+    }
+    setDropNote(failed.length ? `Couldn\u2019t add: ${failed.join('; ')}` : `Added ${files.length} file${files.length === 1 ? '' : 's'}.`);
+  };
+
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAF8' }}>
       <nav style={{ height: 58, display: 'flex', alignItems: 'center', padding: '0 20px', gap: 10, background: 'rgba(250,250,248,0.95)', backdropFilter: 'blur(16px)', borderBottom: '1px solid #E8E5F0', position: 'sticky', top: 0, zIndex: 90 }}>
@@ -524,20 +560,23 @@ export default function StudentBinder() {
                 </div>
               </div>
 
-              <div style={{ marginBottom: 16 }}>
-                <span style={{ fontSize: 11, color: '#9E9BB0' }}>
-                  <span style={{ fontWeight: 700, color: hasResources ? 'var(--accent)' : '#C4C1D4' }}>{resources.length}</span> resource{resources.length !== 1 ? 's' : ''}
-                </span>
-              </div>
-
-              {/* Tabs */}
-              <div style={{ display: 'flex', borderBottom: '1.5px solid #E8E5F0', marginLeft: -24, marginRight: -24, paddingLeft: 24 }}>
-                {TABS.map(t => (
-                  <button key={t.key} onClick={() => setTab(t.key)} style={{ padding: '10px 18px', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none', background: 'transparent', borderBottom: `2.5px solid ${tab === t.key ? 'var(--accent)' : 'transparent'}`, marginBottom: -1.5, color: tab === t.key ? 'var(--accent)' : '#9E9BB0', whiteSpace: 'nowrap', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <TabIcon tabKey={t.key} active={tab === t.key} />
-                    {t.label}
-                  </button>
-                ))}
+              {/* Getting ready: which of the four pieces exist for this exam */}
+              <div data-getting-ready style={{ border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '12px 14px', marginBottom: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.2, textTransform: 'uppercase', color: '#9E9BB0' }}>Getting ready</span>
+                  <span style={{ fontSize: 11, color: '#9E9BB0', fontWeight: 600 }}>{readySteps.filter(x => x.done).length} of {readySteps.length}</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+                  {readySteps.map(step => {
+                    const next = !step.done && step.label === nextStep;
+                    return (
+                      <div key={step.label} data-step={step.done ? 'done' : next ? 'next' : 'todo'} style={{ fontSize: 10, fontWeight: 700, color: step.done ? '#5FAD8E' : next ? 'var(--accent)' : '#9E9BB0', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                        <i style={{ height: 5, borderRadius: 999, display: 'block', background: step.done ? '#5FAD8E' : next ? 'repeating-linear-gradient(90deg, var(--accent) 0 6px, var(--accent-light) 6px 10px)' : '#E8E5F0' }} />
+                        {step.label}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
@@ -579,168 +618,66 @@ export default function StudentBinder() {
               </div>
             )}
 
-            {/* Tab content */}
-            <div style={{ padding: '24px' }}>
+            {/* The two shelves: what came from class, and what Ascend made from it */}
+            <div style={{ padding: '20px 16px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-              {tab === 'resources' && (
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Resources</div>
-                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>Lecture notes, PDFs, slides, audio, links</div>
-                    </div>
-                    <button onClick={() => setShowUpload(true)} style={{ padding: '9px 18px', borderRadius: 999, background: 'var(--accent)', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>+ Upload</button>
-                  </div>
+              <div onDragOver={e => { if (e.dataTransfer?.types?.includes('Files')) { e.preventDefault(); setDropping(true); } }} onDragLeave={() => setDropping(false)} onDrop={e => { e.preventDefault(); setDropping(false); dropFiles(e.dataTransfer.files); }}
+                style={{ borderRadius: 22, outline: dropping ? `2px dashed ${PAPER.ink}` : 'none', outlineOffset: 3 }}>
+                <Shelf kind="class" title="From class" sub={resources.length === 0 ? 'Nothing uploaded yet' : `${resources.length} file${resources.length === 1 ? '' : 's'} you uploaded`}
+                  action={<button onClick={() => setShowUpload(true)} style={paperButton}>+ Upload</button>}>
+                  {dropNote && <div style={{ fontSize: 11, fontWeight: 700, color: PAPER.ink }}>{dropNote}</div>}
                   {resources.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
-                      <div style={{ width: 64, height: 64, borderRadius: 18, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                        <IconFolder c="var(--accent)" size={32} />
-                      </div>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No resources yet</div>
-                      <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>Upload PDFs, slides, audio recordings, old exams, or Google Doc links.</div>
-                      <button onClick={() => setShowUpload(true)} style={{ padding: '11px 24px', borderRadius: 999, background: 'var(--accent)', border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Upload First Resource</button>
+                    <div style={{ textAlign: 'center', padding: '22px 14px', border: `1.5px dashed ${PAPER.edge}`, borderRadius: '4px 16px 4px 4px', background: PAPER.sheet }}>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 4 }}>Start with what your professor gave you</div>
+                      <div style={{ fontSize: 12, color: '#9E9BB0', marginBottom: 14, lineHeight: 1.5 }}>Slides, handouts, lecture recordings, video links and old exams. Everything Ascend makes is built from these.</div>
+                      <button onClick={() => setShowUpload(true)} style={{ ...paperButton, padding: '10px 18px', fontSize: 12 }}>Upload First Resource</button>
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {resources.map(r => (
-                        <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', background: '#FAFAF8', borderRadius: 12, border: '1.5px solid #E8E5F0' }}>
-                          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <FileTypeIcon type={r.file_type} c="var(--accent)" size={18} />
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.file_name}</div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
-                              <span style={{ fontSize: 11, color: '#9E9BB0', textTransform: 'capitalize' }}>{r.file_type}</span>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))', gap: 8 }}>
+                      {resources.map(r => {
+                        const uses = madeAll.filter(m => m.sources.includes(r.id)).length;
+                        return (
+                          <FileCard key={r.id} name={r.file_name} type={r.file_type} oldExam={!!r.is_old_exam}
+                            meta={`${new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · ${kindName(r.file_type)}`}
+                            usage={uses > 0 ? { text: `Used in ${uses}` } : canTellUnused ? { text: 'Not used yet', unused: true } : null}
+                            onOpen={r.storage_url ? () => { noteRecent(studentId, { key: 'file-' + r.id, made: false, kind: r.file_type, title: r.file_name, sub: `${cls.name} · ${folder.name}`, href: r.storage_url! }); window.open(r.storage_url!, '_blank', 'noopener'); } : undefined}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
                               <button onClick={() => toggleOldExam(r)} aria-pressed={!!r.is_old_exam} title={r.is_old_exam ? 'Marked as an old exam — tap to unmark' : 'Mark this file as an old exam or quiz'}
-                                style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', border: r.is_old_exam ? 'none' : '1px dashed #C4C1D4', background: r.is_old_exam ? 'var(--accent)' : 'transparent', color: r.is_old_exam ? 'white' : '#9E9BB0' }}>
+                                style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 999, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', border: r.is_old_exam ? `1px solid ${PAPER.ink}` : `1px dashed ${PAPER.edge}`, background: r.is_old_exam ? PAPER.ink : 'transparent', color: r.is_old_exam ? 'white' : '#9E9BB0' }}>
                                 {r.is_old_exam ? 'Old exam ✓' : 'Mark as old exam'}
                               </button>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                              {r.storage_url ? <a href={r.storage_url} target="_blank" rel="noreferrer" style={{ fontSize: 10, fontWeight: 800, color: PAPER.ink, textDecoration: 'none' }}>Open</a> : <span />}
+                              <button onClick={() => { if (confirm('Delete this resource?')) deleteResource(r.id); }} aria-label="Delete" title="Delete" style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: 'none', border: 'none', padding: '0 2px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>✕</button>
+                              </div>
                             </div>
-                          </div>
-                          {r.storage_url && (
-                            <a href={r.storage_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', textDecoration: 'none', flexShrink: 0, padding: '5px 12px', background: 'var(--accent-light)', borderRadius: 999 }}>Open</a>
-                          )}
-                          <button onClick={() => { if (confirm('Delete this resource?')) deleteResource(r.id); }} aria-label="Delete" title="Delete" style={{ fontSize: 11, fontWeight: 700, color: '#C47878', background: '#FDF2F2', border: 'none', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>✕</button>
-                        </div>
-                      ))}
+                          </FileCard>
+                        );
+                      })}
                     </div>
                   )}
-                </div>
-              )}
+                </Shelf>
+              </div>
 
-              {tab === 'cards' && (
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Flashcards</div>
-                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>{folderDeck ? `${folderDeck.card_count} cards saved` : 'Generate a deck from this folder\'s material'}</div>
-                    </div>
-                    <button onClick={() => router.push(`/${studentId}/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: 'var(--accent)', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                      {folderDeck ? 'New Deck' : 'Generate'}
-                    </button>
-                  </div>
-                  {folderDeck ? (
-                    <div onClick={() => router.push(`/${studentId}/flashcards`)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '18px 20px', background: '#FAFAF8', borderRadius: 14, border: '1.5px solid #E8E5F0', cursor: 'pointer' }}>
-                      <div style={{ width: 48, height: 48, borderRadius: 13, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <IconCards c="var(--accent)" size={26} />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{folderDeck.title}</div>
-                        <div style={{ fontSize: 11, color: '#9E9BB0' }}>{folderDeck.card_count} cards</div>
-                      </div>
-                      <div style={{ padding: '8px 16px', borderRadius: 999, background: 'var(--accent)', color: 'white', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>Study</div>
-                    </div>
-                  ) : (
-                    <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
-                      <div style={{ width: 64, height: 64, borderRadius: 18, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                        <IconCards c="var(--accent)" size={32} />
-                      </div>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No flashcard deck yet</div>
-                      <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Generate a Smart or Basic deck from the resources in this folder.' : 'Upload resources first, then generate a flashcard deck.'}</div>
-                      <button onClick={() => hasResources ? router.push(`/${studentId}/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`) : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? 'var(--accent)' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                        {hasResources ? 'Generate Flashcards' : 'Upload Resources First'}
-                      </button>
-                    </div>
-                  )}
+              <Shelf kind="made" title="Made by Ascend" sub={madeAll.length === 0 ? 'Nothing made yet' : `${madeAll.length} thing${madeAll.length === 1 ? '' : 's'} built from your files`}>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {([['study', 'Study guide'], ['flashcards', 'Flashcards'], ['practice-exam', 'Practice exam']] as const).map(([path, label]) => (
+                    <button key={path} data-make={path} onClick={() => hasResources ? router.push(`/${studentId}/${path}?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`) : setShowUpload(true)}
+                      style={{ ...madeButton, background: hasResources ? 'var(--accent)' : 'rgba(255,255,255,0.7)', color: hasResources ? '#fff' : 'var(--accent-dark)' }}>+ {label}</button>
+                  ))}
                 </div>
-              )}
-
-              {tab === 'exam' && (
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Practice Exam</div>
-                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>{folderExam ? `${folderExam.questions?.length || 0} questions · ${folderExam.status === 'completed' ? `Score: ${folderExam.score ?? 'n/a'}%` : 'In progress'}` : 'Generate a practice exam from this folder'}</div>
-                    </div>
-                    <button onClick={() => router.push(`/${studentId}/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: 'var(--accent)', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>
-                      {folderExam ? 'New Exam' : 'Generate'}
-                    </button>
+                {!hasResources && <div style={{ fontSize: 12, color: 'var(--accent-dark)', lineHeight: 1.5 }}>Upload your class files first. Ascend builds study guides, flashcards and practice exams only from what you upload.</div>}
+                {hasResources && madeAll.length === 0 && <div style={{ fontSize: 12, color: 'var(--accent-dark)', lineHeight: 1.5 }}>Pick one above and Ascend will build it from the files on the grey shelf.</div>}
+                {madeAll.map(m => (
+                  <MadeCard key={m.key} kind={m.kind} label={m.label} title={m.title} from={m.from} note={m.note} action={m.action} onOpen={() => { noteRecent(studentId, { key: m.key, made: true, kind: m.kind, title: m.title, sub: `${cls.name} · ${folder.name}`, href: m.href }); router.push(m.href); }} />
+                ))}
+                {canTellUnused && unusedFiles.length > 0 && madeAll.length > 0 && (
+                  <div data-unused style={{ border: '1.5px dashed var(--accent)', borderRadius: 18, padding: '11px 12px' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-dark)' }}>{unusedFiles.length} file{unusedFiles.length === 1 ? ' hasn\u2019t' : 's haven\u2019t'} been used yet</div>
+                    <div style={{ fontSize: 10, color: '#6B6880', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{unusedFiles.map(f => f.file_name).join(', ')}</div>
                   </div>
-                  {folderExam ? (
-                    <div onClick={() => router.push(`/${studentId}/practice-exam`)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '18px 20px', background: '#FAFAF8', borderRadius: 14, border: '1.5px solid #E8E5F0', cursor: 'pointer' }}>
-                      <div style={{ width: 48, height: 48, borderRadius: 13, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <IconExam c="var(--accent)" size={26} />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{folderExam.title}</div>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: folderExam.status === 'completed' ? '#5FAD8E' : 'var(--accent)', background: folderExam.status === 'completed' ? '#EDF7F2' : 'var(--accent-light)', padding: '2px 8px', borderRadius: 999 }}>{folderExam.status === 'completed' ? 'Completed' : 'In Progress'}</span>
-                          {folderExam.score !== null && <span style={{ fontSize: 11, fontWeight: 700, color: (folderExam.score ?? 0) >= 80 ? '#5FAD8E' : (folderExam.score ?? 0) >= 60 ? '#C8965A' : '#C47878' }}>{folderExam.score}%</span>}
-                        </div>
-                      </div>
-                      <div style={{ padding: '8px 16px', borderRadius: 999, background: 'var(--accent)', color: 'white', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{folderExam.status === 'completed' ? 'Review' : 'Continue'}</div>
-                    </div>
-                  ) : (
-                    <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
-                      <div style={{ width: 64, height: 64, borderRadius: 18, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                        <IconExam c="var(--accent)" size={32} />
-                      </div>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No practice exam yet</div>
-                      <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Generate a practice exam from the resources in this folder.' : 'Upload resources first, then generate a practice exam.'}</div>
-                      <button onClick={() => hasResources ? router.push(`/${studentId}/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`) : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? 'var(--accent)' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                        {hasResources ? 'Generate Practice Exam' : 'Upload Resources First'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {tab === 'guide' && (
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3 }}>Study Guide</div>
-                      <div style={{ fontSize: 12, color: '#9E9BB0' }}>{folderGuide ? 'Study guide generated' : 'Generate a full study guide from this folder'}</div>
-                    </div>
-                    <button onClick={() => router.push(`/${studentId}/study?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ padding: '9px 18px', borderRadius: 999, background: 'var(--accent)', border: 'none', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                      {folderGuide ? 'New Guide' : 'Generate'}
-                    </button>
-                  </div>
-                  {folderGuide ? (
-                    <div onClick={() => router.push(`/${studentId}/study?guideId=${folderGuide.id}&folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '18px 20px', background: '#FAFAF8', borderRadius: 14, border: '1.5px solid #E8E5F0', cursor: 'pointer' }}>
-                      <div style={{ width: 48, height: 48, borderRadius: 13, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <IconBrain c="var(--accent)" size={26} />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{folderGuide.title}</div>
-                        <div style={{ fontSize: 11, color: '#9E9BB0' }}>{new Date(folderGuide.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
-                      </div>
-                      <div style={{ padding: '8px 16px', borderRadius: 999, background: 'var(--accent)', color: 'white', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>View</div>
-                    </div>
-                  ) : (
-                    <div style={{ textAlign: 'center', padding: '40px 20px', border: '2px dashed #E8E5F0', borderRadius: 14 }}>
-                      <div style={{ width: 64, height: 64, borderRadius: 18, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                        <IconBrain c="var(--accent)" size={32} />
-                      </div>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>No study guide yet</div>
-                      <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 20, lineHeight: 1.6 }}>{hasResources ? 'Ascend builds a full outline and active recall guide from your uploaded material.' : 'Upload resources first — Ascend builds the study guide from your material.'}</div>
-                      <button onClick={() => hasResources ? router.push(`/${studentId}/study?folderId=${folderId}&folderName=${encodeURIComponent(folder.name)}`) : setTab('resources')} style={{ padding: '11px 24px', borderRadius: 999, background: hasResources ? 'var(--accent)' : '#F3F1EC', border: 'none', color: hasResources ? 'white' : '#9E9BB0', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                        {hasResources ? 'Generate Study Guide' : 'Upload Resources First'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+                )}
+              </Shelf>
 
             </div>
           </div>
