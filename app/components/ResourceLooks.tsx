@@ -111,3 +111,17 @@ export function MadeCard({ kind, label, title, from, note, action, onOpen, compa
     </div>
   );
 }
+
+/** Small "this was made by Ascend" header for cards on the saved-resource list pages. */
+export function MadeTag({ kind, extra }: { kind: MadeKind; extra?: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+      <AscendMark size={24} />
+      <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', color: accent }}>{MADE_NAMES[kind]}{extra ? ` · ${extra}` : ''}</span>
+    </div>
+  );
+}
+/** Card frame for something Ascend made (rounded, edged in the theme colour). */
+export const madeCardFrame: CSSProperties = { background: '#FFFFFF', border: `1.5px solid ${accentMid}`, borderRadius: 20, padding: '12px 14px 14px', boxShadow: '0 1px 6px rgba(29,27,38,0.05)', display: 'flex', flexDirection: 'column', gap: 10 };
+/** Row frame for an uploaded file inside a picker (grey paper; darker when chosen). */
+export const paperPick = (chosen: boolean): CSSProperties => ({ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: '3px 12px 3px 3px', border: `1.5px solid ${chosen ? PAPER.ink : PAPER.edge}`, background: chosen ? PAPER.tile : PAPER.sheet, cursor: 'pointer' });

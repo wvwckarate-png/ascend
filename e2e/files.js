@@ -112,6 +112,28 @@ h.run('files', async () => {
     h.check(`${s}: Open on a study guide goes to that guide`, page.url().endsWith(`/${s}/study?guideId=g1`), page.url());
     h.check(`${s}: library has no runtime errors`, page.t.errors.length === 0, page.t.errors.join('|'));
     await page.close();
+    // ── the same two looks on the other screens ──
+    page = await h.newPage({ width: 430, height: 1500 }); await h.fakeClock(page, '2026-11-12T10:00:00-05:00'); mocks(page, s);
+    page.t.mocks.exam_folders = [{ id: 'f1', class_id: 'c1', name: 'Exam 2', exam_date: '2026-11-15' }, { id: 'f9', class_id: 'c2', name: 'Empty exam', exam_date: '2026-11-18' }];
+    page.t.mocks.resources = [{ folder_id: 'f1' }]; page.t.mocks.practice_exams = []; page.t.apiMocks['/api/study-days'] = { json: { days: [] } };
+    page.t.mocks['rpc/study_plan_decks'] = [{ id: 'd1', title: 'Exam 2 deck', folder_id: 'f1', class_name: 'Exercise Phys', created_at: '2026-10-01T00:00:00Z', cards: 20, new_cards: 0, due_seen: 6, reviewed_today: 0, weak: 0, retired: 0 }];
+    await h.go(page, `/${s}`, 1800);
+    const planLooks = await page.$$eval('[data-plan-item]', els => els.map(e => `${/Upload your materials/.test(e.innerText) ? 'upload' : 'other'}:${e.querySelector('[data-look]')?.dataset.look}`).join(' '));
+    h.check(`${s}: in Today's Plan, "upload your materials" carries the paper mark and Ascend's work the mountain`, /upload:class/.test(planLooks) && /other:made/.test(planLooks) && !/upload:made|other:class/.test(planLooks), planLooks);
+    const tiles = await page.evaluate(() => [...document.querySelectorAll('main > div:last-of-type [data-look]')].map(e => `${e.innerText.replace(/\n/g, ' ').trim()}=${e.dataset.look}`).join(' | '));
+    h.check(`${s}: home shortcuts: three made-by-Ascend tiles in colour, Upload in grey paper`, tiles === 'Study Guide=made | Flashcards=made | Practice Exam=made | Upload Resources=class', tiles);
+    await page.close();
+    for (const [feature, word] of [['flashcards', 'FLASHCARDS'], ['practice-exam', 'PRACTICE EXAM'], ['study', 'STUDY GUIDE']]) {
+      page = await h.newPage({ width: 430, height: 1300 }); mocks(page, s); page.t.mocks.students = [{ id: s, name: h.cap(s), track: 'Pre-Med', grad_year: 2030, generation_profile: '' }];
+      await h.go(page, `/${s}/${feature}`, 1500);
+      const list = await page.evaluate(() => [...document.querySelectorAll('[data-kind="made"]')].map(e => e.innerText.split('\n')[0].trim()));
+      h.check(`${s} ${feature}: saved items are framed as made by Ascend`, list.length >= 1 && list.every(x => x.toUpperCase() === word), JSON.stringify(list));
+      await h.clickButton(page, /new|generate|make|create/); await h.sleep(800); await h.clickPointer(page, 'Exercise Phys'); await h.sleep(250); await h.clickPointer(page, 'Exam 2'); await h.sleep(300);
+      const pick = await page.evaluate(() => { const rows = [...document.querySelectorAll('[data-kind="class"]')]; return { n: rows.length, radius: rows[0] ? getComputedStyle(rows[0]).borderTopLeftRadius : '', made: document.querySelectorAll('[data-kind="made"]').length }; });
+      h.check(`${s} ${feature}: the file picker shows uploads as grey paper, and nothing Ascend-made`, pick.n === 3 && pick.radius === '3px' && pick.made === 0, JSON.stringify(pick));
+      h.check(`${s} ${feature}: no runtime errors`, page.t.errors.length === 0, page.t.errors.join('|'));
+      await page.close();
+    }
     page = await h.newPage(); mocks(page, s, { res: [], guides: [], decks: [], exams: [] }); await h.go(page, `/${s}/library`, 1500);
     h.check(`${s}: empty library explains where things come from`, /Nothing here yet/.test(await h.text(page)) && page.t.errors.length === 0);
     await page.close();

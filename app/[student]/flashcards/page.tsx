@@ -14,6 +14,7 @@ import { MATH_FORMAT_RULES_JSON, CLASS_RULES } from '../../../lib/prompts';
 import { gradeShort } from '../../../lib/students';
 import { generateChecked, contextFrom } from '../../../lib/checkedGeneration';
 import { useStudent } from '../../../lib/studentContext';
+import { MadeTag, madeCardFrame, paperPick, PAPER, PaperMark } from '../../components/ResourceLooks';
 import { ACCENT as color, ACCENT_LIGHT as light, alpha } from '../../../lib/theme';
 
 function Mountain() {
@@ -910,7 +911,8 @@ function StudentFlashcardsInner() {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {decks.map(deck => (
-                <div key={deck.id} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '14px 16px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div key={deck.id} data-kind="made" style={madeCardFrame}>
+                  <MadeTag kind="deck" />
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                     <div onClick={() => openDeck(deck)} style={{ flex: 1, cursor: 'pointer', minWidth: 0 }}>
                       {renamingId === deck.id ? (
@@ -1192,7 +1194,7 @@ function StudentFlashcardsInner() {
           <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', marginBottom: 12, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>Select Resources</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 8 }}><PaperMark size={22} />Select Resources</div>
                 <div style={{ fontSize: 11, color: '#9E9BB0' }}>{totalSelected > 0 ? `${totalSelected} file${totalSelected !== 1 ? 's' : ''} selected` : 'Pick from your uploaded library'}</div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
@@ -1275,12 +1277,12 @@ function StudentFlashcardsInner() {
                                     {folder.resources.map(r => {
                                       const isSel = selectedIds.has(r.id);
                                       return (
-                                        <div key={r.id} onClick={() => toggleResource(r.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, border: `1.5px solid ${isSel ? color : '#E8E5F0'}`, background: isSel ? light : '#FFFFFF', cursor: 'pointer' }}>
-                                          <div style={{ width: 16, height: 16, borderRadius: 3, border: `2px solid ${isSel ? color : '#C4C1D4'}`, background: isSel ? color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <div key={r.id} onClick={() => toggleResource(r.id)} data-kind="class" style={paperPick(isSel)}>
+                                          <div style={{ width: 16, height: 16, borderRadius: 3, border: `2px solid ${isSel ? PAPER.ink : '#C4C1D4'}`, background: isSel ? PAPER.ink : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                             {isSel && <span style={{ color: 'white', fontSize: 9 }}>✓</span>}
                                           </div>
-                                          {r.file_type === 'image' ? <IconPhoto c={isSel ? color : '#9E9BB0'} size={12} /> : r.file_type === 'pptx' ? <IconPptx c={isSel ? color : '#9E9BB0'} size={12} /> : r.file_type === 'audio' ? <IconAudio c={isSel ? color : '#9E9BB0'} size={12} /> : r.file_type === 'youtube' ? <IconYoutube c={isSel ? color : '#9E9BB0'} size={12} /> : <IconFile c={isSel ? color : '#9E9BB0'} size={12} />}
-                                          <span style={{ fontSize: 11, fontWeight: isSel ? 700 : 400, color: isSel ? color : '#1D1B26', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginLeft: 2 }}>{r.file_name}</span>{r.is_old_exam && <span style={{ fontSize: 9, fontWeight: 700, color: 'white', background: color, padding: '1px 7px', borderRadius: 999, flexShrink: 0, marginLeft: 6 }}>Old exam</span>}
+                                          {r.file_type === 'image' ? <IconPhoto c={PAPER.ink} size={12} /> : r.file_type === 'pptx' ? <IconPptx c={PAPER.ink} size={12} /> : r.file_type === 'audio' ? <IconAudio c={PAPER.ink} size={12} /> : r.file_type === 'youtube' ? <IconYoutube c={PAPER.ink} size={12} /> : <IconFile c={PAPER.ink} size={12} />}
+                                          <span style={{ fontSize: 11, fontWeight: isSel ? 700 : 400, color: '#1D1B26', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginLeft: 2 }}>{r.file_name}</span>{r.is_old_exam && <span style={{ fontSize: 9, fontWeight: 700, color: 'white', background: PAPER.ink, padding: '1px 7px', borderRadius: 999, flexShrink: 0, marginLeft: 6 }}>Old exam</span>}
                                         </div>
                                       );
                                     })}

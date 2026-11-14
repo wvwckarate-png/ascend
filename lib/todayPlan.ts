@@ -15,6 +15,7 @@ export type PlanItem = {
   progress: number;            // 0..1 — how much of this item is finished today
   href: string | null;         // where tapping it goes
   taskId?: string;             // tasks are ticked off right on the home page
+  look: 'made' | 'class' | 'task';   // made = something Ascend built (theme colour); class = needs an upload (grey paper)
   rank: number;                // lower = earlier in the list
 };
 
@@ -64,7 +65,7 @@ export function buildTodayPlan(input: { studentId: string; todayStr: string; tas
     if (due > 0 && d.weak > 0) bits.push(`${d.weak} you keep missing`);
     if (exam && due > 0) bits.push(`exam ${inDays(exam.days)}`);
     items.push({
-      key: 'deck-' + d.id, kind: 'cards', title: `${untouched && due > 0 ? 'Start' : 'Review'}: ${d.title}`, detail: bits.join(' · '), tag: d.class_name,
+      key: 'deck-' + d.id, kind: 'cards', look: 'made', title: `${untouched && due > 0 ? 'Start' : 'Review'}: ${d.title}`, detail: bits.join(' · '), tag: d.class_name,
       urgent: !!exam && exam.days <= 3 && due > 0, progress, href: `/${studentId}/flashcards?deckId=${d.id}`,
       rank: 300 - proximity(exam?.days) * 10 - Math.min(d.weak, 9) - Math.min(due, 50) / 100,
     });
@@ -76,14 +77,14 @@ export function buildTodayPlan(input: { studentId: string; todayStr: string; tas
     const folderHref = `/${studentId}/classes/${e.classId}/${e.folderId}`;
     const q = `folderId=${e.folderId}&folderName=${encodeURIComponent(e.name)}`;
     if (e.resources === 0) {
-      items.push({ ...base, key: 'prep-' + e.folderId, kind: 'exam-prep', title: `Upload your materials for ${e.name}`, detail: `Exam ${inDays(e.days)} · nothing uploaded yet`, progress: 0, href: folderHref });
+      items.push({ ...base, key: 'prep-' + e.folderId, kind: 'exam-prep', look: 'class', title: `Upload your materials for ${e.name}`, detail: `Exam ${inDays(e.days)} · nothing uploaded yet`, progress: 0, href: folderHref });
     } else if (!e.hasDeck) {
-      items.push({ ...base, key: 'prep-' + e.folderId, kind: 'exam-prep', title: `Make flashcards for ${e.name}`, detail: `Exam ${inDays(e.days)} · no deck yet`, progress: 0, href: `/${studentId}/flashcards?${q}` });
+      items.push({ ...base, key: 'prep-' + e.folderId, kind: 'exam-prep', look: 'made', title: `Make flashcards for ${e.name}`, detail: `Exam ${inDays(e.days)} · no deck yet`, progress: 0, href: `/${studentId}/flashcards?${q}` });
     } else {
       const sinceLast = e.lastTakenDay ? daysBetween(e.lastTakenDay, todayStr) : null;
       // In the last week: a practice exam every other day. Earlier than that: just make sure one has been taken.
       const wanted = e.takenToday || e.madeToday || e.examsTaken === 0 || (e.days <= 7 && (sinceLast === null || sinceLast >= 2)) || e.days <= 1;
-      if (wanted) items.push({ ...base, key: 'prep-' + e.folderId, kind: 'exam-prep', title: `Take a practice exam: ${e.name}`, detail: e.takenToday ? 'Done today' : `Exam ${inDays(e.days)}${e.examsTaken === 0 ? ' · none taken yet' : ''}`, progress: e.takenToday ? 1 : 0, href: `/${studentId}/practice-exam?${q}` });
+      if (wanted) items.push({ ...base, key: 'prep-' + e.folderId, kind: 'exam-prep', look: 'made', title: `Take a practice exam: ${e.name}`, detail: e.takenToday ? 'Done today' : `Exam ${inDays(e.days)}${e.examsTaken === 0 ? ' · none taken yet' : ''}`, progress: e.takenToday ? 1 : 0, href: `/${studentId}/practice-exam?${q}` });
     }
   }
 
@@ -102,7 +103,7 @@ export function buildTodayPlan(input: { studentId: string; todayStr: string; tas
       : t.resource_type === 'practice_exam' ? `/${studentId}/practice-exam?examId=${t.resource_id}` : null;
     const graded = t.task_type === 'exam' || t.task_type === 'quiz' || t.task_type === 'assignment';
     items.push({
-      key: 'task-' + t.id, kind: 'task', title: t.title, detail: doneToday ? 'Done today' : late === 0 ? 'Due today' : `Overdue by ${plural(late, 'day')}`, tag: t.class_name,
+      key: 'task-' + t.id, kind: 'task', look: 'task', title: t.title, detail: doneToday ? 'Done today' : late === 0 ? 'Due today' : `Overdue by ${plural(late, 'day')}`, tag: t.class_name,
       urgent: !doneToday && graded, progress: doneToday ? 1 : 0, href, taskId: t.id,
       rank: (graded ? 0 : 400) - Math.min(late, 14),          // graded work with a deadline always comes first
     });

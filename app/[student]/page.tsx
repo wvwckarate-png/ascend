@@ -578,22 +578,22 @@ setLoading(false);
         </div>
         )}
 
-        {/* ── 4. STUDY TOOLS ── */}
+        {/* ── 4. STUDY TOOLS: three things Ascend makes (theme colour), and one way to bring class files in (grey paper) ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-          <div onClick={() => router.push(`/${studentId}/study`)} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', boxShadow: '0 1px 4px rgba(29,27,38,0.06)', transition: 'transform 0.15s' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}>
+          <div onClick={() => router.push(`/${studentId}/study`)} data-look="made" style={{ background: 'var(--accent-light)', border: '1.5px solid color-mix(in srgb, var(--accent) 30%, white)', borderRadius: 18, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', boxShadow: 'none', transition: 'transform 0.15s' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><IconBrain c={color} /></div>
             <div style={{ fontSize: 10, fontWeight: 700, color: '#1D1B26', lineHeight: 1.3 }}>Study Guide</div>
           </div>
-          <div onClick={() => router.push(`/${studentId}/flashcards`)} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', boxShadow: '0 1px 4px rgba(29,27,38,0.06)', transition: 'transform 0.15s' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}>
+          <div onClick={() => router.push(`/${studentId}/flashcards`)} data-look="made" style={{ background: 'var(--accent-light)', border: '1.5px solid color-mix(in srgb, var(--accent) 30%, white)', borderRadius: 18, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', boxShadow: 'none', transition: 'transform 0.15s' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><IconCards c={color} /></div>
             <div style={{ fontSize: 10, fontWeight: 700, color: '#1D1B26', lineHeight: 1.3 }}>Flashcards</div>
           </div>
-          <div onClick={() => router.push(`/${studentId}/practice-exam`)} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', boxShadow: '0 1px 4px rgba(29,27,38,0.06)', transition: 'transform 0.15s' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}>
+          <div onClick={() => router.push(`/${studentId}/practice-exam`)} data-look="made" style={{ background: 'var(--accent-light)', border: '1.5px solid color-mix(in srgb, var(--accent) 30%, white)', borderRadius: 18, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', boxShadow: 'none', transition: 'transform 0.15s' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><IconExam c={color} /></div>
             <div style={{ fontSize: 10, fontWeight: 700, color: '#1D1B26', lineHeight: 1.3 }}>Practice Exam</div>
           </div>
-          <div onClick={() => setShowUpload(true)} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 14, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', boxShadow: '0 1px 4px rgba(29,27,38,0.06)', transition: 'transform 0.15s' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><IconUpload c={color} /></div>
+          <div onClick={() => setShowUpload(true)} data-look="class" style={{ background: '#FFFFFF', border: '1.5px solid #D8D5CC', borderRadius: '4px 16px 4px 4px', padding: '16px 8px', textAlign: 'center', cursor: 'pointer', boxShadow: 'none', transition: 'transform 0.15s' }} onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'} onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><IconUpload c="#5E5C57" /></div>
             <div style={{ fontSize: 10, fontWeight: 700, color: '#1D1B26', lineHeight: 1.3 }}>Upload Resources</div>
           </div>
         </div>

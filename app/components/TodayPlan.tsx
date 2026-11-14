@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { alpha } from '../../lib/theme';
+import { AscendMark, PaperMark } from './ResourceLooks';
 import { buildTodayPlan, dayStartISO, daysBetween, planProgress, streakFrom, type PlanDeck, type PlanExam, type PlanItem, type PlanTask } from '../../lib/todayPlan';
 
 type ExamIn = { id: string; name: string; exam_date: string; class_name: string; class_id: string };
@@ -171,9 +172,11 @@ export default function TodayPlan({ studentId, todayStr, tasks, exams, onToggleT
                     {isDone && <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                   </button>
                 ) : (
-                  <div style={{ width: 30, height: 30, borderRadius: 9, background: isDone ? '#E3F2EA' : item.urgent ? '#FDF2F2' : light, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {isDone ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="#5FAD8E" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg> : <KindIcon kind={item.kind} c={tint} />}
-                  </div>
+                  isDone ? (
+                    <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#E3F2EA', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="#5FAD8E" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </div>
+                  ) : item.look === 'class' ? <span data-look="class"><PaperMark size={30} /></span> : <span data-look="made"><AscendMark size={30} /></span>
                 )}
                 <div onClick={open} role={item.href ? 'link' : undefined} style={{ flex: 1, minWidth: 0, cursor: item.href ? 'pointer' : 'default' }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: isDone ? '#9E9BB0' : '#1D1B26', textDecoration: isDone && item.kind === 'task' ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</div>
