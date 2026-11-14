@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import AuthCard, { authButton, authInput, authLabel } from '../components/AuthCard';
-import { authClient, homeFor, myAccount } from '../../lib/supabaseAuth';
+import { authClient, homeFor, markPasswordSet, myAccount } from '../../lib/supabaseAuth';
 
 // Where the invitation email (and the "reset password" email) lands: choose a password, then go in.
 export default function WelcomePage() {
@@ -32,9 +32,10 @@ export default function WelcomePage() {
     setBusy(true); setError('');
     const { error: err } = await authClient.auth.updateUser({ password });
     if (err) { setBusy(false); setError(/different|same/i.test(err.message) ? 'Choose a password you haven’t used here before.' : /weak|short|characters/i.test(err.message) ? 'That password is too easy to guess. Try a longer one.' : 'Couldn’t save that password. Try again.'); return; }
+    await markPasswordSet();
     const account = await myAccount();
     if (!account) { setBusy(false); setError('Password saved, but this email isn’t invited to Ascend. Ask the parent who runs it to invite you.'); return; }
-    window.location.replace(homeFor(account));
+    window.location.replace(homeFor({ ...account, needsPassword: false }));
   };
 
   if (state === 'checking') return <AuthCard title="One moment…" subtitle="Opening your invitation."><div /></AuthCard>;

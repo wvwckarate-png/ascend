@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import AuthCard, { authButton, authInput, authLabel } from '../components/AuthCard';
-import { authClient, homeFor, myAccount } from '../../lib/supabaseAuth';
+import { authClient, homeFor, markPasswordSet, myAccount } from '../../lib/supabaseAuth';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -20,6 +20,7 @@ export default function LoginPage() {
     setBusy(true); setError('');
     const { error: err } = await authClient.auth.signInWithPassword({ email: email.trim(), password });
     if (err) { setBusy(false); setError(/confirm/i.test(err.message) ? 'Open the invitation email first and set your password.' : 'That email and password don’t match. Try again, or reset your password.'); return; }
+    await markPasswordSet();   // they just proved they have one
     const account = await myAccount();
     if (!account) { await authClient.auth.signOut(); setBusy(false); setError('This email isn’t invited to Ascend. Ask the parent who runs it to invite you.'); return; }
     window.location.replace(homeFor(account));

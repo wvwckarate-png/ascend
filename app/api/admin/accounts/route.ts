@@ -11,14 +11,15 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 async function list() {
   const [{ data: rows, error }, users] = await Promise.all([
-    supabaseAdmin.from('accounts').select('email, user_id, role, student_id, invited_at, last_invite_at').order('invited_at', { ascending: true }),
+    supabaseAdmin.from('accounts').select('email, user_id, role, student_id, invited_at, last_invite_at, password_set_at').order('invited_at', { ascending: true }),
     supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 }),
   ]);
   if (error) return null;
   const byEmail = new Map((users.data?.users || []).map(u => [(u.email || '').toLowerCase(), u]));
   return (rows || []).map(r => ({
     email: r.email, role: r.role, studentId: r.student_id, invitedAt: r.invited_at, lastInviteAt: r.last_invite_at,
-    signedIn: !!byEmail.get(r.email)?.last_sign_in_at,       // has finished setting a password and signed in at least once
+    signedIn: !!r.password_set_at,                           // has chosen their own password
+    opened: !!byEmail.get(r.email)?.last_sign_in_at,          // has at least opened the invitation link
   }));
 }
 

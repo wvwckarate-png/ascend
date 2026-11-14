@@ -7,7 +7,7 @@ export const authClient = createClient('https://rbvklkigxwithxsdvjpq.supabase.co
   auth: { storageKey: 'ascend-auth', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
 });
 
-export type Account = { email: string; role: 'parent' | 'student'; studentId: string | null };
+export type Account = { email: string; role: 'parent' | 'student'; studentId: string | null; needsPassword?: boolean };
 
 /** The signed-in person's Ascend account (null if nobody is signed in, or they were never invited). */
 export async function myAccount(): Promise<Account | null> {
@@ -28,5 +28,10 @@ export async function authHeader(): Promise<Record<string, string>> {
   return data.session?.access_token ? { Authorization: `Bearer ${data.session.access_token}` } : {};
 }
 
-/** Where someone lands after signing in. */
-export const homeFor = (a: Account) => (a.role === 'parent' ? '/parent' : `/${a.studentId}`);
+/** Where someone lands after signing in. Anyone who came in through an invitation but never chose a password goes to choose one first. */
+export const homeFor = (a: Account) => (a.needsPassword ? '/welcome' : a.role === 'parent' ? '/parent' : `/${a.studentId}`);
+
+/** Record that the signed-in person has now chosen their own password. */
+export async function markPasswordSet(): Promise<void> {
+  try { await fetch('/api/account', { method: 'POST', headers: await authHeader() }); } catch { /* they will simply be asked again next time */ }
+}

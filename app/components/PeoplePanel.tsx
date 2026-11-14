@@ -4,7 +4,7 @@ import { STUDENTS } from '../../lib/students';
 import { authHeader } from '../../lib/supabaseAuth';
 
 // Parent dashboard: invite people by email and see who has set up their sign-in.
-type Person = { email: string; role: 'parent' | 'student'; studentId: string | null; invitedAt: string; lastInviteAt: string | null; signedIn: boolean };
+type Person = { email: string; role: 'parent' | 'student'; studentId: string | null; invitedAt: string; lastInviteAt: string | null; signedIn: boolean; opened?: boolean };
 
 const input: React.CSSProperties = { width: '100%', padding: '11px 12px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 16, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' };
 const chip = (on: boolean): React.CSSProperties => ({ padding: '7px 13px', borderRadius: 999, border: `1.5px solid ${on ? '#7B6FA0' : '#E8E5F0'}`, background: on ? '#EEEBF6' : '#FFFFFF', color: on ? '#7B6FA0' : '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' });
@@ -56,7 +56,7 @@ export default function PeoplePanel({ password }: { password: string }) {
           {people.map(p => (
             <div key={p.email} data-person={p.email} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, background: '#FAFAF8', border: '1.5px solid #EFEDF4', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: 160 }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26' }}>{nameOf(p)} <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, marginLeft: 4, background: p.signedIn ? '#EDF7F2' : '#FFF3E8', color: p.signedIn ? '#5FAD8E' : '#C8965A' }}>{p.signedIn ? 'Signed in' : 'Invited'}</span></div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26' }}>{nameOf(p)} <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, marginLeft: 4, background: p.signedIn ? '#EDF7F2' : '#FFF3E8', color: p.signedIn ? '#5FAD8E' : '#C8965A' }}>{p.signedIn ? 'Signed in' : p.opened ? 'Needs a password' : 'Invited'}</span></div>
                 <div style={{ fontSize: 11, color: '#9E9BB0', overflowWrap: 'anywhere' }}>{p.email}</div>
               </div>
               {confirmRemove === p.email ? (

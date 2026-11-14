@@ -40,7 +40,7 @@ export default function ParentDashboard() {
   const [statsLoading, setStatsLoading] = useState(true);
 
   // A parent who is signed in with their email goes straight in; the password box is the older way and still works.
-  useEffect(() => { myAccount().then(a => { if (a?.role === 'parent') setUnlocked(true); }); }, []);
+  useEffect(() => { myAccount().then(a => { if (a?.needsPassword) { window.location.replace('/welcome'); return; } if (a?.role === 'parent') setUnlocked(true); }); }, []);
 
   const handleUnlock = async () => {
     setChecking(true);
