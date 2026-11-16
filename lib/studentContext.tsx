@@ -1,8 +1,9 @@
 'use client';
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { StudentInfo } from './students';
 import { THEMES, themeVars, isThemeName, type ThemeName } from './theme';
 import { supabase } from './supabase';
+import { accountState, homeFor, installApiAuth } from './supabaseAuth';
 
 type Ctx = { student: StudentInfo; theme: ThemeName; setTheme: (t: ThemeName) => Promise<boolean> };
 const StudentContext = createContext<Ctx | null>(null);
@@ -22,10 +23,35 @@ export function StudentShell({ student, initialTheme, children }: { student: Stu
     return !error;
   }, [student.id]);
 
+  // The door: these pages open only for this student, or for a parent. Anyone else is sent to sign in (or to their own pages).
+  const [door, setDoor] = useState<'checking' | 'open' | 'unreachable'>('checking');
+  const knock = useCallback(async () => {
+    installApiAuth();
+    const who = await accountState();
+    if (who.status === 'unreachable') { setDoor('unreachable'); return; }
+    if (who.status === 'signed-out') { window.location.replace('/login'); return; }
+    if (who.account.needsPassword) { window.location.replace('/welcome'); return; }
+    if (who.account.role !== 'parent' && who.account.studentId !== student.id) { window.location.replace(homeFor(who.account)); return; }
+    setDoor('open');
+  }, [student.id]);
+  useEffect(() => { knock(); }, [knock]);
+
   const value = useMemo(() => ({ student, theme, setTheme }), [student, theme, setTheme]);
   return (
     <StudentContext.Provider value={value}>
-      <div style={themeVars(THEMES[theme])}>{children}</div>
+      <div style={themeVars(THEMES[theme])}>
+        {door === 'open' ? children : (
+          <div data-door={door} style={{ minHeight: '100vh', background: '#FAFAF8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24, textAlign: 'center' }}>
+            {door === 'unreachable' && (
+              <>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26' }}>Can&apos;t reach Ascend right now</div>
+                <div style={{ fontSize: 13, color: '#9E9BB0' }}>Check your connection, then try again.</div>
+                <button onClick={() => { setDoor('checking'); knock(); }} style={{ padding: '11px 24px', borderRadius: 999, border: 'none', background: 'var(--accent)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Try again</button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </StudentContext.Provider>
   );
 }

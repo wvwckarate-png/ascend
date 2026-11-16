@@ -3,7 +3,11 @@
 const puppeteer = require('puppeteer-core');
 const BASE = process.env.BASE || 'http://localhost:3112';
 const SB = 'rbvklkigxwithxsdvjpq.supabase.co';
-const REAL_API = ['/api/verify-pin', '/api/verify-parent-password', '/api/parent-pins', '/api/pin-status'];
+const REAL_API = [];
+const LOCAL = /^https?:\/\/(localhost|127\.0\.0\.1)/.test(BASE);
+// Pretend sign-in for local runs: a session that never expires, and /api/account answering for it (default: a parent,
+// who may open every student's pages). page.t.account = null means signed out; set it to a student to test the door.
+const FAKE_SESSION = { access_token: 'e2e-token', refresh_token: 'e2e-refresh', token_type: 'bearer', expires_in: 315360000, expires_at: Math.floor(Date.now() / 1000) + 315360000, user: { id: '00000000-0000-4000-8000-000000000e2e', aud: 'authenticated', role: 'authenticated', email: 'e2e@example.com', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' } };
 const STUDENTS = (process.env.ONLY || 'matthew,michael,brynne').split(',');
 
 let browser;
@@ -14,11 +18,13 @@ async function launch() {
 }
 async function close() { if (browser) await browser.close(); }
 
-async function newPage({ width = 430, height = 900, device } = {}) {
+async function newPage({ width = 430, height = 900, device, signedOut = false } = {}) {
   const page = await browser.newPage();
   page.setDefaultTimeout(15000); page.setDefaultNavigationTimeout(30000);
   if (device) await page.emulate(puppeteer.KnownDevices[device]); else await page.setViewport({ width, height });
-  const t = { writes: [], errors: [], bad: [], apiCalls: [], dialogs: [], mocks: {}, apiMocks: {}, failWrites: {} };
+  const t = { writes: [], errors: [], bad: [], apiCalls: [], dialogs: [], mocks: {}, apiMocks: {}, failWrites: {}, restAuth: [], account: signedOut ? null : { email: 'e2e@example.com', role: 'parent', studentId: null, needsPassword: false, secured: false } };
+  // Once per tab: start signed in (or, for signedOut, make sure an earlier tab's sign-in is gone). Later sign-outs inside the tab stick.
+  if (LOCAL) await page.evaluateOnNewDocument(sess => { try { if (!sessionStorage.getItem('e2e-seeded')) { sessionStorage.setItem('e2e-seeded', '1'); if (sess) localStorage.setItem('ascend-auth', sess); else localStorage.removeItem('ascend-auth'); } } catch {} }, signedOut ? '' : JSON.stringify(FAKE_SESSION));
   page.t = t;
   page.on('pageerror', e => t.errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) t.errors.push('console.error: ' + m.text().slice(0, 300)); });
@@ -43,8 +49,15 @@ async function newPage({ width = 430, height = 900, device } = {}) {
       const out = noBody ? null : (wantsObj ? (Array.isArray(payload) ? payload[0] : payload) : (Array.isArray(payload) ? payload : [payload]));
       return req.respond({ status: out === null ? 204 : (m === 'POST' ? 201 : 200), headers: CORS, body: out === null ? '' : JSON.stringify(out) });
     }
+    if (u.includes(SB) && u.includes('/rest/v1/')) t.restAuth.push(req.headers()['authorization'] || '');
+    if (LOCAL && u.startsWith(BASE + '/api/account') && m === 'GET') {
+      if (t.account === 'down') return req.respond({ status: 500, headers: CORS, body: '{}' });
+      return req.respond({ status: t.account ? 200 : 401, headers: CORS, body: JSON.stringify({ account: t.account }) });
+    }
     if (u.includes(SB) && u.includes('/rest/v1/') && m === 'GET') {
       const table = u.split('/rest/v1/')[1].split('?')[0];
+      // Local runs never read the real database: a table a test didn't describe is simply empty.
+      if (t.mocks[table] === undefined && LOCAL) t.mocks[table] = table === 'students' ? (q => { const id = (q.get('id') || '').replace('eq.', ''); return (id ? [id] : ['matthew', 'michael', 'brynne']).map(x => ({ id: x, name: x[0].toUpperCase() + x.slice(1), grade: '', focus: 'Exercise Physiology', track: 'Pre-Med', grad_year: { matthew: 2027, michael: 2030, brynne: 2033 }[x] || 2030, generation_profile: '' })); }) : [];
       if (t.mocks[table] !== undefined) {
         const rows = typeof t.mocks[table] === 'function' ? t.mocks[table](new URL(u).searchParams, u) : t.mocks[table];
         const wantsObj = (req.headers()['accept'] || '').includes('pgrst.object');

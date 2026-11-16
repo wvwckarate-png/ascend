@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { supabase } from './supabase';
+import { supabase, authClient } from './supabase';
 import { STUDENTS, gradeLabel } from './students';
 import { useMounted } from './useMounted';
 
@@ -12,9 +12,13 @@ export function useGradeLabels(): Record<string, string> {
 
   useEffect(() => {
     let off = false;
-    supabase.from('students').select('id, grad_year').then(({ data }) => {
-      if (off || !data) return;
-      setYears(Object.fromEntries(data.filter(r => r.grad_year).map(r => [r.id, Number(r.grad_year)])));
+    // Only a signed-in person asks the database; everyone else gets the roster's own years.
+    authClient.auth.getSession().then(({ data: auth }) => {
+      if (off || !auth.session) return;
+      supabase.from('students').select('id, grad_year').then(({ data }) => {
+        if (off || !data) return;
+        setYears(Object.fromEntries(data.filter(r => r.grad_year).map(r => [r.id, Number(r.grad_year)])));
+      });
     });
     return () => { off = true; };
   }, []);

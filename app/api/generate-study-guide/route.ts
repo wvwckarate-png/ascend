@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CLAUDE_MODEL } from '../../../lib/models';
 import { guardAI } from '../../../lib/apiGuard';
+import { requireSignedIn } from '../../../lib/authServer';
 import { claudeText, type ContentBlock } from '../../../lib/claude';
 import { buildMaterials } from '../../../lib/materials';
 import { DRAFT_EXAM_RULES, DRAFT_CARD_RULES } from '../../../lib/prompts';
@@ -12,6 +13,8 @@ const TONE = 'You are Ascend, an expert study assistant. Calibrate depth and voc
 export async function POST(req: NextRequest) {
   const blocked = guardAI(req, 'generate', 40);
   if (blocked) return blocked;
+  const signedOut = await requireSignedIn(req);
+  if (signedOut) return signedOut;
 
   try {
     const contentType = req.headers.get('content-type') || '';

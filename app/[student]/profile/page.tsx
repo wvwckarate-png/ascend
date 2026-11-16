@@ -7,6 +7,7 @@ import { supabase } from '../../../lib/supabase';
 import { gradeLabel } from '../../../lib/students';
 import { useMounted } from '../../../lib/useMounted';
 import { useStudent, useTheme } from '../../../lib/studentContext';
+import { myAccount, signOut } from '../../../lib/supabaseAuth';
 import { THEMES, THEME_NAMES } from '../../../lib/theme';
 import { ACCENT as color, ACCENT_LIGHT as light } from '../../../lib/theme';
 
@@ -34,7 +35,8 @@ export default function StudentProfile() {
   const me = useStudent();
   const { theme, setTheme } = useTheme();
   const [themeError, setThemeError] = useState(false);
-  const [hasPin, setHasPin] = useState<boolean | null>(null);
+  const [signedInAs, setSignedInAs] = useState('');
+  useEffect(() => { myAccount().then(acc => { if (acc) setSignedInAs(acc.role === 'parent' ? `${acc.email} (parent, viewing ${me.name})` : acc.email); }); }, [me.name]);
   const studentId = me.id;
   const studentName = me.name;
   const mounted = useMounted();
@@ -60,7 +62,6 @@ export default function StudentProfile() {
 
   useEffect(() => {
     const load = async () => {
-      fetch('/api/pin-status', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(d => setHasPin(d ? !!d[studentId] : false)).catch(() => setHasPin(false));
       const { data } = await supabase.from('students').select('name, focus, track, bio, target_school, target_program, grad_year, generation_profile').eq('id', studentId).single();
       if (data) {
         if (data.name)               setName(data.name);
@@ -334,11 +335,11 @@ export default function StudentProfile() {
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 12 }}>Settings</div>
         <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, borderBottom: '1px solid #E8E5F0', marginBottom: 14 }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 2 }}>PIN Protection</div>
-              <div style={{ fontSize: 11, color: '#9E9BB0' }}>Managed by Parent Dashboard</div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 2 }}>Signed in</div>
+              <div style={{ fontSize: 11, color: '#9E9BB0', overflowWrap: 'anywhere' }}>{signedInAs || 'This device stays signed in until you sign out.'}</div>
             </div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: hasPin ? '#5FAD8E' : '#C4C1D4', background: hasPin ? '#EDF7F2' : '#F3F1EC', padding: '4px 10px', borderRadius: 999 }}>{hasPin === null ? '…' : hasPin ? 'Active' : 'Off'}</div>
+            <button onClick={() => signOut()} style={{ fontSize: 11, fontWeight: 800, color: '#C47878', background: '#FDF2F2', border: 'none', padding: '7px 14px', borderRadius: 999, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>Sign out</button>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>

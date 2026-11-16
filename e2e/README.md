@@ -4,7 +4,7 @@ Headless-Chrome checks that drive the real pages. Every database write and paid 
 them can never change real data or cost money.
 
 ```bash
-npx next build && PARENT_PASSWORD=testpw123 npx next start -p 3112 &    # the app under test
+npx next build && npx next start -p 3112 &    # the app under test
 
 node e2e/smoke.js          # every page renders for every student
 node e2e/exam-cards.js     # practice exams + flashcards
@@ -19,15 +19,16 @@ npx -y tsx e2e/unit/plan.test.ts   # the plan / streak / grade-target rules on t
 REAL_API=1 node e2e/export.js   # study guide Print / PDF (uses the real PDF route)
 ```
 
-`auth.js` (PIN login + parent dashboard) needs a build pointed at the fake backend so real PINs are never touched:
+Sign-in is pretended in local runs (see `lib.js`): every page opens as a signed-in parent unless a test sets
+`page.t.account` (a student, `null` for signed out, or `'down'` for an unreachable server) or opens the page with
+`newPage({ signedOut: true })`. Local runs never read the real database — a table a test didn't describe is empty.
 
 ```bash
-node e2e/fake-supabase.js &
-NEXT_PUBLIC_SUPABASE_URL=http://localhost:4010 SUPABASE_SERVICE_ROLE_KEY=fake npx next build
-PARENT_PASSWORD=testpw123 NEXT_PUBLIC_SUPABASE_URL=http://localhost:4010 SUPABASE_SERVICE_ROLE_KEY=fake npx next start -p 3112 &
-node e2e/auth.js
-rm -rf .next && npx next build      # back to a normal build
+node e2e/auth.js           # the front door: who may open what, and that the server refuses callers who are not signed in
+BASE=https://… node e2e/smoke.js   # against the live site: every page sends a visitor to sign in
 ```
+
+`export.js` calls the real PDF route, which now needs a real sign-in; it is skipped until it is given one.
 
 Visual snapshots — proof that a refactor changed nothing a student can see:
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
 import { guardAI } from '../../../lib/apiGuard';
+import { requireSignedIn } from '../../../lib/authServer';
 import { buildPdfDocument, PDF_ALLOWED_HOSTS } from '../../../lib/pdfDocument';
 
 export const maxDuration = 120;
@@ -16,6 +17,8 @@ const LOCAL_CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chro
 export async function POST(req: NextRequest) {
   const blocked = guardAI(req, 'pdf', 12);
   if (blocked) return blocked;
+  const signedOut = await requireSignedIn(req);
+  if (signedOut) return signedOut;
 
   let body: { title?: unknown; html?: unknown };
   try { body = await req.json(); } catch { return NextResponse.json({ error: 'Bad request' }, { status: 400 }); }

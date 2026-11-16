@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mammoth from 'mammoth';
 import { guardAI } from '../../../lib/apiGuard';
+import { requireSignedIn } from '../../../lib/authServer';
 
 export async function POST(req: NextRequest) {
   const blocked = guardAI(req, 'extract', 30);
   if (blocked) return blocked;
+  const signedOut = await requireSignedIn(req);
+  if (signedOut) return signedOut;
 
   try {
     const formData = await req.formData();

@@ -9,7 +9,7 @@ type Person = { email: string; role: 'parent' | 'student'; studentId: string | n
 const input: React.CSSProperties = { width: '100%', padding: '11px 12px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 16, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box' };
 const chip = (on: boolean): React.CSSProperties => ({ padding: '7px 13px', borderRadius: 999, border: `1.5px solid ${on ? '#7B6FA0' : '#E8E5F0'}`, background: on ? '#EEEBF6' : '#FFFFFF', color: on ? '#7B6FA0' : '#6B6880', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' });
 
-export default function PeoplePanel({ password }: { password: string }) {
+export default function PeoplePanel() {
   const [people, setPeople] = useState<Person[] | null>(null);
   const [email, setEmail] = useState('');
   const [who, setWho] = useState<string>('');           // a student id, or 'parent'
@@ -21,13 +21,13 @@ export default function PeoplePanel({ password }: { password: string }) {
   const call = useCallback(async (body: Record<string, unknown>): Promise<boolean> => {
     setError(''); setNote('');
     try {
-      const res = await fetch('/api/admin/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeader()) }, body: JSON.stringify({ password, ...body }) });
+      const res = await fetch('/api/admin/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeader()) }, body: JSON.stringify(body) });
       const data = await res.json().catch(() => null);
       if (Array.isArray(data?.accounts)) setPeople(data.accounts);
       if (!res.ok) { setError(data?.error || 'Something went wrong. Please try again.'); return false; }
       return true;
     } catch { setError('Could not reach the server. Please try again.'); return false; }
-  }, [password]);
+  }, []);
 
   useEffect(() => { call({ action: 'list' }); }, [call]);
 

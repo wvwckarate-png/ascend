@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { guardAI } from '../../../lib/apiGuard';
+import { requireSignedIn } from '../../../lib/authServer';
 import { claudeText, type ContentBlock } from '../../../lib/claude';
 import { buildMaterials } from '../../../lib/materials';
 import { parseJSONArray, parseJSONObject } from '../../../lib/parseAI';
@@ -199,6 +200,8 @@ ${html}`;
 export async function POST(req: NextRequest) {
   const blocked = guardAI(req, 'check', 80);
   if (blocked) return blocked;
+  const signedOut = await requireSignedIn(req);
+  if (signedOut) return signedOut;
 
   try {
     const formData = await req.formData();

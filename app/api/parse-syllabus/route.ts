@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { CLAUDE_MODEL } from '../../../lib/models';
 import { guardAI } from '../../../lib/apiGuard';
+import { requireSignedIn } from '../../../lib/authServer';
 import { parseJSONObject } from '../../../lib/parseAI';
 import { localDateStr } from '../../../lib/dates';
 
@@ -27,6 +28,8 @@ const cleanItems = (v: unknown, fallbackType: string): Item[] =>
 export async function POST(req: NextRequest) {
   const blocked = guardAI(req, 'syllabus', 15);
   if (blocked) return blocked;
+  const signedOut = await requireSignedIn(req);
+  if (signedOut) return signedOut;
 
   try {
     const formData = await req.formData();

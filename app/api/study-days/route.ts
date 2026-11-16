@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, isStudentId } from '../../../lib/supabaseAdmin';
 import { requireSameOrigin, rateLimit, clientKey } from '../../../lib/apiGuard';
+import { requireSignedIn } from '../../../lib/authServer';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,8 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); } catch { return NextResponse.json({ error: 'Bad request' }, { status: 400 }); }
   const { student, since, day } = body;
   if (!isStudentId(student)) return NextResponse.json({ error: 'Unknown student' }, { status: 400 });
+  const signedOut = await requireSignedIn(req, student);
+  if (signedOut) return signedOut;
 
   if (day !== undefined) {
     const planned = count(body.planned), done = count(body.done);

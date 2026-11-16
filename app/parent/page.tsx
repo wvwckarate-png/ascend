@@ -3,7 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import PeoplePanel from '../components/PeoplePanel';
-import { authHeader, myAccount } from '../../lib/supabaseAuth';
+import { accountState, homeFor, installApiAuth, signOut } from '../../lib/supabaseAuth';
 import { supabase } from '../../lib/supabase';
 import { APP_VERSION_LABEL } from '../../lib/version';
 import { STUDENTS } from '../../lib/students';
@@ -25,71 +25,24 @@ type Stats = { guides: number; decks: number; exams: number; tasks: number; comp
 
 export default function ParentDashboard() {
   const labels = useGradeLabels();
-  const [unlocked, setUnlocked]   = useState(false);
-  const [password, setPassword]   = useState('');
-  const [pwError,  setPwError]    = useState('');
-  const [checking, setChecking]   = useState(false);
-
-  const [pins,    setPins]    = useState<Record<string, string>>({});
-  const [editing, setEditing] = useState<string | null>(null);
-  const [newPin,  setNewPin]  = useState('');
-  const [saving,  setSaving]  = useState(false);
-  const [saved,   setSaved]   = useState<string | null>(null);
-  const [error,   setError]   = useState('');
+  // Opens only for a signed-in parent. Anyone else is sent to sign in (a student goes to their own pages).
+  const [unlocked, setUnlocked] = useState(false);
+  const [unreachable, setUnreachable] = useState(false);
   const [stats,   setStats]   = useState<Record<string, Stats>>({});
   const [statsLoading, setStatsLoading] = useState(true);
-
-  // A parent who is signed in with their email goes straight in; the password box is the older way and still works.
-  useEffect(() => { myAccount().then(a => { if (a?.needsPassword) { window.location.replace('/welcome'); return; } if (a?.role === 'parent') setUnlocked(true); }); }, []);
-
-  const handleUnlock = async () => {
-    setChecking(true);
-    setPwError('');
-    try {
-      const res = await fetch('/api/verify-parent-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      });
-      if (res.ok) {
-        setUnlocked(true);
-      } else if (res.status === 500) {
-        setPwError('Parent password is not configured on the server.');
-      } else {
-        setPwError('Incorrect password. Try again.');
-      }
-    } catch {
-      setPwError('Could not reach the server. Try again.');
-    } finally {
-      setChecking(false);
-    }
-  };
-
-  // PINs live server-side only; the parent password is re-checked on every call.
-  const refreshPins = async (action: 'status' | 'set' | 'clear', studentId?: string, pin?: string): Promise<boolean> => {
-    try {
-      const res = await fetch('/api/parent-pins', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-        body: JSON.stringify({ password, action, student: studentId, pin }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) { setError(data?.error || 'Could not update PIN. Please try again.'); return false; }
-      const map: Record<string, string> = {};
-      Object.entries(data.pins as Record<string, boolean>).forEach(([id, has]) => { map[id] = has ? 'set' : ''; });
-      setPins(map);
-      return true;
-    } catch {
-      setError('Could not reach the server. Please try again.');
-      return false;
-    }
-  };
+  useEffect(() => {
+    installApiAuth();
+    accountState().then(state => {
+      if (state.status === 'unreachable') { setUnreachable(true); return; }
+      if (state.status === 'signed-out') { window.location.replace('/login'); return; }
+      if (state.account.needsPassword || state.account.role !== 'parent') { window.location.replace(homeFor(state.account)); return; }
+      setUnlocked(true);
+    });
+  }, []);
 
   useEffect(() => {
     if (!unlocked) return;
     const fetchData = async () => {
-      await refreshPins('status');
-
       const statMap: Record<string, Stats> = {};
       for (const s of students) {
         const [{ count: guides }, { count: decks }, { count: exams }, { data: taskData }] = await Promise.all([
@@ -113,64 +66,10 @@ export default function ParentDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unlocked]);
 
-  const handleSavePin = async (studentId: string) => {
-    if (!/^\d{4}$/.test(newPin)) {
-      setError('PIN must be exactly 4 digits.');
-      return;
-    }
-    setSaving(true); setError('');
-    if (await refreshPins('set', studentId, newPin)) {
-      setSaved(studentId); setEditing(null); setNewPin('');
-      setTimeout(() => setSaved(null), 2000);
-    }
-    setSaving(false);
-  };
-
-  const handleRemovePin = async (studentId: string) => {
-    setSaving(true); setError('');
-    await refreshPins('clear', studentId);
-    setSaving(false);
-  };
-
   if (!unlocked) {
     return (
-      <div style={{ minHeight: '100vh', background: '#FAFAF8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px' }}>
-        <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Mountain />
-          <span style={{ fontSize: 22, fontWeight: 800, color: '#1D1B26', letterSpacing: '-0.5px' }}>Ascend</span>
-        </div>
-        <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 22, padding: '32px 28px', width: '100%', maxWidth: 380, boxShadow: '0 4px 24px rgba(29,27,38,0.08)', textAlign: 'center' }}>
-          <div style={{ width: 56, height: 56, borderRadius: 16, background: '#EDE9F7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="11" width="18" height="11" rx="2" stroke="#7B6FA0" strokeWidth="1.8" fill="none"/>
-              <path d="M7 11V7a5 5 0 0110 0v4" stroke="#7B6FA0" strokeWidth="1.8" strokeLinecap="round"/>
-              <circle cx="12" cy="16" r="1.5" fill="#7B6FA0"/>
-            </svg>
-          </div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>Parent Dashboard</div>
-          <div style={{ fontSize: 13, color: '#9E9BB0', marginBottom: 24 }}>Enter your password to continue</div>
-          <input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleUnlock(); }}
-            placeholder="Password"
-            autoFocus
-            style={{ width: '100%', padding: '12px 14px', border: '1.5px solid #E8E5F0', borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 15, color: '#1D1B26', background: '#FAFAF8', outline: 'none', boxSizing: 'border-box', marginBottom: 12, textAlign: 'center', letterSpacing: 4 }}
-          />
-          {pwError && <div style={{ fontSize: 12, color: '#C47878', fontWeight: 600, marginBottom: 12 }}>{pwError}</div>}
-          <button
-            onClick={handleUnlock}
-            disabled={!password.trim() || checking}
-            style={{ width: '100%', padding: '13px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #7B6FA0, #5A5078)', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: !password.trim() ? 0.4 : 1 }}
-          >
-            {checking ? 'Checking...' : 'Unlock'}
-          </button>
-          <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center', gap: 18 }}>
-            <Link href="/login" style={{ fontSize: 12, fontWeight: 700, color: '#7B6FA0', textDecoration: 'none' }}>Sign in with email</Link>
-            <Link href="/" style={{ fontSize: 12, fontWeight: 700, color: '#9E9BB0', textDecoration: 'none' }}>← Back to Ascend</Link>
-          </div>
-        </div>
+      <div style={{ minHeight: '100vh', background: '#FAFAF8', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
+        {unreachable && <div><div style={{ fontSize: 16, fontWeight: 800, color: '#1D1B26', marginBottom: 6 }}>Can&apos;t reach Ascend right now</div><div style={{ fontSize: 13, color: '#9E9BB0' }}>Check your connection and reload the page.</div></div>}
       </div>
     );
   }
@@ -187,6 +86,7 @@ export default function ParentDashboard() {
         <Link href="/" style={{ textDecoration: 'none' }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: '#9E9BB0', padding: '6px 14px', borderRadius: 999, border: '1.5px solid #E8E5F0', background: '#FFFFFF' }}>← Back</span>
         </Link>
+        <button onClick={() => signOut()} style={{ fontSize: 12, fontWeight: 700, color: '#9E9BB0', padding: '6px 14px', borderRadius: 999, border: '1.5px solid #E8E5F0', background: '#FFFFFF', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Sign out</button>
       </nav>
 
       <div style={{ background: 'linear-gradient(135deg, #1D1B26, #3A3545)', padding: '28px 20px 24px' }}>
@@ -253,45 +153,7 @@ export default function ParentDashboard() {
         </div>
 
         {/* People & sign-ins */}
-        <PeoplePanel password={password} />
-
-        {/* PIN Management */}
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 14 }}>PIN Management</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
-          {students.map((s) => (
-            <div key={s.id} style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '16px 20px', boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: editing === s.id ? 16 : 0 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: '#1D1B26', marginBottom: 2 }}>{s.name}</div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: pins[s.id] ? '#5FAD8E' : '#C4C1D4' }}>
-                    {pins[s.id] ? '🔒 PIN active' : '🔓 No PIN set'}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={() => { setEditing(editing === s.id ? null : s.id); setNewPin(''); setError(''); }} style={{ padding: '6px 14px', borderRadius: 999, border: '1.5px solid #E8E5F0', background: editing === s.id ? s.light : '#FAFAF8', color: editing === s.id ? s.color : '#6B6880', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
-                    {pins[s.id] ? 'Change' : 'Set PIN'}
-                  </button>
-                  {pins[s.id] && (
-                    <button onClick={() => handleRemovePin(s.id)} style={{ padding: '6px 14px', borderRadius: 999, border: '1.5px solid #E8E5F0', background: '#FAFAF8', color: '#C47878', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>Remove</button>
-                  )}
-                </div>
-              </div>
-              {editing === s.id && (
-                <div style={{ borderTop: '1px solid #E8E5F0', paddingTop: 14 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#9E9BB0', marginBottom: 10 }}>Enter a 4-digit PIN for {s.name}</div>
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                    <input type="text" inputMode="numeric" autoComplete="off" maxLength={4} value={newPin} onChange={e => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="••••" style={{ width: 100, padding: '10px 14px', border: `1.5px solid ${s.color}`, borderRadius: 10, fontFamily: 'var(--font-jakarta)', fontSize: 18, color: '#1D1B26', background: '#FAFAF8', outline: 'none', letterSpacing: 6, textAlign: 'center' }} />
-                    <button onClick={() => handleSavePin(s.id)} disabled={saving || newPin.length !== 4} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: s.color, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', opacity: newPin.length !== 4 || saving ? 0.4 : 1 }}>
-                      {saving ? 'Saving...' : 'Save PIN'}
-                    </button>
-                    {saved === s.id && <span style={{ fontSize: 13, color: '#5FAD8E', fontWeight: 700 }}>✅ Saved!</span>}
-                  </div>
-                  {error && <p style={{ fontSize: 12, color: '#C47878', marginTop: 8 }}>{error}</p>}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+        <PeoplePanel />
 
         {/* App Info */}
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 14 }}>App Info</div>

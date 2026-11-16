@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin, isStudentId } from '../../../../lib/supabaseAdmin';
-import { clientKey, rateLimit, requireSameOrigin, resetLimit } from '../../../../lib/apiGuard';
+import { clientKey, rateLimit, requireSameOrigin } from '../../../../lib/apiGuard';
 import { isParent } from '../../../../lib/authServer';
 
 export const dynamic = 'force-dynamic';
 
-// Parent-only: who is invited to Ascend. body: { password?, action: 'list' | 'invite' | 'resend' | 'remove', email?, role?, student? }
-// A parent proves who they are with their sign-in (Authorization header) or the parent dashboard password.
+// Parent-only: who is invited to Ascend. body: { action: 'list' | 'invite' | 'resend' | 'remove', email?, role?, student? }
+// The caller must be a signed-in parent (Authorization header).
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 async function list() {
@@ -29,11 +29,7 @@ export async function POST(req: NextRequest) {
 
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return NextResponse.json({ error: 'Bad request' }, { status: 400 }); }
-  // Password guesses share the parent-password limit: 8 wrong tries per 10 minutes per device.
-  const guessKey = `parent:${clientKey(req)}`;
-  if (typeof body.password === 'string' && body.password) { const tooMany = rateLimit(guessKey, 8, 10 * 60 * 1000); if (tooMany) return tooMany; }
-  if (!(await isParent(req, body.password))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  resetLimit(guessKey);
+  if (!(await isParent(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const action = body.action;
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';

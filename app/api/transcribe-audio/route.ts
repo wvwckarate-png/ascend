@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { guardAI } from '../../../lib/apiGuard';
+import { requireSignedIn } from '../../../lib/authServer';
 import { fetchOwnStorageFile } from '../../../lib/storageFetch';
 
 export const maxDuration = 60;
@@ -11,6 +12,8 @@ const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
 export async function POST(req: NextRequest) {
   const blocked = guardAI(req, 'audio', 20);
   if (blocked) return blocked;
+  const signedOut = await requireSignedIn(req);
+  if (signedOut) return signedOut;
 
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: 'Audio transcription is not set up yet (missing OPENAI_API_KEY).' }, { status: 503 });

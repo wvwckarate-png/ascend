@@ -1,5 +1,4 @@
-import { NextRequest } from 'next/server';
-import { timingSafeEqual } from 'crypto';
+import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from './supabaseAdmin';
 
 // Server-side "who is calling?" for the sign-in system. Import from API routes only.
@@ -21,17 +20,15 @@ export async function getCaller(req: NextRequest): Promise<Caller | null> {
   return { userId: user.id, email, role: row.role, studentId: row.student_id, needsPassword: !row.password_set_at };
 }
 
-/** Does this text match the parent dashboard password? (The older way in; still accepted while logins roll out.) */
-export function isParentPassword(given: unknown): boolean {
-  const expected = process.env.PARENT_PASSWORD;
-  if (!expected || typeof given !== 'string') return false;
-  const a = Buffer.from(given), b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
+/** For server routes: refuses anyone who isn't a signed-in, invited person. With `student`, also refuses a student acting for someone else. */
+export async function requireSignedIn(req: NextRequest, student?: unknown): Promise<NextResponse | null> {
+  const caller = await getCaller(req);
+  if (!caller) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 });
+  if (student !== undefined && caller.role !== 'parent' && caller.studentId !== student) return NextResponse.json({ error: 'Not allowed' }, { status: 403 });
+  return null;
 }
 
-/** True when the request comes from a parent: a signed-in parent account, or the parent dashboard password. */
-export async function isParent(req: NextRequest, password: unknown): Promise<boolean> {
-  if (isParentPassword(password)) return true;
-  const caller = await getCaller(req);
-  return caller?.role === 'parent';
+/** True when the request comes from a signed-in parent. */
+export async function isParent(req: NextRequest): Promise<boolean> {
+  return (await getCaller(req))?.role === 'parent';
 }
