@@ -18,6 +18,7 @@ async function home(s, m = {}) {
   page.t.apiMocks['/api/study-days'] = { json: { days: m.days || [] } };
   page.t.mocks.resources = m.resources || [{ folder_id: 'f1' }, { folder_id: 'f1' }];
   page.t.mocks.practice_exams = m.exams || [{ folder_id: 'f1', status: 'completed', completed_at: '2026-11-09T15:00:00-05:00', created_at: '2026-11-09T14:00:00-05:00' }];
+  page.t.mocks.study_guides = m.guides || [];
   await h.go(page, `/${s}`, 1800);
   return page;
 }
@@ -72,9 +73,9 @@ h.run('today', async () => {
     t = await planText(page); it = await items(page);
     h.check(`${s}: long plan shows five with a "Show all" button`, it.length === 5 && /Show all 7/.test(t), `${it.length} ${t.slice(-80)}`);
     await h.clickText(page, 'Show all 7', { tag: 'button' }); await h.sleep(300); it = await items(page);
-    h.check(`${s}: exam tomorrow with no uploads asks for materials; next exam asks for flashcards`, it.length === 7 && it.some(i => /Upload your materials for Exam 1/.test(i.text) && /Exam tomorrow · nothing uploaded yet/.test(i.text)) && it.some(i => /Make flashcards for Exam 2/.test(i.text) && /Exam in 8 days/.test(i.text)), JSON.stringify(it.map(i => i.text)));
-    await page.click('[data-today-plan] button[aria-label="Open Make flashcards for Exam 2"]'); await h.sleep(1500);
-    h.check(`${s}: exam-prep step opens the right folder's generator`, /\/flashcards\?folderId=f2&folderName=Exam%202$/.test(page.url()), page.url());
+    h.check(`${s}: exam tomorrow with no uploads asks for materials; next exam asks for a first pass in time for the spacing`, it.length === 7 && it.some(i => /Upload your materials for Exam 1/.test(i.text) && /Exam tomorrow · nothing uploaded yet/.test(i.text)) && it.some(i => /First pass for Exam 2: study guide \+ flashcards/.test(i.text) && /Exam in 8 days · start within 1 day to fit all four spaced reviews/.test(i.text)), JSON.stringify(it.map(i => i.text)));
+    await page.click('[data-today-plan] button[aria-label="Open First pass for Exam 2: study guide + flashcards"]'); await h.sleep(1500);
+    h.check(`${s}: the first-pass step opens that exam's page, where the make buttons are`, page.url().endsWith(`/${s}/classes/c1/f2`), page.url());
     await page.close();
 
     // ── database trouble: the home page still works ──
@@ -85,6 +86,35 @@ h.run('today', async () => {
     t = await h.text(page);
     h.check(`${s}: plan still shows tasks if the card counter fails`, /HW 3/.test(await planText(page)) && /My Classes/i.test(t), (await planText(page)).slice(0, 120));
     await page.close();
+
+    // ── planning backwards around the spacing (first pass, then Day +1, +3, +7) ──
+    for (const [date, want] of [['2026-11-19', /last day to fit all four spaced reviews/], ['2026-11-16', /only 3 of 4 spaced reviews still fit/], ['2026-11-13', /only 2 of 4 spaced reviews still fit/]]) {
+      page = await home(s, { folders: [{ id: 'f1', class_id: 'c1', name: 'Exam 1', exam_date: date }], exams: [] });
+      const first = (await items(page)).find(i => /First pass for Exam 1/.test(i.text));
+      h.check(`${s}: exam on ${date} with nothing made yet -> "${want.source}"`, !!first && want.test(first.text), first && first.text);
+      await page.close();
+    }
+    page = await home(s, { folders: [{ id: 'f1', class_id: 'c1', name: 'Exam 1', exam_date: '2026-11-19' }], exams: [], guides: [{ folder_id: 'f1', created_at: '2026-11-11T15:00:00-05:00' }] });
+    h.check(`${s}: once a study guide exists the first-pass step is replaced by the next missing piece`, !(await items(page)).some(i => /First pass/.test(i.text)) && (await items(page)).some(i => /Make flashcards for Exam 1/.test(i.text)), JSON.stringify((await items(page)).map(i => i.text)));
+    await page.close();
+    // the exam page shows the same run-up
+    const runwayPage = async (o) => {
+      const p = await h.newPage({ width: 430, height: 1300 }); await h.fakeClock(p, NOW);
+      p.t.mocks.classes = [{ id: 'c1', student_id: s, name: 'BIO 115', semester: 'Fall', professor: 'Dr Smith' }];
+      p.t.mocks.exam_folders = [{ id: 'f1', class_id: 'c1', name: 'Exam 1', exam_date: o.exam }];
+      p.t.mocks.resources = [{ id: 'r1', file_name: 'Lecture 1', file_type: 'pdf', storage_url: h.BASE + '/favicon.ico', created_at: '2026-11-01T10:00:00Z', is_old_exam: false, folder_id: 'f1' }];
+      p.t.mocks.study_guides = o.first ? [{ id: 'g1', title: 'Guide', created_at: o.first + 'T15:00:00-05:00', folder_id: 'f1', source_filename: 'x', source_resource_ids: ['r1'] }] : [];
+      p.t.mocks.tasks = (o.reviews || []).map(([due, done]) => ({ due_date: due, completed: done, resource_id: 'g1' }));
+      await h.go(p, `/${s}/classes/c1/f1`, 1400);
+      const out = await p.evaluate(() => { const e = document.querySelector('[data-runway]'); return e ? { tone: e.dataset.runway, passes: [...e.querySelectorAll('[data-pass]')].map(x => `${x.innerText.replace(/\n/g, ' ')}=${x.dataset.pass}`).join(' | '), text: e.innerText.replace(/\n+/g, ' | ') } : null; });
+      await p.close(); return out;
+    };
+    let rw = await runwayPage({ exam: '2026-11-30' });
+    h.check(`${s}: exam page, nothing made: shows the four passes and the start-by date`, rw && rw.tone === 'calm' && /Start by Nov 23/.test(rw.text) && /First pass Nov 12=today \| Day \+1 Nov 13=upcoming \| Day \+3 Nov 15=upcoming \| Day \+7 Nov 19=upcoming/.test(rw.passes), JSON.stringify(rw));
+    rw = await runwayPage({ exam: '2026-11-30', first: '2026-11-09', reviews: [['2026-11-10', true], ['2026-11-12', false], ['2026-11-16', false]] });
+    h.check(`${s}: exam page, mid run-up: done, due today and upcoming passes are told apart`, rw && rw.tone === 'warn' && /Day \+3 review is due today/.test(rw.text) && /First pass Done=done \| Day \+1 Done=done \| Day \+3 Nov 12=today \| Day \+7 Nov 16=upcoming/.test(rw.passes), JSON.stringify(rw));
+    rw = await runwayPage({ exam: '2026-11-14', first: '2026-11-10', reviews: [] });
+    h.check(`${s}: exam page, started late: the missed pass is flagged and the one after the exam is struck out`, rw && rw.tone === 'late' && /Day \+1 review was missed \(Nov 11\)/.test(rw.text) && /Day \+1 Nov 11=missed \| Day \+3 Nov 13=upcoming \| Day \+7 after exam=wont-fit/.test(rw.passes), JSON.stringify(rw));
 
     // ── grade targeting on the class page ──
     page = await h.newPage({ width: 430, height: 1600 });

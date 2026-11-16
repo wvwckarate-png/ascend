@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import AuthCard, { authButton, authInput, authLabel } from '../components/AuthCard';
-import { authClient, homeFor, markPasswordSet, myAccount } from '../../lib/supabaseAuth';
+import { authClient, homeFor, markPasswordSet, myAccount, rememberPassword } from '../../lib/supabaseAuth';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -21,6 +21,7 @@ export default function LoginPage() {
     const { error: err } = await authClient.auth.signInWithPassword({ email: email.trim(), password });
     if (err) { setBusy(false); setError(/confirm/i.test(err.message) ? 'Open the invitation email first and set your password.' : 'That email and password don’t match. Try again, or reset your password.'); return; }
     await markPasswordSet();   // they just proved they have one
+    await rememberPassword(email.trim(), password);
     const account = await myAccount();
     if (!account) { await authClient.auth.signOut(); setBusy(false); setError('This email isn’t invited to Ascend. Ask the parent who runs it to invite you.'); return; }
     window.location.replace(homeFor(account));
@@ -43,13 +44,13 @@ export default function LoginPage() {
 
   return (
     <AuthCard title={mode === 'signin' ? 'Sign in' : 'Reset your password'} subtitle={mode === 'signin' ? 'Use the email you were invited with.' : 'Enter your email and we’ll send a link to set a new one.'}>
-      <form onSubmit={mode === 'signin' ? signIn : sendReset}>
+      <form method="post" action="/login" onSubmit={mode === 'signin' ? signIn : sendReset}>
         <label htmlFor="login-email" style={authLabel}>Email</label>
-        <input id="login-email" type="email" autoComplete="email" inputMode="email" autoCapitalize="none" value={email} onChange={e => setEmail(e.target.value)} style={authInput} required />
+        <input id="login-email" name="username" type="email" autoComplete="username" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={email} onChange={e => setEmail(e.target.value)} style={authInput} required />
         {mode === 'signin' && (
           <>
             <label htmlFor="login-password" style={authLabel}>Password</label>
-            <input id="login-password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} style={authInput} required />
+            <input id="login-password" name="password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} style={authInput} required />
           </>
         )}
         {error && <div role="alert" style={{ fontSize: 12, fontWeight: 600, color: '#C47878', margin: '2px 0 12px', lineHeight: 1.5 }}>{error}</div>}

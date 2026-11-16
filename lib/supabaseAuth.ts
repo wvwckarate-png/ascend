@@ -66,3 +66,14 @@ export async function signOut() {
   setSecured(false);
   window.location.replace('/login');
 }
+
+/**
+ * Ask the browser's password manager to remember this sign-in (Chrome, Edge, Android). Safari and Firefox save from the
+ * form itself, which is why the forms carry proper username / password fields. Never throws.
+ */
+export async function rememberPassword(email: string, password: string): Promise<void> {
+  try {
+    const W = window as unknown as { PasswordCredential?: new (d: { id: string; password: string; name?: string }) => Credential };
+    if (W.PasswordCredential && navigator.credentials?.store) await navigator.credentials.store(new W.PasswordCredential({ id: email, password, name: email }));
+  } catch { /* the browser declined; the form-based save still applies */ }
+}

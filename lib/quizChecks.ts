@@ -2,15 +2,18 @@
 // than an AI (shape, duplicates, giveaways, letter bias) plus safe application of edits. Pure functions, shared by the
 // server routes and the client pipeline, and covered by unit tests.
 
-export type MCQuestion    = { type: 'mc'; question: string; options: { A: string; B: string; C: string; D: string }; answer: string; explanation: string; source?: string; flag?: string };
-export type TFQuestion    = { type: 'tf'; question: string; answer: string; explanation: string; source?: string; flag?: string };
-export type SAQuestion    = { type: 'sa'; question: string; model_answer: string; source?: string; flag?: string };
-export type EssayQuestion = { type: 'essay'; question: string; key_points: string; source?: string; flag?: string };
+export type MCQuestion    = { type: 'mc'; question: string; options: { A: string; B: string; C: string; D: string }; answer: string; explanation: string; source?: string; flag?: string; topic?: string };
+export type TFQuestion    = { type: 'tf'; question: string; answer: string; explanation: string; source?: string; flag?: string; topic?: string };
+export type SAQuestion    = { type: 'sa'; question: string; model_answer: string; source?: string; flag?: string; topic?: string };
+export type EssayQuestion = { type: 'essay'; question: string; key_points: string; source?: string; flag?: string; topic?: string };
 export type ExamQuestion  = MCQuestion | TFQuestion | SAQuestion | EssayQuestion;
-export type Card          = { front: string; back: string; flag?: string; source?: string };
+export type Card          = { front: string; back: string; flag?: string; source?: string; topic?: string };
 
 const LETTERS = ['A', 'B', 'C', 'D'] as const;
 const str = (v: unknown, max = 4000): string => (typeof v === 'string' ? v : v == null ? '' : String(v)).replace(/\r/g, '').trim().slice(0, max);
+
+/** A topic label as the class names it: short, one line, tidy capitalisation left alone. */
+export const topicOf = (v: unknown): string => str(v, 80).replace(/\s+/g, ' ').replace(/[.:;,\s]+$/, '');
 
 // ── normalising whatever the model returned ────────────────────────────────────────────────────────────────────────
 export function normalizeQuestion(raw: unknown): ExamQuestion | null {
@@ -19,7 +22,7 @@ export function normalizeQuestion(raw: unknown): ExamQuestion | null {
   const type = str(r.type, 10).toLowerCase();
   const question = str(r.question);
   if (!question) return null;
-  const extras = { ...(str(r.source, 500) ? { source: str(r.source, 500) } : {}), ...(str(r.flag, 500) ? { flag: str(r.flag, 500) } : {}) };
+  const extras = { ...(str(r.source, 500) ? { source: str(r.source, 500) } : {}), ...(str(r.flag, 500) ? { flag: str(r.flag, 500) } : {}), ...(topicOf(r.topic) ? { topic: topicOf(r.topic) } : {}) };
 
   if (type === 'mc') {
     let opts: string[] = [];
@@ -46,7 +49,7 @@ export function normalizeCard(raw: unknown): Card | null {
   const r = raw as Record<string, unknown>;
   const front = str(r.front), back = str(r.back);
   if (!front || !back) return null;
-  return { front, back, ...(str(r.flag, 500) ? { flag: str(r.flag, 500) } : {}), ...(str(r.source, 500) ? { source: str(r.source, 500) } : {}) };
+  return { front, back, ...(str(r.flag, 500) ? { flag: str(r.flag, 500) } : {}), ...(str(r.source, 500) ? { source: str(r.source, 500) } : {}), ...(topicOf(r.topic) ? { topic: topicOf(r.topic) } : {}) };
 }
 
 // ── structural problems (codes) ────────────────────────────────────────────────────────────────────────────────────

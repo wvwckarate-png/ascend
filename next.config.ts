@@ -14,7 +14,7 @@ const PDF_FILES = [
 ];
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core'],
+  serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core', 'web-push'],
   outputFileTracingIncludes: {
     '/api/generate-study-guide': SHARP_FILES,
     '/api/extract-image-text': SHARP_FILES,
@@ -29,7 +29,7 @@ const nextConfig: NextConfig = {
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=()' }   // microphone: recording a lecture in the app,
         ],
       },
     ];

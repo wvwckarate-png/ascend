@@ -6,6 +6,10 @@ import TabBar from '../../../../components/TabBar';
 import { supabase } from '../../../../../lib/supabase';
 import { Shelf, FileCard, MadeCard, paperButton, madeButton, kindName, PAPER } from '../../../../components/ResourceLooks';
 import { noteRecent } from '../../../../../lib/recent';
+import Capture from '../../../../components/Capture';
+import { isInsights, type ExamInsights } from '../../../../../lib/examInsights';
+import { examRunway } from '../../../../../lib/examRunway';
+import { localDateStr } from '../../../../../lib/dates';
 import { uploadResourceFile } from '../../../../../lib/uploadResource';
 import { useStudent } from '../../../../../lib/studentContext';
 import OldExamToggle from '../../../../components/OldExamToggle';
@@ -169,9 +173,10 @@ function classLabel(name: string) {
 }
 
 type ClassRow  = { id: string; name: string; semester: string; professor: string; };
-type Folder    = { id: string; name: string; exam_date: string | null; };
+type Folder    = { id: string; name: string; exam_date: string | null; exam_insights?: unknown; };
 type Resource  = { id: string; file_name: string; file_type: string; storage_url: string | null; created_at: string; is_old_exam?: boolean; };
-type WeakSpot  = { text: string; source: 'flashcard' | 'exam'; };
+type WeakSpot  = { text: string; source: 'flashcard' | 'exam'; topic?: string | null; };
+type WeakTopic = { topic: string; cards: number; questions: number; };
 
 const TABS = [
   { key: 'resources', label: 'Resources' },
@@ -220,8 +225,13 @@ export default function StudentBinder() {
   const [guides,         setGuides]         = useState<{ id: string; title: string; created_at: string; source_filename: string | null; source_resource_ids: string[] | null }[]>([]);
   const [weakSpots,      setWeakSpots]      = useState<WeakSpot[]>([]);
   const [weakLoading,    setWeakLoading]    = useState(true);
+  const [weakTopics,     setWeakTopics]     = useState<WeakTopic[]>([]);
+  const [debriefing,     setDebriefing]     = useState(false);
+  const [debriefError,   setDebriefError]   = useState('');
   const [showUpload,     setShowUpload]     = useState(false);
+  const [reviews,        setReviews]        = useState<{ due_date: string; completed: boolean }[]>([]);
   const [dropping,       setDropping]       = useState(false);
+  const [capture,        setCapture]        = useState<'photo' | 'record' | null>(null);
   const [dropNote,       setDropNote]       = useState('');
   const [upType,         setUpType]         = useState('');
   const [upName,         setUpName]         = useState('');
@@ -249,7 +259,7 @@ export default function StudentBinder() {
     const load = async () => {
       const [{ data: classData }, { data: folderData }, { data: resourceData }, { data: deckData }, { data: examData }, { data: guideData }] = await Promise.all([
         supabase.from('classes').select('id, name, semester, professor').eq('id', classId).single(),
-        supabase.from('exam_folders').select('id, name, exam_date').eq('id', folderId).single(),
+        supabase.from('exam_folders').select('id, name, exam_date, exam_insights').eq('id', folderId).single(),
         supabase.from('resources').select('id, file_name, file_type, storage_url, created_at, is_old_exam').eq('folder_id', folderId).order('created_at', { ascending: false }),
         supabase.from('flashcard_decks').select('id, title, card_count, created_at, source_resource_ids').eq('folder_id', folderId).eq('student_id', studentId).order('created_at', { ascending: false }),
         supabase.from('practice_exams').select('id, title, status, score, created_at, completed_at, source_resource_ids').eq('folder_id', folderId).eq('student_id', studentId).order('created_at', { ascending: false }),
@@ -261,6 +271,12 @@ export default function StudentBinder() {
       if (Array.isArray(deckData))  setDecks(deckData);
       if (Array.isArray(examData))  setExams(examData);
       if (Array.isArray(guideData)) setGuides(guideData);
+      // Spaced reviews (Day +1 / +3 / +7) scheduled for anything made in this folder.
+      const madeIds = [...(Array.isArray(deckData) ? deckData : []), ...(Array.isArray(examData) ? examData : []), ...(Array.isArray(guideData) ? guideData : [])].map(m => m.id);
+      if (madeIds.length) {
+        const { data: reviewData } = await supabase.from('tasks').select('due_date, completed, resource_id').eq('student_id', studentId).eq('task_type', 'review').in('resource_id', madeIds);
+        if (Array.isArray(reviewData)) setReviews(reviewData);
+      }
       setLoading(false);
 
       // Weak spots
@@ -272,13 +288,22 @@ export default function StudentBinder() {
         if (items) {
           const weakCardIds = items.filter(it => it.times_missed / it.times_seen >= 0.4).map(it => it.card_id);
           if (weakCardIds.length > 0) {
-            const { data: cards } = await supabase.from('flashcard_cards').select('id, front').in('id', weakCardIds);
-            if (cards) cards.forEach(c => weak.push({ text: c.front, source: 'flashcard' }));
+            const { data: cards } = await supabase.from('flashcard_cards').select('id, front, topic').in('id', weakCardIds);
+            if (cards) cards.forEach(c => weak.push({ text: c.front, source: 'flashcard', topic: c.topic }));
           }
         }
       }
-      const { data: examWeak } = await supabase.from('practice_exam_items').select('question_text, question_type').eq('folder_id', folderId).eq('student_id', studentId).eq('is_correct', false).in('question_type', ['mc', 'tf']);
-      if (examWeak) examWeak.forEach(q => weak.push({ text: q.question_text, source: 'exam' }));
+      const { data: examWeak } = await supabase.from('practice_exam_items').select('question_text, question_type, topic').eq('folder_id', folderId).eq('student_id', studentId).eq('is_correct', false).in('question_type', ['mc', 'tf']);
+      if (examWeak) examWeak.forEach(q => weak.push({ text: q.question_text, source: 'exam', topic: q.topic }));
+      // Group the misses by topic (only items new enough to carry one), most-missed first.
+      const byTopic = new Map<string, WeakTopic>();
+      for (const w of weak) {
+        const name = (w.topic || '').trim(); if (!name) continue;
+        const t = byTopic.get(name.toLowerCase()) || { topic: name, cards: 0, questions: 0 };
+        if (w.source === 'flashcard') t.cards++; else t.questions++;
+        byTopic.set(name.toLowerCase(), t);
+      }
+      setWeakTopics([...byTopic.values()].sort((a, b) => (b.cards + b.questions) - (a.cards + a.questions)).slice(0, 5));
       setWeakSpots(weak.slice(0, 6));
       setWeakLoading(false);
     };
@@ -473,6 +498,46 @@ export default function StudentBinder() {
   const readySteps = [{ label: 'Materials', done: hasResources }, { label: 'Study guide', done: guides.length > 0 }, { label: 'Flashcards', done: decks.length > 0 }, { label: 'Practice exam', done: exams.length > 0 }];
   const nextStep = readySteps.find(x => !x.done)?.label;
 
+  // After the exam: the graded exam itself (marked as an old exam, added on or after exam day) can teach Ascend how
+  // this professor really tests. What it learns is kept on this folder and used for the class's next exam.
+  const examDay = folder?.exam_date || null;
+  const examPassed = !!examDay && examDay < localDateStr(new Date());
+  const gradedExams = examPassed ? resources.filter(r => r.is_old_exam && localDateStr(new Date(r.created_at)) >= examDay!) : [];
+  const insights = isInsights(folder?.exam_insights) ? folder!.exam_insights as ExamInsights : null;
+  const learnFromExam = async () => {
+    if (!folder || !cls || gradedExams.length === 0 || debriefing) return;
+    setDebriefing(true); setDebriefError('');
+    try {
+      const ids = gradedExams.map(r => r.id);
+      const [{ data: files }, { data: taken }] = await Promise.all([
+        supabase.from('resources').select('id, file_name, file_type, storage_url, transcript').in('id', ids),
+        supabase.from('practice_exams').select('questions').eq('folder_id', folderId).eq('student_id', studentId),
+      ]);
+      const rows = Array.isArray(files) ? files : [];
+      const fd = new FormData();
+      fd.append('resources', JSON.stringify(rows.filter(r => !r.transcript && r.storage_url).map(r => ({ name: r.file_name, url: r.storage_url, oldExam: true }))));
+      fd.append('transcripts', JSON.stringify(rows.filter(r => r.transcript).map(r => ({ name: r.file_name, text: r.transcript, kind: r.file_type, oldExam: true }))));
+      fd.append('context', JSON.stringify({ className: cls.name, professor: cls.professor, folderName: folder.name }));
+      fd.append('practice', JSON.stringify((Array.isArray(taken) ? taken : []).flatMap(e => Array.isArray(e.questions) ? e.questions : []).slice(0, 120).map((q: { type?: string; topic?: string; question?: string }) => ({ type: q.type, topic: q.topic, question: q.question }))));
+      fd.append('materialNames', JSON.stringify(resources.filter(r => !ids.includes(r.id)).map(r => r.file_name)));
+      fd.append('sourceName', gradedExams.map(r => r.file_name).join(', '));
+      const res = await fetch('/api/exam-debrief', { method: 'POST', body: fd });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !isInsights(data?.insights)) throw new Error(data?.error || 'Ascend couldn\u2019t read the exam. Please try again.');
+      const { error } = await supabase.from('exam_folders').update({ exam_insights: data.insights }).eq('id', folderId);
+      if (error) throw new Error('Read the exam, but couldn\u2019t save what it showed. Please try again.');
+      setFolder(prev => prev ? { ...prev, exam_insights: data.insights } : prev);
+    } catch (e) { setDebriefError(e instanceof Error ? e.message : 'Something went wrong. Please try again.'); }
+    finally { setDebriefing(false); }
+  };
+  // What "make something targeted" focuses on: weak topics by name first, then the individual misses.
+  const weakFocus = [...weakTopics.map(t => `Topic: ${t.topic}`), ...weakSpots.map(w => w.text)].slice(0, 8);
+  // The run-up, planned backwards around the spacing: first pass, then Day +1, +3, +7.
+  const localDay = (iso: string) => localDateStr(new Date(iso));
+  const firstPassDay = [...guides, ...decks].map(m => localDay(m.created_at)).sort()[0] || null;
+  const dayPlus = (n: number) => { const d = new Date(firstPassDay + 'T00:00:00'); d.setDate(d.getDate() + n); return localDateStr(d); };
+  const runway = folder?.exam_date ? examRunway({ todayStr: localDateStr(new Date()), examDate: folder.exam_date, firstPassDay, reviewsDone: firstPassDay ? [1, 3, 7].filter(o => reviews.some(r => r.completed && r.due_date === dayPlus(o))) : [] }) : null;
+
   // Dropping files from a computer onto the grey shelf uploads them all into this exam.
   const dropFiles = async (list: FileList | null) => {
     const files = [...(list || [])];
@@ -578,16 +643,43 @@ export default function StudentBinder() {
                   })}
                 </div>
               </div>
+              {runway && runway.daysToExam >= 0 && hasResources && (
+                <div data-runway={runway.tone} style={{ border: '1.5px solid #E8E5F0', borderRadius: 16, padding: '12px 14px', marginBottom: 20 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.2, textTransform: 'uppercase', color: '#9E9BB0', marginBottom: 8 }}>Spaced review</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 10 }}>
+                    {runway.passes.map(p => {
+                      const c = p.status === 'done' ? '#5FAD8E' : p.status === 'today' ? 'var(--accent)' : p.status === 'missed' ? '#C47878' : p.status === 'wont-fit' ? '#C4C1D4' : '#9E9BB0';
+                      return (
+                        <div key={p.offset} data-pass={p.status} style={{ borderRadius: 10, padding: '7px 6px', textAlign: 'center', background: p.status === 'done' ? '#EDF7F2' : p.status === 'today' ? 'var(--accent-light)' : p.status === 'missed' ? '#FDF2F2' : '#FAFAF8', border: `1.5px ${p.status === 'wont-fit' ? 'dashed' : 'solid'} ${p.status === 'today' ? 'var(--accent)' : 'transparent'}` }}>
+                          <div style={{ fontSize: 10, fontWeight: 800, color: c }}>{p.label}</div>
+                          <div style={{ fontSize: 10, fontWeight: 600, color: c, textDecoration: p.status === 'wont-fit' ? 'line-through' : 'none' }}>{p.status === 'done' ? 'Done' : p.status === 'wont-fit' ? 'after exam' : p.day ? new Date(p.day + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.5, color: runway.tone === 'late' ? '#C47878' : runway.tone === 'warn' ? '#C8965A' : runway.tone === 'good' ? '#3F8A6C' : '#6B6880' }}>{runway.headline}</div>
+                </div>
+              )}
             </div>
 
             {/* Weak Spots */}
-            {!weakLoading && weakSpots.length >= 3 && (
+            {!weakLoading && (weakSpots.length >= 3 || weakTopics.length > 0) && (
               <div style={{ margin: '0 24px 0', borderTop: '1.5px solid #E8E5F0', paddingTop: 20, paddingBottom: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#C47878', flexShrink: 0 }} />
                   <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' as const, color: '#C47878' }}>Weak Spots</div>
                   <div style={{ fontSize: 10, fontWeight: 600, color: '#9E9BB0' }}>{weakSpots.length} item{weakSpots.length !== 1 ? 's' : ''} flagged</div>
                 </div>
+                {weakTopics.length > 0 && (
+                  <div data-weak-topics style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                    {weakTopics.map(t => (
+                      <div key={t.topic} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '9px 12px', background: '#FDF2F2', borderRadius: 10, border: '1.5px solid #C4787820' }}>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.topic}</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#C47878', flexShrink: 0 }}>{[t.cards ? `${t.cards} card${t.cards === 1 ? '' : 's'}` : '', t.questions ? `${t.questions} exam question${t.questions === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ')}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
                   {weakSpots.map((w, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 12px', background: '#FDF2F2', borderRadius: 10, border: '1.5px solid #C4787820' }}>
@@ -605,16 +697,48 @@ export default function StudentBinder() {
                   </button>
                 )}
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={() => router.push(`/${studentId}/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}&weakSpots=${encodeURIComponent(JSON.stringify(weakSpots.map(w => w.text)))}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: 'var(--accent)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                  <button onClick={() => router.push(`/${studentId}/flashcards?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}&weakSpots=${encodeURIComponent(JSON.stringify(weakFocus))}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: 'var(--accent)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
                     <IconCards c="var(--accent)" size={13} />Flashcards
                   </button>
-                  <button onClick={() => router.push(`/${studentId}/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}&weakSpots=${encodeURIComponent(JSON.stringify(weakSpots.map(w => w.text)))}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: 'var(--accent)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                  <button onClick={() => router.push(`/${studentId}/practice-exam?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}&weakSpots=${encodeURIComponent(JSON.stringify(weakFocus))}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: 'var(--accent)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
                     <IconExam c="var(--accent)" size={13} />Practice Exam
                   </button>
-                  <button onClick={() => router.push(`/${studentId}/study?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}&weakSpots=${encodeURIComponent(JSON.stringify(weakSpots.map(w => w.text)))}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: 'var(--accent)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                  <button onClick={() => router.push(`/${studentId}/study?folderId=${folderId}&folderName=${encodeURIComponent(folder!.name)}&weakSpots=${encodeURIComponent(JSON.stringify(weakFocus))}`)} style={{ flex: 1, padding: '9px 6px', borderRadius: 10, border: '1.5px solid #E8E5F0', background: '#FFFFFF', color: 'var(--accent)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
                     <IconBrain c="var(--accent)" size={13} />Study Guide
                   </button>
                 </div>
+              </div>
+            )}
+
+            {(insights || gradedExams.length > 0) && (
+              <div data-exam-insights={insights ? 'learned' : 'ready'} style={{ margin: '0 16px', padding: '14px 16px', borderRadius: 18, background: 'var(--accent-light)', border: '1.5px solid color-mix(in srgb, var(--accent) 30%, white)' }}>
+                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.6, textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 6 }}>What the real exam showed</div>
+                {insights ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {insights.summary && <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', lineHeight: 1.5 }}>{insights.summary}</div>}
+                    {insights.topics.length > 0 && (
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {insights.topics.map(t => <span key={t.topic} style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: t.weight === 'heavy' ? 'var(--accent)' : '#FFFFFF', color: t.weight === 'heavy' ? '#fff' : t.weight === 'light' ? '#9E9BB0' : 'var(--accent-dark)', border: t.weight === 'heavy' ? 'none' : '1px solid color-mix(in srgb, var(--accent) 30%, white)' }}>{t.topic}{t.weight === 'heavy' ? ' · heavy' : ''}</span>)}
+                      </div>
+                    )}
+                    {([['How it asked', insights.styles], ['Tested, but thin in your practice', insights.surprises], ['For this professor\u2019s next exam', insights.nextTime]] as const).filter(([, items]) => items.length > 0).map(([label, items]) => (
+                      <div key={label}>
+                        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--accent-dark)', marginBottom: 3 }}>{label}</div>
+                        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: '#1D1B26', lineHeight: 1.55 }}>{items.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                      </div>
+                    ))}
+                    {insights.difficulty && <div style={{ fontSize: 12, color: '#6B6880', lineHeight: 1.5 }}><b style={{ color: '#1D1B26' }}>Difficulty:</b> {insights.difficulty}</div>}
+                    <div style={{ fontSize: 11, color: '#6B6880', lineHeight: 1.5 }}>Learned from {insights.source || 'your graded exam'}. Ascend uses this when it makes the study guide, flashcards and practice exams for the next exam in {cls.name}.
+                      {gradedExams.length > 0 && <> <button onClick={learnFromExam} disabled={debriefing} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--accent)', fontWeight: 800, fontSize: 11, cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>{debriefing ? 'Reading\u2026' : 'Read it again'}</button></>}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 13, color: '#1D1B26', lineHeight: 1.5, marginBottom: 10 }}>You added your graded exam ({gradedExams.map(r => r.file_name).join(', ')}). Ascend can read it to learn how {cls.professor || 'this professor'} really tests, and use that for the next exam in {cls.name}.</div>
+                    <button onClick={learnFromExam} disabled={debriefing} style={{ ...madeButton, padding: '10px 18px', fontSize: 12, opacity: debriefing ? 0.6 : 1 }}>{debriefing ? 'Reading the exam\u2026 about a minute' : 'Learn from this exam'}</button>
+                  </>
+                )}
+                {debriefError && <div role="alert" style={{ fontSize: 12, fontWeight: 600, color: '#C47878', marginTop: 8, lineHeight: 1.5 }}>{debriefError}</div>}
               </div>
             )}
 
@@ -624,7 +748,11 @@ export default function StudentBinder() {
               <div onDragOver={e => { if (e.dataTransfer?.types?.includes('Files')) { e.preventDefault(); setDropping(true); } }} onDragLeave={() => setDropping(false)} onDrop={e => { e.preventDefault(); setDropping(false); dropFiles(e.dataTransfer.files); }}
                 style={{ borderRadius: 22, outline: dropping ? `2px dashed ${PAPER.ink}` : 'none', outlineOffset: 3 }}>
                 <Shelf kind="class" title="From class" sub={resources.length === 0 ? 'Nothing uploaded yet' : `${resources.length} file${resources.length === 1 ? '' : 's'} you uploaded`}
-                  action={<button onClick={() => setShowUpload(true)} style={paperButton}>+ Upload</button>}>
+                  action={<div style={{ display: 'flex', gap: 6 }}>
+                    <button data-capture-open="photo" onClick={() => setCapture('photo')} style={paperButton}>Photo</button>
+                    <button data-capture-open="record" onClick={() => setCapture('record')} style={paperButton}>Record</button>
+                    <button onClick={() => setShowUpload(true)} style={paperButton}>+ Upload</button>
+                  </div>}>
                   {dropNote && <div style={{ fontSize: 11, fontWeight: 700, color: PAPER.ink }}>{dropNote}</div>}
                   {resources.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '22px 14px', border: `1.5px dashed ${PAPER.edge}`, borderRadius: '4px 16px 4px 4px', background: PAPER.sheet }}>
@@ -683,6 +811,8 @@ export default function StudentBinder() {
           </div>
         )}
       </main>
+
+      {capture && <Capture studentId={studentId} mode={capture} folderId={folderId} onClose={() => setCapture(null)} onSaved={rows => setResources(prev => [...(rows.filter(r => r.folder_id === folderId) as Resource[]), ...prev])} />}
 
       {/* Upload Modal */}
       {showUpload && (

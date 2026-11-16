@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import Capture from './Capture';
 import { supabase } from '../../lib/supabase';
 import { localDateStr } from '../../lib/dates';
 
@@ -56,6 +57,7 @@ const inputStyle = { width: '100%', padding: '10px 12px', border: '1.5px solid #
 export default function TabBar({ student }: Props) {
   const pathname = usePathname();
   const [showModal, setShowModal] = useState(false);
+  const [capture, setCapture] = useState<'photo' | 'record' | null>(null);
   const [classes, setClasses] = useState<{id: string; name: string}[]>([]);
   const [cls, setCls] = useState('');
   const [type, setType] = useState('Assignment');
@@ -137,6 +139,7 @@ export default function TabBar({ student }: Props) {
 
   return (
     <>
+      {capture && <Capture studentId={student} mode={capture} onClose={() => setCapture(null)} />}
       {showModal && (
         <div
           onClick={e => { if (e.target === e.currentTarget) { setShowModal(false); reset(); }}}
@@ -144,6 +147,15 @@ export default function TabBar({ student }: Props) {
         >
           <div style={{ background: '#FFFFFF', borderRadius: 22, padding: '20px 18px 28px', width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(29,27,38,0.18)' }}>
             <div style={{ width: 34, height: 4, background: '#E8E5F0', borderRadius: 99, margin: '0 auto 18px' }} />
+            {/* Bring class material in (grey paper = from class) */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 18 }}>
+              {([['photo', 'Snap a photo', 'Whiteboard, handout, graded exam'], ['record', 'Record lecture', 'Saved and written out as text']] as const).map(([m, label, sub]) => (
+                <button key={m} data-capture-open={m} onClick={() => { setShowModal(false); reset(); setCapture(m); }} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: '4px 14px 4px 4px', border: '1.5px solid #D8D5CC', background: '#EFEDE7', cursor: 'pointer', fontFamily: 'var(--font-jakarta)' }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1D1B26' }}>{label}</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: '#5E5C57', lineHeight: 1.4 }}>{sub}</div>
+                </button>
+              ))}
+            </div>
             <div style={{ fontSize: 18, fontWeight: 800, color: '#1D1B26', marginBottom: 16 }}>Quick Add Task</div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>

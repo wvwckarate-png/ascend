@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 
 // Uploads one class file into an exam folder and returns the saved row. The kind is worked out from the file itself,
 // so several files can be dropped at once. Slides, images and audio also get their text pulled out for the AI.
-const BY_EXT: Record<string, string> = { pdf: 'pdf', pptx: 'pptx', ppt: 'pptx', mp3: 'audio', m4a: 'audio', wav: 'audio', ogg: 'audio', png: 'image', jpg: 'image', jpeg: 'image', webp: 'image' };
+const BY_EXT: Record<string, string> = { pdf: 'pdf', pptx: 'pptx', ppt: 'pptx', mp3: 'audio', m4a: 'audio', wav: 'audio', ogg: 'audio', webm: 'audio', heic: 'image', png: 'image', jpg: 'image', jpeg: 'image', webp: 'image' };
 
 export function resourceTypeOf(fileName: string): string | null {
   return BY_EXT[(fileName.split('.').pop() || '').toLowerCase()] || null;

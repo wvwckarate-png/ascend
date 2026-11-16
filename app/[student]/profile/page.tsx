@@ -8,6 +8,7 @@ import { gradeLabel } from '../../../lib/students';
 import { useMounted } from '../../../lib/useMounted';
 import { useStudent, useTheme } from '../../../lib/studentContext';
 import { myAccount, signOut } from '../../../lib/supabaseAuth';
+import Reminders from '../../components/Reminders';
 import { THEMES, THEME_NAMES } from '../../../lib/theme';
 import { ACCENT as color, ACCENT_LIGHT as light } from '../../../lib/theme';
 
@@ -341,13 +342,7 @@ export default function StudentProfile() {
             </div>
             <button onClick={() => signOut()} style={{ fontSize: 11, fontWeight: 800, color: '#C47878', background: '#FDF2F2', border: 'none', padding: '7px 14px', borderRadius: 999, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>Sign out</button>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#1D1B26', marginBottom: 2 }}>Notifications</div>
-              <div style={{ fontSize: 11, color: '#9E9BB0' }}>Coming soon</div>
-            </div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#C4C1D4', background: '#F3F1EC', padding: '4px 10px', borderRadius: 999 }}>Soon</div>
-          </div>
+          <Reminders studentId={studentId} />
         </div>
 
       </main>

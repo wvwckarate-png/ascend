@@ -14,6 +14,7 @@ import { generateChecked, contextFrom } from '../../../lib/checkedGeneration';
 import QuestionNotes from '../../components/QuestionNotes';
 import type { MCQuestion, TFQuestion, SAQuestion, EssayQuestion, ExamQuestion as Question } from '../../../lib/quizChecks';
 import { useStudent } from '../../../lib/studentContext';
+import { insightsForPrompt, isInsights } from '../../../lib/examInsights';
 import { MadeTag, madeCardFrame, paperPick, PAPER, PaperMark } from '../../components/ResourceLooks';
 import { ACCENT as color, ACCENT_LIGHT as light, alpha } from '../../../lib/theme';
 
@@ -220,11 +221,14 @@ function StudentPracticeExamInner() {
     ]);
     if (!folder) return;
     const { data: cls } = await supabase.from('classes').select('name, professor, notes').eq('id', folder.class_id).single();
+    // What this professor's earlier graded exams in this class showed about how they test (see lib/examInsights.ts).
+    const { data: learned } = await supabase.from('exam_folders').select('exam_insights').eq('class_id', folder.class_id).not('exam_insights', 'is', null);
+    const professorProfile = insightsForPrompt((Array.isArray(learned) ? learned : []).map(r => r.exam_insights).filter(isInsights));
     if (ask !== classMetaAsk.current) return;   // a newer selection has replaced this one
     if (cls) setClassMeta({
       className:         cls.name,
       professor:         cls.professor || '',
-      notes:             cls.notes || '',
+      notes:             (cls.notes || '') + professorProfile,
       folderName:        spanName || folder.name,
       examDate:          spanName ? null : folder.exam_date,
       studentName:       student?.name || studentName,
@@ -414,7 +418,7 @@ function StudentPracticeExamInner() {
     const items = questions.map((q, i) => {
       let isCorrect: boolean | null = null;
       if (q.type === 'mc' || q.type === 'tf') isCorrect = (responses[i] || '') === q.answer;
-      return { exam_id: examId, student_id: studentId, folder_id: activeExam?.folder_id || null, question_index: i, question_type: q.type, question_text: q.question, is_correct: isCorrect };
+      return { exam_id: examId, student_id: studentId, folder_id: activeExam?.folder_id || null, question_index: i, question_type: q.type, question_text: q.question, is_correct: isCorrect, topic: (q as { topic?: string }).topic || null };
     });
     const { error: itemsError } = await supabase.from('practice_exam_items').insert(items);
     if (itemsError) console.error('practice_exam_items insert error:', itemsError);

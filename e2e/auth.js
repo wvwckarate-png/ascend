@@ -39,6 +39,21 @@ h.run('auth', async () => {
   page.t.apiMocks['/api/admin/accounts'] = { json: { accounts: [] } };
   await h.go(page, '/parent', 2500); t = await h.text(page);
   h.check('parent: dashboard opens with no password box and no PIN section', /Welcome, Gregory/.test(t) && /People & sign-ins/i.test(t) && !/PIN|Enter your password/.test(t) && !(await page.$('input[type=password]')), t.slice(0, 200));
+  // what a parent can see at a glance about each child
+  await h.fakeClock(page, '2026-11-16T10:00:00-05:00');
+  page.t.apiMocks['/api/study-days'] = ({ bodyText }) => ({ json: { days: JSON.parse(bodyText).student === 'matthew' ? [{ day: '2026-11-14', planned: 3, done: 2 }, { day: '2026-11-15', planned: 2, done: 2 }, { day: '2026-11-16', planned: 4, done: 1 }] : [] } });
+  page.t.mocks.classes = q => (q.get('student_id') === 'eq.matthew' ? [{ id: 'c1', student_id: 'matthew', name: 'BIO 115', is_active: true, grading_schema: { Exams: 50, Homework: 20, Final: 30 } }] : []);
+  page.t.mocks.exam_folders = [{ name: 'Exam 2', exam_date: '2026-11-19', class_id: 'c1' }, { name: 'Final', exam_date: '2026-12-20', class_id: 'c1' }];
+  page.t.mocks.grades = q => (q.get('student_id') === 'eq.matthew' ? [{ class_id: 'c1', category: 'Exams', score: 90, max_score: 100 }, { class_id: 'c1', category: 'Homework', score: 19, max_score: 20 }] : []);
+  page.t.mocks.tasks = q => (q.get('student_id') === 'eq.matthew' ? [{ completed: false, due_date: '2026-11-15' }, { completed: true, due_date: '2026-11-10' }, { completed: false, due_date: '2026-12-01' }] : []);
+  await h.go(page, '/parent', 3000);
+  const eff = id => page.$eval(`[data-effort="${id}"]`, e => e.innerText.replace(/\n+/g, ' | ')).catch(() => '');
+  const m = await eff('matthew');
+  h.check('parent: sees a child\u2019s streak, today\u2019s progress and overdue work', /3-day streak/.test(m) && /Today: 1 of 4 done/.test(m) && /1 task due or overdue/.test(m), m);
+  h.check('parent: sees exams in the next three weeks with a countdown, not far-off ones', /Exam 2 · BIO 115 \| in 3 days/.test(m) && !/Final · BIO/.test(m), m);
+  h.check('parent: sees each class against an A', /BIO 115 · 91\.4% now \| needs 96\.7% on the rest/.test(m), m);
+  const mi = await eff('michael');
+  h.check('parent: a child with no activity reads plainly', /No streak yet/.test(mi) && /Hasn.t opened Ascend today/.test(mi) && !/Coming up|Grades against/.test(mi), mi);
   h.check('parent: no runtime errors', page.t.errors.length === 0, page.t.errors.join('|'));
   await page.close();
 

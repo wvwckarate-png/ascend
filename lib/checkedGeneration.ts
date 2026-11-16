@@ -95,7 +95,7 @@ async function runExam(o: Opts, draftText: string): Promise<{ text: string; repo
     for (const v of audit.critique.verdicts) {
       const slot = slots[v.i]; if (!slot?.q) continue;
       if (v.drop) { slot.q = null; failing.delete(v.i); continue; }
-      if (v.fix) { slot.q = v.fix; slot.changed = true; slot.reason = v.codes; fixedNow.add(v.i); failing.delete(v.i); }
+      if (v.fix) { slot.q = { ...v.fix, ...(v.fix.topic || !slot.q.topic ? {} : { topic: slot.q.topic }) }; slot.changed = true; slot.reason = v.codes; fixedNow.add(v.i); failing.delete(v.i); }
       else if (v.codes.some(c => c !== 'discrepancy' && c !== 'missing_source')) addFail(v.i, v.codes, v.note);
     }
     for (const f of audit.critique.flags) { const slot = slots[f.i]; if (slot?.q && !fixedNow.has(f.i)) slot.q = { ...slot.q, flag: slot.q.flag ? slot.q.flag : f.flag }; }
@@ -133,7 +133,8 @@ async function runExam(o: Opts, draftText: string): Promise<{ text: string; repo
       const replaced: number[] = [];
       for (const [i] of toRevise) {
         const r = rev.items.find(x => x.i === i);
-        if (r?.question) { slots[i].q = r.question; slots[i].changed = true; replaced.push(i); } else slots[i].q = null;
+        const keptTopic = slots[i].q?.topic;   // a rewritten question is still about the same topic
+        if (r?.question) { slots[i].q = { ...r.question, ...(r.question.topic || !keptTopic ? {} : { topic: keptTopic }) }; slots[i].changed = true; replaced.push(i); } else slots[i].q = null;
       }
       failing.clear();
       if (replaced.length) {
@@ -197,7 +198,7 @@ async function runCards(o: Opts, draftText: string): Promise<{ text: string; rep
     for (const v of res.verdicts) {
       const slot = slots[v.i]; if (!slot?.c) continue;
       if (v.drop) slot.c = null;
-      else if (v.fix) { slot.c = { ...v.fix, flag: v.fix.flag || slot.c.flag }; slot.changed = true; }
+      else if (v.fix) { slot.c = { ...v.fix, flag: v.fix.flag || slot.c.flag, ...(v.fix.topic || !slot.c.topic ? {} : { topic: slot.c.topic }) }; slot.changed = true; }
     }
   } catch (e) {
     if (isAbort(e)) throw e;
@@ -216,7 +217,7 @@ async function runCards(o: Opts, draftText: string): Promise<{ text: string; rep
   const improved = kept.filter(x => x.changed).length;
   const flagged = kept.filter(x => x.c!.flag).length;
   // A discrepancy note travels with the card (cards are stored as just front/back)
-  const final = kept.map(x => ({ front: x.c!.front, back: x.c!.flag ? `${x.c!.back}\n\n⚠ ${x.c!.flag}` : x.c!.back }));
+  const final = kept.map(x => ({ front: x.c!.front, back: x.c!.flag ? `${x.c!.back}\n\n⚠ ${x.c!.flag}` : x.c!.back, ...(x.c!.topic ? { topic: x.c!.topic } : {}) }));
   return {
     text: JSON.stringify(final),
     report: {

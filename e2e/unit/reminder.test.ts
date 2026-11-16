@@ -1,0 +1,14 @@
+import { buildReminder } from '../../lib/reminderText';
+let pass = 0, fail = 0; const ok = (n: string, c: boolean, x?: unknown) => { if (c) pass++; else { fail++; console.log('✗', n, JSON.stringify(x)); } };
+const f = (o: object) => buildReminder({ dueCards: 0, weakCards: 0, reviewsToday: [], gradedToday: [], overdue: 0, exam: null, ...o });
+ok('nothing due -> no reminder', f({}) === null);
+ok('exam far away alone -> no reminder', f({ exam: { name: 'Exam 1', days: 9 } }) === null);
+let r = f({ dueCards: 6, weakCards: 2 }); ok('cards', r?.title === '1 thing to do today' && r.body === '6 cards due (2 you keep missing)', r);
+r = f({ dueCards: 1 }); ok('singular card', r?.body === '1 card due', r);
+r = f({ dueCards: 6, reviewsToday: ['Review: Krebs guide'], gradedToday: ['HW 3'], exam: { name: 'Exam 1', days: 3 } });
+ok('everything: exam leads the title, graded work first in the body', r?.title === 'Exam 1 is in 3 days' && r.body === 'HW 3 is due today · 6 cards due · Review: Krebs guide', r);
+r = f({ exam: { name: 'Final', days: 1 } }); ok('exam tomorrow with nothing due still nudges', r?.title === 'Final is tomorrow' && /practice exam/.test(r.body), r);
+r = f({ exam: { name: 'Final', days: 0 }, dueCards: 2 }); ok('exam today', r?.title === 'Final is today', r);
+r = f({ reviewsToday: ['a', 'b'], gradedToday: ['x', 'y'], overdue: 3 }); ok('several', r?.title === '5 things to do today' && r.body === '2 assignments due today · 2 reviews scheduled · 3 overdue', r);
+r = f({ gradedToday: ['A very long assignment title '.repeat(12)] }); ok('long text is trimmed', (r?.body.length || 0) <= 170 && r!.body.endsWith('…'), r?.body.length);
+console.log(`reminder: ${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

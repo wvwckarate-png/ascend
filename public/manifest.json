@@ -1,7 +1,7 @@
 {
   "name": "Ascend",
   "short_name": "Ascend",
-  "description": "Forged in Focus — AI-powered study app",
+  "description": "Study for the A in each class: your professor's materials in, flashcards, study guides and practice exams out.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FAFAF8",
@@ -12,13 +12,25 @@
       "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
+  ],
+  "id": "/",
+  "scope": "/",
+  "categories": [
+    "education",
+    "productivity"
   ]
 }

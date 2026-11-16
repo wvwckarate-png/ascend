@@ -46,6 +46,8 @@ h.run('accounts', async () => {
 
   page = await h.newPage({ signedOut: true }); await h.go(page, '/login'); t = await h.text(page);
   h.check('sign-in page renders with email + password', /Sign in/.test(t) && !!(await page.$('#login-email')) && !!(await page.$('#login-password')) && await page.$eval('button[type=submit]', b => b.disabled));
+  const fields = await page.evaluate(() => ({ form: document.querySelector('form').getAttribute('method'), user: [document.querySelector('#login-email').name, document.querySelector('#login-email').autocomplete], pass: [document.querySelector('#login-password').name, document.querySelector('#login-password').autocomplete] }));
+  h.check('sign-in form is one a password manager recognises (username + current-password)', fields.form === 'post' && fields.user.join() === 'username,username' && fields.pass.join() === 'password,current-password', JSON.stringify(fields));
   await h.clickText(page, 'Forgot password?', { tag: 'button' }); await h.sleep(200);
   h.check('forgot password asks only for the email', /Reset your password/.test(await h.text(page)) && !(await page.$('#login-password')));
   await page.close();

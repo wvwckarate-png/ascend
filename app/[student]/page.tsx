@@ -177,10 +177,18 @@ export default function StudentDashboard() {
   const [quoteIndex, setQuoteIndex] = useState(0);
   // "Add to home screen" tip: hidden once dismissed on this device, and when Ascend is already running as an installed app.
   const [showInstallHint, setShowInstallHint] = useState(false);
+  const [onIPhone, setOnIPhone] = useState(false);
+  const [installEvent, setInstallEvent] = useState<(Event & { prompt: () => Promise<void> }) | null>(null);
   useEffect(() => {
     let dismissed = false; try { dismissed = localStorage.getItem('ascend:install-hint') === 'hidden'; } catch {}
     const installed = window.matchMedia?.('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
     setShowInstallHint(!dismissed && !installed);
+    setOnIPhone(/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+    // Android and desktop Chrome can install with one tap; they announce it with this event.
+    const ready = (e: Event) => { e.preventDefault(); setInstallEvent(e as Event & { prompt: () => Promise<void> }); };
+    const done = () => { setShowInstallHint(false); setInstallEvent(null); };
+    window.addEventListener('beforeinstallprompt', ready); window.addEventListener('appinstalled', done);
+    return () => { window.removeEventListener('beforeinstallprompt', ready); window.removeEventListener('appinstalled', done); };
   }, []);
   const dismissInstallHint = () => { setShowInstallHint(false); try { localStorage.setItem('ascend:install-hint', 'hidden'); } catch {} };
   useEffect(() => {
@@ -571,9 +579,10 @@ setLoading(false);
             </svg>
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: 'white', marginBottom: 2 }}>Add Ascend to your home screen</div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>Tap Share → &quot;Add to Home Screen&quot; in your browser</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: 'white', marginBottom: 2 }}>Get Ascend as an app</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>{onIPhone ? <>Tap <b>Share</b>, then <b>Add to Home Screen</b>. It opens full screen and can send you a daily reminder.</> : installEvent ? 'One tap. It opens in its own window and can send you a daily reminder.' : <>Use your browser&apos;s menu, then <b>Install</b> or <b>Add to Home Screen</b>. It can send you a daily reminder.</>}</div>
           </div>
+          {installEvent && <button onClick={() => installEvent.prompt()} style={{ padding: '8px 14px', borderRadius: 999, border: 'none', background: 'white', color: 'var(--accent-dark)', fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>Install</button>}
           <button aria-label="Hide this tip" onClick={dismissInstallHint} style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: 'rgba(255,255,255,0.18)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', flexShrink: 0 }}>✕</button>
         </div>
         )}

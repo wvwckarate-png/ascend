@@ -75,12 +75,14 @@ export default function TodayPlan({ studentId, todayStr, tasks, exams, onToggleT
       const folderIds = soon.map(e => e.id);
       const since = new Date(todayStr + 'T00:00:00'); since.setDate(since.getDate() - 120);
       const sinceStr = `${since.getFullYear()}-${String(since.getMonth() + 1).padStart(2, '0')}-${String(since.getDate()).padStart(2, '0')}`;
-      const [deckRes, dayRes, resRes, examRes] = await Promise.all([
+      const [deckRes, dayRes, resRes, examRes, guideRes] = await Promise.all([
         supabase.rpc('study_plan_decks', { p_student: studentId, p_day_start: dayStartISO() }, { get: true }),
         studyDays({ student: studentId, since: sinceStr }),
         folderIds.length ? supabase.from('resources').select('folder_id').in('folder_id', folderIds) : Promise.resolve({ data: [] as { folder_id: string }[] }),
         folderIds.length ? supabase.from('practice_exams').select('folder_id, status, completed_at, created_at').eq('student_id', studentId).in('folder_id', folderIds) : Promise.resolve({ data: [] as { folder_id: string; status: string; completed_at: string | null; created_at: string }[] }),
+        folderIds.length ? supabase.from('study_guides').select('folder_id, created_at').eq('student_id', studentId).in('folder_id', folderIds) : Promise.resolve({ data: [] as { folder_id: string; created_at: string }[] }),
       ]);
+      const guideRows = Array.isArray(guideRes.data) ? guideRes.data : [];
       if (cancelled) return;
       const deckRows: PlanDeck[] = Array.isArray(deckRes.data) ? deckRes.data.map((d: PlanDeck) => ({ ...d, cards: Number(d.cards) || 0, new_cards: Number(d.new_cards) || 0, due_seen: Number(d.due_seen) || 0, reviewed_today: Number(d.reviewed_today) || 0, weak: Number(d.weak) || 0, retired: Number(d.retired) || 0 })) : [];
       const localDay = (iso: string | null) => { if (!iso) return null; const d = new Date(iso); return isNaN(d.getTime()) ? null : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -97,6 +99,8 @@ export default function TodayPlan({ studentId, todayStr, tasks, exams, onToggleT
           hasDeck: deckRows.some(d => d.folder_id === e.id),
           examsTaken: doneDays.length, lastTakenDay: doneDays[doneDays.length - 1] || null,
           takenToday: doneDays.includes(todayStr), madeToday: mine.some(x => localDay(x.created_at) === todayStr),
+          // First pass = the earliest study guide or deck made for this exam.
+          firstPassDay: [...guideRows.filter(g => g.folder_id === e.id).map(g => localDay(g.created_at)), ...deckRows.filter(d => d.folder_id === e.id).map(d => localDay(d.created_at))].filter((d): d is string => !!d).sort()[0] || null,
         };
       }));
       setLoaded(true);

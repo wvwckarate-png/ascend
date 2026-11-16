@@ -14,7 +14,12 @@ node e2e/personalize.js    # theme picker, re-orderable class cards, old-exam up
 node e2e/today.js          # Today's Plan (ring + streak), grade targeting, class context from the general screen
 node e2e/loop.js           # drag preview, slimmer home page, weak-spot drill, after-exam follow-up
 node e2e/files.js          # exam page shelves (from class vs made by Ascend), made-from links, Library
+node e2e/learn.js          # learning from the graded exam, the professor profile in later prompts, weak spots by topic
+node e2e/app.js            # reminders switch, photo + lecture-recording capture, install prompt
 node e2e/accounts.js       # People & sign-ins panel (mocked, never sends email), sign-in and set-password screens
+npx -y tsx e2e/unit/runway.test.ts     # the run-up to an exam: first pass, then Day +1 / +3 / +7
+npx -y tsx e2e/unit/insights.test.ts   # tidying what the exam debrief returns; topic labels
+npx -y tsx e2e/unit/reminder.test.ts   # what the daily reminder says
 npx -y tsx e2e/unit/plan.test.ts   # the plan / streak / grade-target rules on their own (no browser)
 REAL_API=1 node e2e/export.js   # study guide Print / PDF (uses the real PDF route)
 ```

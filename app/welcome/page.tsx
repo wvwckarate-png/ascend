@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import AuthCard, { authButton, authInput, authLabel } from '../components/AuthCard';
-import { authClient, homeFor, markPasswordSet, myAccount } from '../../lib/supabaseAuth';
+import { authClient, homeFor, markPasswordSet, myAccount, rememberPassword } from '../../lib/supabaseAuth';
 
 // Where the invitation email (and the "reset password" email) lands: choose a password, then go in.
 export default function WelcomePage() {
@@ -33,6 +33,7 @@ export default function WelcomePage() {
     const { error: err } = await authClient.auth.updateUser({ password });
     if (err) { setBusy(false); setError(/different|same/i.test(err.message) ? 'Choose a password you haven’t used here before.' : /weak|short|characters/i.test(err.message) ? 'That password is too easy to guess. Try a longer one.' : 'Couldn’t save that password. Try again.'); return; }
     await markPasswordSet();
+    await rememberPassword(email, password);
     const account = await myAccount();
     if (!account) { setBusy(false); setError('Password saved, but this email isn’t invited to Ascend. Ask the parent who runs it to invite you.'); return; }
     window.location.replace(homeFor({ ...account, needsPassword: false }));
@@ -47,11 +48,15 @@ export default function WelcomePage() {
   const blocked = busy || !password || !again;
   return (
     <AuthCard title="Choose your password" subtitle={`Welcome to Ascend. You’re signing in as ${email}.`}>
-      <form onSubmit={save}>
+      <form method="post" action="/welcome" onSubmit={save}>
+        {/* The email, as a real (read-only) username field: this is what lets the browser save the new password under the
+            right account and offer it on the sign-in page. */}
+        <label htmlFor="welcome-email" style={authLabel}>Email</label>
+        <input id="welcome-email" name="username" type="email" autoComplete="username" value={email} readOnly tabIndex={-1} style={{ ...authInput, color: '#9E9BB0' }} />
         <label htmlFor="new-password" style={authLabel}>New password</label>
-        <input id="new-password" type="password" autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} style={authInput} required />
+        <input id="new-password" name="new-password" type="password" autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} style={authInput} required />
         <label htmlFor="new-password-again" style={authLabel}>Type it again</label>
-        <input id="new-password-again" type="password" autoComplete="new-password" value={again} onChange={e => setAgain(e.target.value)} style={authInput} required />
+        <input id="new-password-again" name="new-password-again" type="password" autoComplete="new-password" value={again} onChange={e => setAgain(e.target.value)} style={authInput} required />
         <div style={{ fontSize: 11, color: '#9E9BB0', margin: '0 0 12px' }}>At least 8 characters.</div>
         {error && <div role="alert" style={{ fontSize: 12, fontWeight: 600, color: '#C47878', margin: '0 0 12px', lineHeight: 1.5 }}>{error}</div>}
         <button type="submit" disabled={blocked} style={authButton(blocked)}>{busy ? 'Saving…' : 'Save and continue'}</button>

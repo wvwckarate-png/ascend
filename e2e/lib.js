@@ -13,7 +13,7 @@ const STUDENTS = (process.env.ONLY || 'matthew,michael,brynne').split(',');
 let browser;
 setTimeout(() => { console.error('HARD TIMEOUT'); process.exit(2); }, 1500000).unref();
 async function launch() {
-  browser = await puppeteer.launch({ executablePath: process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true, args: ['--no-sandbox'] });
+  browser = await puppeteer.launch({ executablePath: process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true, args: ['--no-sandbox', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] });
   return browser;
 }
 async function close() { if (browser) await browser.close(); }
@@ -145,4 +145,4 @@ const field = (body, name) => (body.match(new RegExp(`name="${name}"\\r\\n\\r\\n
 const cap = s => s[0].toUpperCase() + s.slice(1);
 const run = (name, fn) => (async () => { await launch(); await fn(); await done(name); })().catch(async e => { console.error(e.stack); await close(); process.exit(1); });
 
-module.exports = { BASE, SB, STUDENTS, launch, close, newPage, go, text, sleep, clickText, clickPointer, clickInModal, clickButton, setModalInput, setInput, fakeClock, check, summary, done, run, sse, field, cap };
+module.exports = { browser: () => browser, BASE, SB, STUDENTS, launch, close, newPage, go, text, sleep, clickText, clickPointer, clickInModal, clickButton, setModalInput, setInput, fakeClock, check, summary, done, run, sse, field, cap };

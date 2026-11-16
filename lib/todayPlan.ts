@@ -3,7 +3,9 @@
 
 export type PlanTask = { id: string; title: string; due_date: string; completed: boolean; completed_at?: string | null; class_name: string | null; task_type: string; resource_id?: string | null; resource_type?: string | null };
 export type PlanDeck = { id: string; title: string; folder_id: string | null; class_name: string | null; created_at: string; cards: number; new_cards: number; due_seen: number; reviewed_today: number; weak: number; retired: number };
-export type PlanExam = { folderId: string; classId: string; name: string; className: string; examDate: string; resources: number; hasDeck: boolean; examsTaken: number; lastTakenDay: string | null; takenToday: boolean; madeToday: boolean };
+export type PlanExam = { folderId: string; classId: string; name: string; className: string; examDate: string; resources: number; hasDeck: boolean; examsTaken: number; lastTakenDay: string | null; takenToday: boolean; madeToday: boolean;
+  /** Day the first study guide or deck for this exam was made; null = nothing made yet; undefined = not known. */
+  firstPassDay?: string | null };
 
 export type PlanItem = {
   key: string;
@@ -78,6 +80,12 @@ export function buildTodayPlan(input: { studentId: string; todayStr: string; tas
     const q = `folderId=${e.folderId}&folderName=${encodeURIComponent(e.name)}`;
     if (e.resources === 0) {
       items.push({ ...base, key: 'prep-' + e.folderId, kind: 'exam-prep', look: 'class', title: `Upload your materials for ${e.name}`, detail: `Exam ${inDays(e.days)} · nothing uploaded yet`, progress: 0, href: folderHref });
+    } else if (e.firstPassDay === null) {
+      // Nothing made yet. The spacing (first pass, then Day +1, +3, +7) needs 7 days to fit in full before the exam.
+      const fits = e.days >= 7 ? 4 : e.days >= 3 ? 3 : e.days >= 1 ? 2 : 1;
+      const slack = e.days - 7;
+      const why = slack > 0 ? `start within ${slack} day${slack === 1 ? '' : 's'} to fit all four spaced reviews` : slack === 0 ? 'last day to fit all four spaced reviews' : fits === 1 ? 'only one pass fits now' : `only ${fits} of 4 spaced reviews still fit`;
+      items.push({ ...base, urgent: e.days <= 7, look: 'made', key: 'prep-' + e.folderId, kind: 'exam-prep', title: `First pass for ${e.name}: study guide + flashcards`, detail: `Exam ${inDays(e.days)} · ${why}`, progress: 0, href: folderHref });
     } else if (!e.hasDeck) {
       items.push({ ...base, key: 'prep-' + e.folderId, kind: 'exam-prep', look: 'made', title: `Make flashcards for ${e.name}`, detail: `Exam ${inDays(e.days)} · no deck yet`, progress: 0, href: `/${studentId}/flashcards?${q}` });
     } else {

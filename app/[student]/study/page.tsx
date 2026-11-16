@@ -13,6 +13,7 @@ import { gradeShort } from '../../../lib/students';
 import { generateChecked, contextFrom } from '../../../lib/checkedGeneration';
 import { requestGuidePdf, isTouchDevice, downloadFile, shareOrSave } from '../../../lib/exportPdf';
 import { useStudent } from '../../../lib/studentContext';
+import { insightsForPrompt, isInsights } from '../../../lib/examInsights';
 import { MadeTag, madeCardFrame, paperPick, PAPER, PaperMark } from '../../components/ResourceLooks';
 import { ACCENT as color, ACCENT_LIGHT as light, alpha } from '../../../lib/theme';
 
@@ -322,11 +323,14 @@ function StudentStudyInner() {
     ]);
     if (!folder) return;
     const { data: cls } = await supabase.from('classes').select('name, professor, notes').eq('id', folder.class_id).single();
+    // What this professor's earlier graded exams in this class showed about how they test (see lib/examInsights.ts).
+    const { data: learned } = await supabase.from('exam_folders').select('exam_insights').eq('class_id', folder.class_id).not('exam_insights', 'is', null);
+    const professorProfile = insightsForPrompt((Array.isArray(learned) ? learned : []).map(r => r.exam_insights).filter(isInsights));
     if (ask !== classMetaAsk.current) return;   // a newer selection has replaced this one
     if (cls) setClassMeta({
       className:         cls.name,
       professor:         cls.professor || '',
-      notes:             cls.notes || '',
+      notes:             (cls.notes || '') + professorProfile,
       folderName:        spanName || folder.name,
       examDate:          spanName ? null : folder.exam_date,
       studentName:       student?.name || studentName,
