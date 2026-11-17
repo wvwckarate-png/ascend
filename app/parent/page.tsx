@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import PeoplePanel from '../components/PeoplePanel';
+import ChangePassword from '../components/ChangePassword';
 import { localDateStr } from '../../lib/dates';
 import { daysBetween, streakFrom } from '../../lib/todayPlan';
 import { gradeTarget } from '../../lib/gpa';
@@ -32,6 +33,7 @@ export default function ParentDashboard() {
   // Opens only for a signed-in parent. Anyone else is sent to sign in (a student goes to their own pages).
   const [unlocked, setUnlocked] = useState(false);
   const [unreachable, setUnreachable] = useState(false);
+  const [myEmail, setMyEmail] = useState('');
   const [stats,   setStats]   = useState<Record<string, Stats>>({});
   const [statsLoading, setStatsLoading] = useState(true);
   useEffect(() => {
@@ -40,6 +42,7 @@ export default function ParentDashboard() {
       if (state.status === 'unreachable') { setUnreachable(true); return; }
       if (state.status === 'signed-out') { window.location.replace('/login'); return; }
       if (state.account.needsPassword || state.account.role !== 'parent') { window.location.replace(homeFor(state.account)); return; }
+      setMyEmail(state.account.email);
       setUnlocked(true);
     });
   }, []);
@@ -210,6 +213,12 @@ export default function ParentDashboard() {
 
         {/* People & sign-ins */}
         <PeoplePanel />
+
+        {/* Your account */}
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 14 }}>Your account</div>
+        <div style={{ background: '#FFFFFF', border: '1.5px solid #E8E5F0', borderRadius: 18, padding: '18px 20px', marginBottom: 28, boxShadow: '0 1px 6px rgba(29,27,38,0.06)' }}>
+          <ChangePassword email={myEmail} />
+        </div>
 
         {/* App Info */}
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: '#C4C1D4', marginBottom: 14 }}>App Info</div>

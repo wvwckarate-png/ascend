@@ -22,7 +22,7 @@ async function newPage({ width = 430, height = 900, device, signedOut = false } 
   const page = await browser.newPage();
   page.setDefaultTimeout(15000); page.setDefaultNavigationTimeout(30000);
   if (device) await page.emulate(puppeteer.KnownDevices[device]); else await page.setViewport({ width, height });
-  const t = { writes: [], errors: [], bad: [], apiCalls: [], dialogs: [], mocks: {}, apiMocks: {}, failWrites: {}, restAuth: [], account: signedOut ? null : { email: 'e2e@example.com', role: 'parent', studentId: null, needsPassword: false, secured: false } };
+  const t = { writes: [], errors: [], bad: [], apiCalls: [], dialogs: [], mocks: {}, apiMocks: {}, failWrites: {}, restAuth: [], authCalls: [], failAuth: false, account: signedOut ? null : { email: 'e2e@example.com', role: 'parent', studentId: null, needsPassword: false, secured: false } };
   // Once per tab: start signed in (or, for signedOut, make sure an earlier tab's sign-in is gone). Later sign-outs inside the tab stick.
   if (LOCAL) await page.evaluateOnNewDocument(sess => { try { if (!sessionStorage.getItem('e2e-seeded')) { sessionStorage.setItem('e2e-seeded', '1'); if (sess) localStorage.setItem('ascend-auth', sess); else localStorage.removeItem('ascend-auth'); } } catch {} }, signedOut ? '' : JSON.stringify(FAKE_SESSION));
   page.t = t;
@@ -49,6 +49,7 @@ async function newPage({ width = 430, height = 900, device, signedOut = false } 
       const out = noBody ? null : (wantsObj ? (Array.isArray(payload) ? payload[0] : payload) : (Array.isArray(payload) ? payload : [payload]));
       return req.respond({ status: out === null ? 204 : (m === 'POST' ? 201 : 200), headers: CORS, body: out === null ? '' : JSON.stringify(out) });
     }
+    if (LOCAL && u.includes(SB) && u.includes('/auth/v1/user') && m === 'PUT') { let b = {}; try { b = JSON.parse(req.postData() || '{}'); } catch {} t.authCalls.push(b); return t.failAuth ? req.respond({ status: 422, headers: CORS, body: JSON.stringify({ code: 'same_password', msg: 'New password should be different from the old password.' }) }) : req.respond({ status: 200, headers: CORS, body: JSON.stringify(FAKE_SESSION.user) }); }
     if (u.includes(SB) && u.includes('/rest/v1/')) t.restAuth.push(req.headers()['authorization'] || '');
     if (LOCAL && u.startsWith(BASE + '/api/account') && m === 'GET') {
       if (t.account === 'down') return req.respond({ status: 500, headers: CORS, body: '{}' });

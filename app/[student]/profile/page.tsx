@@ -9,6 +9,7 @@ import { useMounted } from '../../../lib/useMounted';
 import { useStudent, useTheme } from '../../../lib/studentContext';
 import { myAccount, signOut } from '../../../lib/supabaseAuth';
 import Reminders from '../../components/Reminders';
+import ChangePassword from '../../components/ChangePassword';
 import { THEMES, THEME_NAMES } from '../../../lib/theme';
 import { ACCENT as color, ACCENT_LIGHT as light } from '../../../lib/theme';
 
@@ -37,7 +38,8 @@ export default function StudentProfile() {
   const { theme, setTheme } = useTheme();
   const [themeError, setThemeError] = useState(false);
   const [signedInAs, setSignedInAs] = useState('');
-  useEffect(() => { myAccount().then(acc => { if (acc) setSignedInAs(acc.role === 'parent' ? `${acc.email} (parent, viewing ${me.name})` : acc.email); }); }, [me.name]);
+  const [accountEmail, setAccountEmail] = useState('');
+  useEffect(() => { myAccount().then(acc => { if (acc) setAccountEmail(acc.email); if (acc) setSignedInAs(acc.role === 'parent' ? `${acc.email} (parent, viewing ${me.name})` : acc.email); }); }, [me.name]);
   const studentId = me.id;
   const studentName = me.name;
   const mounted = useMounted();
@@ -342,6 +344,7 @@ export default function StudentProfile() {
             </div>
             <button onClick={() => signOut()} style={{ fontSize: 11, fontWeight: 800, color: '#C47878', background: '#FDF2F2', border: 'none', padding: '7px 14px', borderRadius: 999, cursor: 'pointer', fontFamily: 'var(--font-jakarta)', flexShrink: 0 }}>Sign out</button>
           </div>
+          <div style={{ paddingBottom: 14, borderBottom: '1px solid #E8E5F0', marginBottom: 14 }}><ChangePassword email={accountEmail} /></div>
           <Reminders studentId={studentId} />
         </div>
 

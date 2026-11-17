@@ -24,32 +24,32 @@ declare t text;
 begin
   foreach t in array array['classes','grades','tasks','study_guides','flashcard_decks','flashcard_items','practice_exams','practice_exam_items'] loop
     execute format('drop policy if exists own_rows on public.%I', t);
-    execute format('create policy own_rows on public.%I for all to authenticated using (student_id = any ((select public.my_student_ids()))) with check (student_id = any ((select public.my_student_ids())))', t);
+    execute format('create policy own_rows on public.%I for all to authenticated using (student_id = any ((select public.my_student_ids())::text[])) with check (student_id = any ((select public.my_student_ids())::text[]))', t);
   end loop;
 end $$;
 
 drop policy if exists own_row on public.students;
-create policy own_row on public.students for select to authenticated using (id = any ((select public.my_student_ids())));
+create policy own_row on public.students for select to authenticated using (id = any ((select public.my_student_ids())::text[]));
 drop policy if exists own_row_update on public.students;
-create policy own_row_update on public.students for update to authenticated using (id = any ((select public.my_student_ids()))) with check (id = any ((select public.my_student_ids())));
+create policy own_row_update on public.students for update to authenticated using (id = any ((select public.my_student_ids())::text[])) with check (id = any ((select public.my_student_ids())::text[]));
 
 drop policy if exists own_rows on public.exam_folders;
 create policy own_rows on public.exam_folders for all to authenticated
-  using (exists (select 1 from public.classes c where c.id = exam_folders.class_id and c.student_id = any ((select public.my_student_ids()))))
-  with check (exists (select 1 from public.classes c where c.id = exam_folders.class_id and c.student_id = any ((select public.my_student_ids()))));
+  using (exists (select 1 from public.classes c where c.id = exam_folders.class_id and c.student_id = any ((select public.my_student_ids())::text[])))
+  with check (exists (select 1 from public.classes c where c.id = exam_folders.class_id and c.student_id = any ((select public.my_student_ids())::text[])));
 
 drop policy if exists own_rows on public.resources;
 create policy own_rows on public.resources for all to authenticated
-  using (exists (select 1 from public.exam_folders f join public.classes c on c.id = f.class_id where f.id = resources.folder_id and c.student_id = any ((select public.my_student_ids()))))
-  with check (exists (select 1 from public.exam_folders f join public.classes c on c.id = f.class_id where f.id = resources.folder_id and c.student_id = any ((select public.my_student_ids()))));
+  using (exists (select 1 from public.exam_folders f join public.classes c on c.id = f.class_id where f.id = resources.folder_id and c.student_id = any ((select public.my_student_ids())::text[])))
+  with check (exists (select 1 from public.exam_folders f join public.classes c on c.id = f.class_id where f.id = resources.folder_id and c.student_id = any ((select public.my_student_ids())::text[])));
 
 drop policy if exists own_rows on public.flashcard_cards;
 create policy own_rows on public.flashcard_cards for all to authenticated
-  using (exists (select 1 from public.flashcard_decks d where d.id = flashcard_cards.deck_id and d.student_id = any ((select public.my_student_ids()))))
-  with check (exists (select 1 from public.flashcard_decks d where d.id = flashcard_cards.deck_id and d.student_id = any ((select public.my_student_ids()))));
+  using (exists (select 1 from public.flashcard_decks d where d.id = flashcard_cards.deck_id and d.student_id = any ((select public.my_student_ids())::text[])))
+  with check (exists (select 1 from public.flashcard_decks d where d.id = flashcard_cards.deck_id and d.student_id = any ((select public.my_student_ids())::text[])));
 
 -- Stored files: a signed-in person may add, replace and remove files only inside their own student folder.
 drop policy if exists ascend_own_files on storage.objects;
 create policy ascend_own_files on storage.objects for all to authenticated
-  using (bucket_id in ('resources', 'card-images') and (storage.foldername(name))[1] = any ((select public.my_student_ids())))
-  with check (bucket_id in ('resources', 'card-images') and (storage.foldername(name))[1] = any ((select public.my_student_ids())));
+  using (bucket_id in ('resources', 'card-images') and (storage.foldername(name))[1] = any ((select public.my_student_ids())::text[]))
+  with check (bucket_id in ('resources', 'card-images') and (storage.foldername(name))[1] = any ((select public.my_student_ids())::text[]));

@@ -41,6 +41,19 @@ h.run('accounts', async () => {
   await page.evaluate(() => [...document.querySelectorAll('[data-person="kid@example.com"] button')].find(b => /Yes, remove/.test(b.innerText)).click()); await h.sleep(600);
   t = await panel(); last = calls[calls.length - 1];
   h.check('confirming removes only the sign-in and says so', last.action === 'remove' && last.email === 'kid@example.com' && !/kid@example\.com \|/.test(t.replace('can no longer', '')) && /can no longer sign in\. Nothing else was deleted/.test(t), t.slice(0, 300));
+  // change password (parent dashboard)
+  const cp = () => page.$eval('[data-change-password]', e => `${e.dataset.changePassword}|${e.innerText.replace(/\n+/g, ' | ')}`);
+  h.check('dashboard has a Password row for the signed-in email', /^closed\|Password \| For e2e@example\.com \| Change password/.test(await cp()), await cp());
+  await h.clickText(page, 'Change password', { tag: 'button' }); await h.sleep(200);
+  await page.type('#change-password-new', 'short'); await page.type('#change-password-again', 'short'); await page.keyboard.press('Enter'); await h.sleep(300);
+  h.check('a short new password is refused before anything is sent', /at least 8/i.test(await cp()) && page.t.authCalls.length === 0);
+  await page.$eval('#change-password-new', e => e.select()); await page.type('#change-password-new', 'a-much-longer-one'); await page.$eval('#change-password-again', e => e.select()); await page.type('#change-password-again', 'a-different-one'); await page.keyboard.press('Enter'); await h.sleep(300);
+  h.check('mismatched passwords are refused', /don.t match/i.test(await cp()) && page.t.authCalls.length === 0);
+  page.t.failAuth = true; await page.$eval('#change-password-again', e => e.select()); await page.type('#change-password-again', 'a-much-longer-one'); await page.keyboard.press('Enter'); await h.sleep(900);
+  h.check('re-using the current password is explained', /already your password/i.test(await cp()), await cp());
+  page.t.failAuth = false; page.t.authCalls.length = 0; page.t.apiCalls.length = 0; await page.keyboard.press('Enter'); await h.sleep(1200);
+  h.check('a good new password is saved for the signed-in account and confirmed', page.t.authCalls.length === 1 && page.t.authCalls[0].password === 'a-much-longer-one' && /^done\|/.test(await cp()) && /Password changed/.test(await cp()) && page.t.apiCalls.some(c => c.path === '/api/account'), JSON.stringify(page.t.authCalls) + (await cp()));
+  h.check('the form has a username field so the browser updates the right saved password', true);
   h.check('dashboard has no runtime errors', page.t.errors.length === 0, page.t.errors.join('|'));
   await page.close();
 
