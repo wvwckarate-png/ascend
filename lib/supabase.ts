@@ -8,15 +8,14 @@ export const authClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: { storageKey: 'ascend-auth', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
 });
 
-// Once the database has its per-student rules (see supabase/v2.19.0-lockdown-step1.sql) every data request is made
-// as the signed-in person, so the database itself decides what they may see. Until then requests go out the old way.
-let secured = false;
-export const setSecured = (on: boolean) => { secured = on; };
+// The database is locked to signed-in people (supabase/v2.19.0-lockdown-step1/2.sql, live since 2026-11-17): each
+// student can reach only their own rows. So every data request is made as whoever is signed in on this device.
+// (Kept for older callers; no longer changes anything.)
+export const setSecured = (on: boolean) => { void on; };
 
 // The data client: classes, files, decks, grades… everything the study pages read and save.
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   accessToken: async () => {
-    if (!secured) return supabaseAnonKey;
     const { data } = await authClient.auth.getSession();
     return data.session?.access_token ?? supabaseAnonKey;
   },

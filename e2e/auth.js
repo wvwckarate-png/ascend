@@ -69,11 +69,11 @@ h.run('auth', async () => {
   await page.close();
 
   // ── how data is requested ──
-  page = await h.newPage(); await h.go(page, '/matthew', 1800);
-  h.check('before the database rules exist, data requests go out the old way', page.t.restAuth.length > 0 && page.t.restAuth.every(a => a && a !== 'Bearer e2e-token'), page.t.restAuth.slice(0, 2).join(' ').slice(0, 60));
+  page = await h.newPage(); page.t.account = student('matthew'); await h.go(page, '/matthew', 1800);
+  h.check('every data request is made as the signed-in person', page.t.restAuth.length > 0 && page.t.restAuth.every(a => a === 'Bearer e2e-token'), page.t.restAuth.slice(0, 3).join(' | ').slice(0, 120));
   await page.close();
-  page = await h.newPage(); page.t.account = { ...student('matthew'), secured: true }; await h.go(page, '/matthew', 1800);
-  h.check('once they exist, every data request is made as the signed-in person', page.t.restAuth.length > 0 && page.t.restAuth.every(a => a === 'Bearer e2e-token'), page.t.restAuth.slice(0, 3).join(' | ').slice(0, 120));
+  page = await h.newPage(); page.t.account = student('matthew'); await h.go(page, '/', 2000);
+  h.check('even the very first request after sign-in carries it', page.t.restAuth.every(a => a === 'Bearer e2e-token'), page.t.restAuth.join(' | ').slice(0, 160));
   const api = page.t.apiCalls.find(c => c.path === '/api/study-days');
   h.check('requests to Ascend\u2019s own server carry the sign-in too', !!api);
   await page.close();
